@@ -14,7 +14,7 @@ export default function Sidebar() {
   interface NavItemProps {
     to: string;
     label: string;
-    Icon: string;   // path to SVG
+    Icon: string; // path to SVG
     first?: boolean;
   }
 
@@ -73,7 +73,7 @@ export default function Sidebar() {
   );
 }
 
-const sidebarWidth = 160;
+const sidebarWidth = 140; // slightly smaller than 160
 
 const styles: { [key: string]: React.CSSProperties } = {
   container: {
@@ -88,7 +88,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     overflow: "hidden",
   },
   logoContainer: {
-    paddingTop: 16,
+    paddingTop: 12, // reduced from 16
     paddingBottom: 8,
     display: "flex",
     justifyContent: "center",
@@ -96,7 +96,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   logoText: {
     fontFamily: "Poppins, Helvetica, sans-serif",
     fontWeight: 700,
-    fontSize: "1.5rem",
+    fontSize: "1.3rem", // reduced from 1.5rem
     color: "#fac1d9",
   },
   navContainer: {
@@ -112,10 +112,10 @@ const styles: { [key: string]: React.CSSProperties } = {
     textDecoration: "none",
     backgroundColor: "transparent",
     color: "#cccccc",
-    width: "80%", // 80% of 160px = 128px
-    height: 80,
+    width: "75%",    // 75% of 140px = 105px (smaller than 80%)
+    height: 64,      // reduced from 80
     borderRadius: 8,
-    padding: 8,
+    padding: 6,      // reduced from 8
     boxSizing: "border-box",
     transition: "background-color 0.2s, color 0.2s",
   },
@@ -124,21 +124,21 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: "#292c2d",
   },
   navIcon: {
-    width: 32,
-    height: 32,
-    marginBottom: 4,
+    width: 28,       // reduced from 32
+    height: 28,      // reduced from 32
+    marginBottom: 2, // reduced from 4
     objectFit: "contain",
   },
   navLabel: {
     fontFamily: "Poppins, Helvetica, sans-serif",
     fontWeight: 500,
-    fontSize: "0.9rem",
+    fontSize: "0.8rem", // reduced from 0.9rem
     textAlign: "center",
   },
   separator: {
     borderTop: "1px solid #3a3a3a",
-    width: "60%",
-    margin: "12px 0",
+    width: "50%",        // reduced from 60%
+    margin: "8px 0",     // reduced vertical margin from 12px
     alignSelf: "center",
   },
   spacer: {
@@ -147,6 +147,6 @@ const styles: { [key: string]: React.CSSProperties } = {
   logoutContainer: {
     display: "flex",
     justifyContent: "center",
-    paddingBottom: 16,
+    paddingBottom: 12, // reduced from 16
   },
 };

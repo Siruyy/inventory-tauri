@@ -1,135 +1,366 @@
 // src/pages/Dashboard.tsx
 import React from "react";
+import { NavLink } from "react-router-dom";
+import Header from "../components/Header";
 
-export default function Dashboard() {
-  // Placeholder data; you’ll fetch real data later via Tauri commands
-  const totalProducts = 128;
-  const lowStockItems = 7;
-  const totalSalesToday = 3450; // e.g., in currency units
+// Import your summary‐card icons (place these SVG files in src/pages/)
+import DailySalesIcon from "./Daily Sales.svg";
+import MonthlyIcon from "./Monthly.svg";
+import StaffIcon from "./staff-sidebar.svg";
+
+export default function Dashboard(): JSX.Element {
+  // Sample data for “Popular Item” list
+  const popularItems = [
+    {
+      id: "#1001",
+      name: "Chicken Parmesan",
+      serving: "Serving: 1 person",
+      price: "₱55.00",
+      inStock: true,
+      imgSrc: "https://via.placeholder.com/60",
+    },
+    {
+      id: "#1002",
+      name: "Beef Tapa",
+      serving: "Serving: 2 person",
+      price: "₱75.00",
+      inStock: true,
+      imgSrc: "https://via.placeholder.com/60",
+    },
+    {
+      id: "#1003",
+      name: "Pasta Carbonara",
+      serving: "Serving: 1 person",
+      price: "₱65.00",
+      inStock: false,
+      imgSrc: "https://via.placeholder.com/60",
+    },
+    {
+      id: "#1004",
+      name: "Fried Chicken",
+      serving: "Serving: 3 person",
+      price: "₱120.00",
+      inStock: true,
+      imgSrc: "https://via.placeholder.com/60",
+    },
+  ];
 
   return (
-    <div style={styles.container}>
-      {/* Page Title */}
-      <h1 style={styles.title}>Dashboard</h1>
+    <div style={styles.pageContainer}>
+      {/* Reusable Header (no back arrow on Dashboard) */}
+      <Header title="Dashboard" />
 
-      {/* Summary Cards */}
-      <div style={styles.cardsContainer}>
-        <div style={styles.card}>
-          <h2 style={styles.cardNumber}>{totalProducts}</h2>
-          <p style={styles.cardLabel}>Total Products</p>
+      {/* Top Summary Cards */}
+      <div style={styles.summaryRow}>
+        {/* Daily Sales Card */}
+        <div style={{ ...styles.summaryCard, position: "relative" }}>
+          <div style={styles.iconCircle}>
+            <img
+              src={DailySalesIcon}
+              alt="Daily Sales"
+              style={styles.summaryIcon}
+            />
+          </div>
+          <div style={styles.summaryLabel}>Daily Sales</div>
+          <div style={styles.summaryValue}>$2k</div>
+          <div style={styles.summaryDate}>9 February 2024</div>
         </div>
-        <div style={styles.card}>
-          <h2 style={styles.cardNumber}>{lowStockItems}</h2>
-          <p style={styles.cardLabel}>Low-Stock Alerts</p>
+
+        {/* Monthly Revenue Card */}
+        <div style={{ ...styles.summaryCard, position: "relative" }}>
+          <div style={styles.iconCircle}>
+            <img
+              src={MonthlyIcon}
+              alt="Monthly Revenue"
+              style={styles.summaryIcon}
+            />
+          </div>
+          <div style={styles.summaryLabel}>Monthly Revenue</div>
+          <div style={styles.summaryValue}>$55k</div>
+          <div style={styles.summaryDate}>1 Jan – 1 Feb</div>
         </div>
-        <div style={styles.card}>
-          <h2 style={styles.cardNumber}>₱{totalSalesToday.toLocaleString()}</h2>
-          <p style={styles.cardLabel}>Sales Today</p>
+
+        {/* Staffs Card */}
+        <div style={{ ...styles.summaryCard, position: "relative" }}>
+          <div style={styles.iconCircle}>
+            <img src={StaffIcon} alt="Staffs" style={styles.summaryIcon} />
+          </div>
+          <div style={styles.summaryLabel}>Staffs</div>
+          <div style={styles.summaryValue}>5</div>
+          <div style={styles.summaryDate}></div>
         </div>
       </div>
 
-      {/* Recent Orders Table (example placeholder) */}
-      <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>Recent Orders</h2>
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={styles.th}>Order ID</th>
-              <th style={styles.th}>Customer</th>
-              <th style={styles.th}>Total</th>
-              <th style={styles.th}>Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td style={styles.td}>#1001</td>
-              <td style={styles.td}>Juan Dela Cruz</td>
-              <td style={styles.td}>₱450</td>
-              <td style={styles.td}>2025-06-02</td>
-            </tr>
-            <tr>
-              <td style={styles.td}>#1002</td>
-              <td style={styles.td}>Maria Santos</td>
-              <td style={styles.td}>₱780</td>
-              <td style={styles.td}>2025-06-02</td>
-            </tr>
-            <tr>
-              <td style={styles.td}>#1003</td>
-              <td style={styles.td}>Pedro Reyes</td>
-              <td style={styles.td}>₱1,200</td>
-              <td style={styles.td}>2025-06-01</td>
-            </tr>
-            {/* Add more rows as desired */}
-          </tbody>
-        </table>
+      {/* Popular Item Section */}
+      <div style={styles.popularContainer}>
+        <div style={styles.popularHeader}>
+          <span style={styles.popularTitle}>Popular Item</span>
+          <NavLink to="/inventory" style={styles.popularSeeAll}>
+            See All
+          </NavLink>
+        </div>
+        <div style={styles.popularList}>
+          {popularItems.map((item) => (
+            <div key={item.id} style={styles.popularItem}>
+              <img
+                src={item.imgSrc}
+                alt={item.name}
+                style={styles.popularItemImage}
+              />
+              <div style={styles.popularItemDetails}>
+                <span style={styles.popularItemName}>{item.name}</span>
+                <span style={styles.popularItemServing}>{item.serving}</span>
+              </div>
+              <div style={styles.popularItemRight}>
+                <span
+                  style={
+                    item.inStock
+                      ? styles.popularInStock
+                      : styles.popularOutOfStock
+                  }
+                >
+                  {item.inStock ? "In Stock" : "Out of stock"}
+                </span>
+                <span style={styles.popularItemPrice}>{item.price}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Overview Section */}
+      <div style={styles.overviewContainer}>
+        <div style={styles.overviewHeader}>
+          <span style={styles.overviewTitle}>Overview</span>
+          <div style={styles.overviewControls}>
+            <button
+              style={{ ...styles.overviewButton, ...styles.overviewButtonActive }}
+            >
+              Monthly
+            </button>
+            <button style={styles.overviewButton}>Daily</button>
+            <button style={styles.overviewButton}>Weekly</button>
+            <button style={styles.exportButton}>Export</button>
+          </div>
+        </div>
+        <div style={styles.chartPlaceholder}>
+          <span style={styles.chartText}>[Your Sales vs. Revenue Chart Here]</span>
+        </div>
       </div>
     </div>
   );
 }
 
 const styles: { [key: string]: React.CSSProperties } = {
-  container: {
+  /* Page Container (dark gray) */
+  pageContainer: {
+    flexGrow: 1,
+    padding: 24,
+    backgroundColor: "#1F1F1F",
+    boxSizing: "border-box",
+    color: "#FFFFFF",
+    overflowY: "auto",
+    fontFamily: "Poppins, Helvetica, sans-serif",
+  },
+
+  /* Summary Cards Row */
+  summaryRow: {
+    display: "flex",
+    gap: 16,
+    marginBottom: 24,
+  },
+  summaryCard: {
+    flex: 1,
+    backgroundColor: "#2A2A2A", // same dark gray used elsewhere
+    color: "#FFFFFF",
+    borderRadius: 8,
+    padding: 16,
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
-    gap: "2rem",
+    justifyContent: "flex-start", // label at top
+    minHeight: 100,
   },
-  title: {
-    fontSize: "1.75rem",
-    fontWeight: 600,
-    color: "#1F2937",
-    marginBottom: "1rem",
-  },
-  cardsContainer: {
+  iconCircle: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: 32,
+    height: 32,
+    borderRadius: "50%",
+    backgroundColor: "#fac1d9",
     display: "flex",
-    gap: "1.5rem",
-    flexWrap: "wrap",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  card: {
-    flex: "1 1 200px",
-    backgroundColor: "#FFFFFF",
+  summaryIcon: {
+    width: 16,
+    height: 16,
+    objectFit: "contain",
+  },
+  summaryLabel: {
+    fontWeight: 400,
+    fontSize: "1rem",
+    marginBottom: 8,
+    color: "#EEEEEE", // slightly lighter gray for label
+  },
+  summaryValue: {
+    fontWeight: 600,
+    fontSize: "1.5rem",
+    marginBottom: 20,
+  },
+  summaryDate: {
+    fontWeight: 300,
+    fontSize: "0.875rem",
+    color: "#CCCCCC",
+  },
+
+  /* Popular Item Section */
+  popularContainer: {
+    backgroundColor: "#2A2A2A",
     borderRadius: 8,
-    padding: "1.5rem",
-    boxShadow: "0 2px 6px rgba(0, 0, 0, 0.05)",
-    textAlign: "center",
+    padding: 16,
+    boxSizing: "border-box",
+    marginBottom: 24,
   },
-  cardNumber: {
-    margin: 0,
-    fontSize: "2rem",
-    fontWeight: 700,
-    color: "#111827",
+  popularHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
   },
-  cardLabel: {
-    margin: 0,
-    marginTop: "0.5rem",
-    fontSize: "0.9rem",
-    color: "#6B7280",
-  },
-  section: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 8,
-    padding: "1rem",
-    boxShadow: "0 2px 6px rgba(0, 0, 0, 0.05)",
-  },
-  sectionTitle: {
-    fontSize: "1.25rem",
+  popularTitle: {
     fontWeight: 500,
-    color: "#1F2937",
-    marginBottom: "0.75rem",
+    fontSize: "1.125rem",
   },
-  table: {
+  popularSeeAll: {
+    fontWeight: 400,
+    fontSize: "0.875rem",
+    color: "#fac1d9",
+    textDecoration: "none",
+  },
+  popularList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    maxHeight: 280,
+    overflowY: "auto",
+  },
+  popularItem: {
+    display: "flex",
+    alignItems: "center",
+    backgroundColor: "#3A3A3A",
+    borderRadius: 6,
+    padding: 8,
+    boxSizing: "border-box",
+  },
+  popularItemImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 4,
+    objectFit: "cover",
+    marginRight: 12,
+  },
+  popularItemDetails: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+  },
+  popularItemName: {
+    fontWeight: 500,
+    fontSize: "1rem",
+    color: "#FFFFFF",
+  },
+  popularItemServing: {
+    fontWeight: 300,
+    fontSize: "0.875rem",
+    color: "#CCCCCC",
+  },
+  popularItemRight: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-end",
+    gap: 4,
+  },
+  popularInStock: {
+    fontWeight: 500,
+    fontSize: "0.875rem",
+    color: "#4CAF50",
+  },
+  popularOutOfStock: {
+    fontWeight: 500,
+    fontSize: "0.875rem",
+    color: "#F44336",
+  },
+  popularItemPrice: {
+    fontWeight: 500,
+    fontSize: "0.875rem",
+    color: "#FFFFFF",
+  },
+
+  /* Overview Section */
+  overviewContainer: {
+    backgroundColor: "#2A2A2A",
+    borderRadius: 8,
+    padding: 16,
+    boxSizing: "border-box",
+    marginBottom: 24,
+  },
+  overviewHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  overviewTitle: {
+    fontWeight: 500,
+    fontSize: "1.125rem",
+  },
+  overviewControls: {
+    display: "flex",
+    gap: 8,
+    alignItems: "center",
+  },
+  overviewButton: {
+    fontWeight: 500,
+    fontSize: "0.875rem",
+    color: "#CCCCCC",
+    backgroundColor: "transparent",
+    border: "1px solid #CCCCCC",
+    borderRadius: 4,
+    padding: "4px 8px",
+    cursor: "pointer",
+    transition: "background-color 0.2s, color 0.2s",
+  },
+  overviewButtonActive: {
+    backgroundColor: "#fac1d9",
+    color: "#292c2d",
+    borderColor: "#fac1d9",
+  },
+  exportButton: {
+    fontWeight: 500,
+    fontSize: "0.875rem",
+    color: "#fac1d9",
+    backgroundColor: "transparent",
+    border: "1px solid #fac1d9",
+    borderRadius: 4,
+    padding: "4px 8px",
+    cursor: "pointer",
+    transition: "background-color 0.2s, color 0.2s",
+  },
+  chartPlaceholder: {
     width: "100%",
-    borderCollapse: "collapse",
+    height: 240,
+    backgroundColor: "#1F1F1F",
+    borderRadius: 4,
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  th: {
-    textAlign: "left",
-    padding: "0.75rem",
-    backgroundColor: "#F3F4F6",
-    color: "#374151",
-    borderBottom: "2px solid #E5E7EB",
-  },
-  td: {
-    padding: "0.75rem",
-    borderBottom: "1px solid #E5E7EB",
-    color: "#4B5563",
+  chartText: {
+    fontWeight: 300,
+    fontSize: "0.95rem",
+    color: "#888888",
   },
 };
