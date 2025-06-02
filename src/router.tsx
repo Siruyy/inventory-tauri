@@ -7,14 +7,15 @@ import {
   Navigate,
 } from "react-router-dom";
 
-// Import your shared layout component(s)
+// Shared layout
 import Sidebar from "./components/Sidebar";
 
-// Import each page component
+// Page components
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Inventory from "./pages/Inventory";
 import Staff from "./pages/Staff";
+import StaffProfile from "./pages/StaffProfile"; // 👈 newly added
 import Reports from "./pages/Reports";
 
 export default function Router() {
@@ -24,7 +25,7 @@ export default function Router() {
         {/* Public route (no sidebar) */}
         <Route path="/login" element={<Login />} />
 
-        {/* All other paths show the Sidebar plus nested routes */}
+        {/* All other authenticated routes use the Sidebar */}
         <Route
           path="/*"
           element={
@@ -32,20 +33,34 @@ export default function Router() {
               <Sidebar />
               <div style={styles.content}>
                 <Routes>
-                  {/* Redirect root to /dashboard */}
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  {/* Redirect root "/" to "/dashboard" */}
+                  <Route
+                    path="/"
+                    element={<Navigate to="/dashboard" replace />}
+                  />
 
-                  {/* Main authenticated routes */}
+                  {/* Main Application Pages */}
                   <Route path="dashboard" element={<Dashboard />} />
                   <Route path="inventory" element={<Inventory />} />
+
+                  {/* 
+                    Staff: 
+                      - "/staff"           → Staff list 
+                      - "/staff/:id"       → StaffProfile for that ID 
+                  */}
                   <Route path="staff" element={<Staff />} />
+                  <Route path="staff/:id" element={<StaffProfile />} />
+
                   <Route path="reports" element={<Reports />} />
 
                   {/* Logout simply navigates back to /login */}
                   <Route path="logout" element={<Navigate to="/login" replace />} />
 
-                  {/* Catch-all: redirect unknown paths to /dashboard */}
-                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                  {/* Catch-all: redirect any unknown paths back to /dashboard */}
+                  <Route
+                    path="*"
+                    element={<Navigate to="/dashboard" replace />}
+                  />
                 </Routes>
               </div>
             </div>
@@ -61,6 +76,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: "flex",
     height: "100vh",
     width: "100%",
+    backgroundColor: "#1F1F1F",
   },
   content: {
     flex: 1,

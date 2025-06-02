@@ -1,15 +1,18 @@
 // src/pages/Staff.tsx
 import React, { useState, useEffect } from "react";
-import Header from "../components/Header";
 import { NavLink } from "react-router-dom";
+import Header from "../components/Header";
 
-// Only the eye icon (no edit/delete)
+// SVG imports (place these SVG files under src/pages/)
 import EyeIcon from "./eye.svg";
+import PenIcon from "./pen.svg";
 
-// Placeholder roles for the dropdown
-const roleOptions = ["Manager", "Cashier", "Cook", "Barista", "Driver"];
-
-// Initial staff data (replace with your backend data later)
+//
+// Re‐use the same initialStaffData array that StaffProfile also needs.
+// In a real app you’d fetch this from your backend or share via context.
+// For now, we hard‐code it here so that both Staff.tsx and StaffProfile.tsx
+// refer to the exact same data.
+//
 const initialStaffData = [
   {
     id: "#101",
@@ -21,6 +24,9 @@ const initialStaffData = [
     salary: "$2200.00",
     timings: "9am to 6pm",
     avatar: "https://i.pravatar.cc/60?img=47",
+    dob: "1983-01-01",
+    address: "House #114 Street 123 USA, Chicago",
+    additional: "",
   },
   {
     id: "#102",
@@ -32,6 +38,9 @@ const initialStaffData = [
     salary: "$1200.00",
     timings: "10am to 7pm",
     avatar: "https://i.pravatar.cc/60?img=5",
+    dob: "1996-05-15",
+    address: "123 Baker Street, New York",
+    additional: "",
   },
   {
     id: "#103",
@@ -43,6 +52,9 @@ const initialStaffData = [
     salary: "$1500.00",
     timings: "8am to 5pm",
     avatar: "https://i.pravatar.cc/60?img=12",
+    dob: "1991-11-20",
+    address: "456 Elm Street, Los Angeles",
+    additional: "",
   },
   {
     id: "#104",
@@ -54,10 +66,12 @@ const initialStaffData = [
     salary: "$1100.00",
     timings: "11am to 8pm",
     avatar: "https://i.pravatar.cc/60?img=20",
+    dob: "1998-08-30",
+    address: "789 Pine Street, Seattle",
+    additional: "",
   },
 ];
 
-// Initial attendance data (replace later if needed)
 const attendanceData = [
   {
     id: "#101",
@@ -97,30 +111,32 @@ const attendanceData = [
   },
 ];
 
+const roleOptions = ["Manager", "Cashier", "Cook", "Barista", "Driver"];
+
 export default function Staff(): JSX.Element {
   // Which tab is active: "manage" or "attendance"
   const [activeTab, setActiveTab] = useState<"manage" | "attendance">("manage");
 
-  // Add isAvailable boolean to each staff
+  // Build staffList with an additional isAvailable boolean
   const [staffList, setStaffList] = useState(
-    initialStaffData.map((staff) => ({
-      ...staff,
-      isAvailable: true, // default: available
-    }))
+    initialStaffData.map((staff) => ({ ...staff, isAvailable: true }))
   );
 
-  // Sort field state: "name", "role", or "age"
+  // Sorting field
   const [sortField, setSortField] = useState<"name" | "role" | "age">("name");
 
-  // Control drawer visibility
+  // Show/hide the sliding drawer
   const [showDrawer, setShowDrawer] = useState(false);
 
-  // Form state for “Add Staff”
-  const [newStaff, setNewStaff] = useState({
-    avatar: "", // URL or data URL
+  // If editIndex === null => adding new staff; otherwise editing staffList[editIndex]
+  const [editIndex, setEditIndex] = useState<number | null>(null);
+
+  // Form data state
+  const [formData, setFormData] = useState({
+    avatar: "",
     fullName: "",
-    email: "",
     role: "",
+    email: "",
     phone: "",
     salary: "",
     dob: "",
@@ -130,7 +146,7 @@ export default function Staff(): JSX.Element {
     additional: "",
   });
 
-  // Sort staffList whenever sortField changes
+  // Whenever sortField changes, re-sort staffList in place
   useEffect(() => {
     setStaffList((prev) =>
       [...prev].sort((a, b) => {
@@ -142,30 +158,121 @@ export default function Staff(): JSX.Element {
     );
   }, [sortField]);
 
-  // Toggle availability (greys out) for a given index
+  // Toggle availability (greys out row)
   const toggleAvailability = (index: number) => {
     setStaffList((prev) =>
-      prev.map((s, i) =>
-        i === index ? { ...s, isAvailable: !s.isAvailable } : s
-      )
+      prev.map((s, i) => (i === index ? { ...s, isAvailable: !s.isAvailable } : s))
     );
   };
 
-  // Handle form field changes for newStaff
-  const handleFieldChange = (field: string, value: string) => {
-    setNewStaff((prev) => ({ ...prev, [field]: value }));
+  // Clicking the pen (edit) icon
+  const handleEditClick = (index: number) => {
+    const staffToEdit = staffList[index];
+    setFormData({
+      avatar: staffToEdit.avatar,
+      fullName: staffToEdit.name,
+      role: staffToEdit.role,
+      email: staffToEdit.email,
+      phone: staffToEdit.phone,
+      salary: staffToEdit.salary,
+      dob: staffToEdit.dob || "",
+      shiftStart: staffToEdit.timings.split(" to ")[0] || "",
+      shiftEnd: staffToEdit.timings.split(" to ")[1] || "",
+      address: staffToEdit.address || "",
+      additional: staffToEdit.additional || "",
+    });
+    setEditIndex(index);
+    setShowDrawer(true);
   };
 
-  // (Placeholder) “Confirm” logic - for now, just close the drawer
-  const handleConfirm = () => {
-    // In a real app, you’d send newStaff to backend, then refresh staffList
-    setShowDrawer(false);
-    // Optionally reset form:
-    setNewStaff({
+  // Clicking “Add Staff”
+  const handleAddClick = () => {
+    setFormData({
       avatar: "",
       fullName: "",
-      email: "",
       role: "",
+      email: "",
+      phone: "",
+      salary: "",
+      dob: "",
+      shiftStart: "",
+      shiftEnd: "",
+      address: "",
+      additional: "",
+    });
+    setEditIndex(null);
+    setShowDrawer(true);
+  };
+
+  // Form field change
+  const handleFieldChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // Confirm (either add or edit)
+  const handleConfirm = () => {
+    if (editIndex === null) {
+      // Add new staff
+      const newIdNumber = staffList.length + 101; // Example logic
+      const newStaffObj = {
+        id: "#" + newIdNumber,
+        name: formData.fullName,
+        role: formData.role,
+        email: formData.email,
+        phone: formData.phone,
+        age: formData.dob
+          ? Math.floor(
+              new Date().getFullYear() - new Date(formData.dob).getFullYear()
+            )
+          : 0,
+        salary: formData.salary,
+        timings: `${formData.shiftStart} to ${formData.shiftEnd}`,
+        avatar: formData.avatar || "https://i.pravatar.cc/60?img=1",
+        dob: formData.dob,
+        address: formData.address,
+        additional: formData.additional,
+        isAvailable: true,
+      };
+      setStaffList((prev) => [...prev, newStaffObj]);
+    } else {
+      // Update existing
+      setStaffList((prev) =>
+        prev.map((s, i) => {
+          if (i === editIndex) {
+            return {
+              ...s,
+              name: formData.fullName,
+              role: formData.role,
+              email: formData.email,
+              phone: formData.phone,
+              age: formData.dob
+                ? Math.floor(
+                    new Date().getFullYear() - new Date(formData.dob).getFullYear()
+                  )
+                : s.age,
+              salary: formData.salary,
+              timings: `${formData.shiftStart} to ${formData.shiftEnd}`,
+              avatar: formData.avatar || s.avatar,
+              dob: formData.dob,
+              address: formData.address,
+              additional: formData.additional,
+            };
+          }
+          return s;
+        })
+      );
+    }
+
+    // Close drawer
+    setShowDrawer(false);
+    setEditIndex(null);
+
+    // Clear form
+    setFormData({
+      avatar: "",
+      fullName: "",
+      role: "",
+      email: "",
       phone: "",
       salary: "",
       dob: "",
@@ -176,9 +283,10 @@ export default function Staff(): JSX.Element {
     });
   };
 
-  // Cancel simply closes the drawer
+  // Cancel: close drawer
   const handleCancel = () => {
     setShowDrawer(false);
+    setEditIndex(null);
   };
 
   return (
@@ -192,10 +300,7 @@ export default function Staff(): JSX.Element {
             <h2 style={styles.staffCount}>Staff ({staffList.length})</h2>
           </div>
           <div style={styles.topRight}>
-            <button
-              style={styles.addStaffButton}
-              onClick={() => setShowDrawer(true)}
-            >
+            <button style={styles.addStaffButton} onClick={handleAddClick}>
               Add Staff
             </button>
             <div style={styles.sortByWrapper}>
@@ -244,49 +349,85 @@ export default function Staff(): JSX.Element {
             {/* Header Row */}
             <div style={styles.tableHeader}>
               <div
-                style={{ ...styles.headerCell, flex: 0.5, justifyContent: "center" }}
+                style={{
+                  ...styles.headerCell,
+                  flex: 0.5,
+                  justifyContent: "center",
+                }}
               >
                 <input type="checkbox" />
               </div>
               <div
-                style={{ ...styles.headerCell, flex: 1, justifyContent: "flex-start" }}
+                style={{
+                  ...styles.headerCell,
+                  flex: 1,
+                  justifyContent: "flex-start",
+                }}
               >
                 ID
               </div>
               <div
-                style={{ ...styles.headerCell, flex: 2, justifyContent: "flex-start" }}
+                style={{
+                  ...styles.headerCell,
+                  flex: 2,
+                  justifyContent: "flex-start",
+                }}
               >
                 Name
               </div>
               <div
-                style={{ ...styles.headerCell, flex: 2, justifyContent: "flex-start" }}
+                style={{
+                  ...styles.headerCell,
+                  flex: 2,
+                  justifyContent: "flex-start",
+                }}
               >
                 Email
               </div>
               <div
-                style={{ ...styles.headerCell, flex: 1.5, justifyContent: "flex-start" }}
+                style={{
+                  ...styles.headerCell,
+                  flex: 1.5,
+                  justifyContent: "flex-start",
+                }}
               >
                 Phone
               </div>
               <div
-                style={{ ...styles.headerCell, flex: 1, justifyContent: "center" }}
+                style={{
+                  ...styles.headerCell,
+                  flex: 1,
+                  justifyContent: "center",
+                }}
               >
                 Age
               </div>
               <div
-                style={{ ...styles.headerCell, flex: 1.5, justifyContent: "flex-start" }}
+                style={{
+                  ...styles.headerCell,
+                  flex: 1.5,
+                  justifyContent: "flex-start",
+                }}
               >
                 Salary
               </div>
               <div
-                style={{ ...styles.headerCell, flex: 2, justifyContent: "flex-start" }}
+                style={{
+                  ...styles.headerCell,
+                  flex: 2,
+                  justifyContent: "flex-start",
+                }}
               >
                 Timings
               </div>
               <div
-                style={{ ...styles.headerCell, flex: 1, justifyContent: "center" }}
+                style={{
+                  ...styles.headerCell,
+                  flex: 2,
+                  justifyContent: "center",
+                }}
               >
-                Available
+                Available / Edit
               </div>
             </div>
 
@@ -302,19 +443,27 @@ export default function Staff(): JSX.Element {
               >
                 {/* Checkbox */}
                 <div
-                  style={{ ...styles.rowCell, flex: 0.5, justifyContent: "center" }}
+                  style={{
+                    ...styles.rowCell,
+                    flex: 0.5,
+                    justifyContent: "center",
+                  }}
                 >
                   <input type="checkbox" />
                 </div>
 
                 {/* ID */}
                 <div
-                  style={{ ...styles.rowCell, flex: 1, justifyContent: "flex-start" }}
+                  style={{
+                    ...styles.rowCell,
+                    flex: 1,
+                    justifyContent: "flex-start",
+                  }}
                 >
                   <span style={styles.staffId}>{staff.id}</span>
                 </div>
 
-                {/* Name + Avatar */}
+                {/* Name + Avatar (wrapped in NavLink) */}
                 <div
                   style={{
                     ...styles.rowCell,
@@ -323,56 +472,93 @@ export default function Staff(): JSX.Element {
                     gap: 12,
                   }}
                 >
-                  <img
-                    src={staff.avatar}
-                    alt={staff.name}
-                    style={styles.avatarImage}
-                  />
-                  <div>
-                    <div style={styles.staffName}>{staff.name}</div>
-                    <div style={styles.staffRole}>{staff.role}</div>
-                  </div>
+                  <NavLink
+                    to={`/staff/${staff.id.replace("#", "")}`}
+                    style={{ textDecoration: "none" }}
+                  >
+                    <img
+                      src={staff.avatar}
+                      alt={staff.name}
+                      style={styles.avatarImage}
+                    />
+                  </NavLink>
+
+                  <NavLink
+                    to={`/staff/${staff.id.replace("#", "")}`}
+                    style={{ textDecoration: "none" }}
+                  >
+                    <div>
+                      <div style={styles.staffName}>{staff.name}</div>
+                      <div style={styles.staffRole}>{staff.role}</div>
+                    </div>
+                  </NavLink>
                 </div>
 
                 {/* Email */}
                 <div
-                  style={{ ...styles.rowCell, flex: 2, justifyContent: "flex-start" }}
+                  style={{
+                    ...styles.rowCell,
+                    flex: 2,
+                    justifyContent: "flex-start",
+                  }}
                 >
                   <span style={styles.staffText}>{staff.email}</span>
                 </div>
 
                 {/* Phone */}
                 <div
-                  style={{ ...styles.rowCell, flex: 1.5, justifyContent: "flex-start" }}
+                  style={{
+                    ...styles.rowCell,
+                    flex: 1.5,
+                    justifyContent: "flex-start",
+                  }}
                 >
                   <span style={styles.staffText}>{staff.phone}</span>
                 </div>
 
                 {/* Age */}
                 <div
-                  style={{ ...styles.rowCell, flex: 1, justifyContent: "center" }}
+                  style={{
+                    ...styles.rowCell,
+                    flex: 1,
+                    justifyContent: "center",
+                  }}
                 >
                   <span style={styles.staffText}>{staff.age} yr</span>
                 </div>
 
                 {/* Salary */}
                 <div
-                  style={{ ...styles.rowCell, flex: 1.5, justifyContent: "flex-start" }}
+                  style={{
+                    ...styles.rowCell,
+                    flex: 1.5,
+                    justifyContent: "flex-start",
+                  }}
                 >
                   <span style={styles.staffText}>{staff.salary}</span>
                 </div>
 
                 {/* Timings */}
                 <div
-                  style={{ ...styles.rowCell, flex: 2, justifyContent: "flex-start" }}
+                  style={{
+                    ...styles.rowCell,
+                    flex: 2,
+                    justifyContent: "flex-start",
+                  }}
                 >
                   <span style={styles.staffText}>{staff.timings}</span>
                 </div>
 
-                {/* Availability (centered eye icon) */}
+                {/* Available / Edit Icons */}
                 <div
-                  style={{ ...styles.rowCell, flex: 1, justifyContent: "center" }}
+                  style={{
+                    ...styles.rowCell,
+                    flex: 2,
+                    justifyContent: "center",
+                    gap: 12,
+                  }}
                 >
+                  {/* Eye icon toggles availability */}
                   <button
                     style={styles.iconButton}
                     onClick={() => toggleAvailability(idx)}
@@ -388,6 +574,19 @@ export default function Staff(): JSX.Element {
                       style={styles.eyeIcon}
                     />
                   </button>
+
+                  {/* Pen icon to edit */}
+                  <button
+                    style={styles.iconButton}
+                    onClick={() => handleEditClick(idx)}
+                    title="Edit Staff"
+                  >
+                    <img
+                      src={PenIcon}
+                      alt="Edit Staff"
+                      style={styles.penIcon}
+                    />
+                  </button>
                 </div>
               </div>
             ))}
@@ -400,37 +599,65 @@ export default function Staff(): JSX.Element {
             {/* Header Row */}
             <div style={styles.tableHeader}>
               <div
-                style={{ ...styles.headerCell, flex: 0.5, justifyContent: "center" }}
+                style={{
+                  ...styles.headerCell,
+                  flex: 0.5,
+                  justifyContent: "center",
+                }}
               >
                 <input type="checkbox" />
               </div>
               <div
-                style={{ ...styles.headerCell, flex: 1, justifyContent: "flex-start" }}
+                style={{
+                  ...styles.headerCell,
+                  flex: 1,
+                  justifyContent: "flex-start",
+                }}
               >
                 ID
               </div>
               <div
-                style={{ ...styles.headerCell, flex: 2, justifyContent: "flex-start" }}
+                style={{
+                  ...styles.headerCell,
+                  flex: 2,
+                  justifyContent: "flex-start",
+                }}
               >
                 Name
               </div>
               <div
-                style={{ ...styles.headerCell, flex: 1.5, justifyContent: "flex-start" }}
+                style={{
+                  ...styles.headerCell,
+                  flex: 1.5,
+                  justifyContent: "flex-start",
+                }}
               >
                 Date
               </div>
               <div
-                style={{ ...styles.headerCell, flex: 1.5, justifyContent: "flex-start" }}
+                style={{
+                  ...styles.headerCell,
+                  flex: 1.5,
+                  justifyContent: "flex-start",
+                }}
               >
                 Timings
               </div>
               <div
-                style={{ ...styles.headerCell, flex: 3, justifyContent: "flex-start" }}
+                style={{
+                  ...styles.headerCell,
+                  flex: 3,
+                  justifyContent: "flex-start",
+                }}
               >
                 Status
               </div>
               <div
-                style={{ ...styles.headerCell, flex: 1, justifyContent: "center" }}
+                style={{
+                  ...styles.headerCell,
+                  flex: 1,
+                  justifyContent: "center",
+                }}
               >
                 Action
               </div>
@@ -447,14 +674,22 @@ export default function Staff(): JSX.Element {
               >
                 {/* Checkbox */}
                 <div
-                  style={{ ...styles.rowCell, flex: 0.5, justifyContent: "center" }}
+                  style={{
+                    ...styles.rowCell,
+                    flex: 0.5,
+                    justifyContent: "center",
+                  }}
                 >
                   <input type="checkbox" />
                 </div>
 
                 {/* ID */}
                 <div
-                  style={{ ...styles.rowCell, flex: 1, justifyContent: "flex-start" }}
+                  style={{
+                    ...styles.rowCell,
+                    flex: 1,
+                    justifyContent: "flex-start",
+                  }}
                 >
                   <span style={styles.staffId}>{att.id}</span>
                 </div>
@@ -481,14 +716,22 @@ export default function Staff(): JSX.Element {
 
                 {/* Date */}
                 <div
-                  style={{ ...styles.rowCell, flex: 1.5, justifyContent: "flex-start" }}
+                  style={{
+                    ...styles.rowCell,
+                    flex: 1.5,
+                    justifyContent: "flex-start",
+                  }}
                 >
                   <span style={styles.staffText}>{att.date}</span>
                 </div>
 
                 {/* Timings */}
                 <div
-                  style={{ ...styles.rowCell, flex: 1.5, justifyContent: "flex-start" }}
+                  style={{
+                    ...styles.rowCell,
+                    flex: 1.5,
+                    justifyContent: "flex-start",
+                  }}
                 >
                   <span style={styles.staffText}>{att.timings}</span>
                 </div>
@@ -524,9 +767,13 @@ export default function Staff(): JSX.Element {
                   </button>
                 </div>
 
-                {/* Action: current status text (centered) */}
+                {/* Action: current status text */}
                 <div
-                  style={{ ...styles.rowCell, flex: 1, justifyContent: "center" }}
+                  style={{
+                    ...styles.rowCell,
+                    flex: 1,
+                    justifyContent: "center",
+                  }}
                 >
                   <span style={styles.editStatusText}>{att.status}</span>
                 </div>
@@ -536,9 +783,8 @@ export default function Staff(): JSX.Element {
         )}
       </div>
 
-      {/* ==================== OVERLAY & DRAWER ==================== */}
+      {/* ==================== OVERLAY & SLIDING DRAWER ==================== */}
 
-      {/* Only show overlay when drawer is open */}
       {showDrawer && (
         <div
           style={styles.overlay}
@@ -547,18 +793,17 @@ export default function Staff(): JSX.Element {
         />
       )}
 
-      {/* Drawer: always in DOM, but translateX toggles */}
       <div
         style={{
           ...styles.drawerContainer,
-          transform: showDrawer
-            ? "translateX(0)"
-            : "translateX(100%)",
+          transform: showDrawer ? "translateX(0)" : "translateX(100%)",
         }}
       >
         {/* Drawer Header */}
         <div style={styles.drawerHeader}>
-          <h3 style={styles.drawerTitle}>Add Staff</h3>
+          <h3 style={styles.drawerTitle}>
+            {editIndex === null ? "Add Staff" : "Edit Staff"}
+          </h3>
           <button
             onClick={handleCancel}
             style={styles.drawerCloseButton}
@@ -570,17 +815,28 @@ export default function Staff(): JSX.Element {
 
         {/* Drawer Body */}
         <div style={styles.drawerBody}>
-          {/* Profile Picture Placeholder */}
           <div style={styles.profilePicWrapper}>
             <div style={styles.profilePicPlaceholder}>
-              <span style={styles.profilePicIcon}>🖼️</span>
+              {formData.avatar ? (
+                <img
+                  src={formData.avatar}
+                  alt="Avatar"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    borderRadius: 8,
+                    objectFit: "cover",
+                  }}
+                />
+              ) : (
+                <span style={styles.profilePicIcon}>🖼️</span>
+              )}
             </div>
             <button style={styles.changePicButton}>
               Change Profile Picture
             </button>
           </div>
 
-          {/* Form Fields */}
           <div style={styles.formGrid}>
             {/* Full Name */}
             <div style={styles.formGroup}>
@@ -588,7 +844,7 @@ export default function Staff(): JSX.Element {
               <input
                 type="text"
                 placeholder="Enter full name"
-                value={newStaff.fullName}
+                value={formData.fullName}
                 onChange={(e) =>
                   handleFieldChange("fullName", e.target.value)
                 }
@@ -602,7 +858,7 @@ export default function Staff(): JSX.Element {
               <input
                 type="email"
                 placeholder="Enter email address"
-                value={newStaff.email}
+                value={formData.email}
                 onChange={(e) =>
                   handleFieldChange("email", e.target.value)
                 }
@@ -614,10 +870,8 @@ export default function Staff(): JSX.Element {
             <div style={styles.formGroup}>
               <label style={styles.formLabel}>Role</label>
               <select
-                value={newStaff.role}
-                onChange={(e) =>
-                  handleFieldChange("role", e.target.value)
-                }
+                value={formData.role}
+                onChange={(e) => handleFieldChange("role", e.target.value)}
                 style={styles.formSelect}
               >
                 <option value="">Select role</option>
@@ -635,7 +889,7 @@ export default function Staff(): JSX.Element {
               <input
                 type="tel"
                 placeholder="Enter phone number"
-                value={newStaff.phone}
+                value={formData.phone}
                 onChange={(e) =>
                   handleFieldChange("phone", e.target.value)
                 }
@@ -649,7 +903,7 @@ export default function Staff(): JSX.Element {
               <input
                 type="text"
                 placeholder="Enter salary"
-                value={newStaff.salary}
+                value={formData.salary}
                 onChange={(e) =>
                   handleFieldChange("salary", e.target.value)
                 }
@@ -662,7 +916,7 @@ export default function Staff(): JSX.Element {
               <label style={styles.formLabel}>Date of birth</label>
               <input
                 type="date"
-                value={newStaff.dob}
+                value={formData.dob}
                 onChange={(e) => handleFieldChange("dob", e.target.value)}
                 style={styles.formInput}
               />
@@ -673,7 +927,7 @@ export default function Staff(): JSX.Element {
               <label style={styles.formLabel}>Shift start timing</label>
               <input
                 type="time"
-                value={newStaff.shiftStart}
+                value={formData.shiftStart}
                 onChange={(e) =>
                   handleFieldChange("shiftStart", e.target.value)
                 }
@@ -686,7 +940,7 @@ export default function Staff(): JSX.Element {
               <label style={styles.formLabel}>Shift end timing</label>
               <input
                 type="time"
-                value={newStaff.shiftEnd}
+                value={formData.shiftEnd}
                 onChange={(e) =>
                   handleFieldChange("shiftEnd", e.target.value)
                 }
@@ -700,7 +954,7 @@ export default function Staff(): JSX.Element {
               <input
                 type="text"
                 placeholder="Enter address"
-                value={newStaff.address}
+                value={formData.address}
                 onChange={(e) =>
                   handleFieldChange("address", e.target.value)
                 }
@@ -708,12 +962,12 @@ export default function Staff(): JSX.Element {
               />
             </div>
 
-            {/* Additional details (full width, textarea) */}
+            {/* Additional details (full width) */}
             <div style={{ ...styles.formGroup, gridColumn: "span 2" }}>
               <label style={styles.formLabel}>Additional details</label>
               <textarea
                 placeholder="Enter additional details"
-                value={newStaff.additional}
+                value={formData.additional}
                 onChange={(e) =>
                   handleFieldChange("additional", e.target.value)
                 }
@@ -848,7 +1102,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: "flex",
     alignItems: "center",
     gap: 4,
-    // NOTE: justifyContent will be overridden per column
   },
 
   /* Table Row */
@@ -863,7 +1116,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: "center",
     color: "#FFFFFF",
     fontSize: "0.875rem",
-    // NOTE: justifyContent will be overridden per column
   },
   staffId: {
     fontWeight: 500,
@@ -893,7 +1145,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: "#DDDDDD",
   },
 
-  /* Eye Icon Button */
+  /* Eye & Pen Icon Button */
   iconButton: {
     backgroundColor: "transparent",
     border: "none",
@@ -903,6 +1155,13 @@ const styles: { [key: string]: React.CSSProperties } = {
   eyeIcon: {
     width: 20,
     height: 20,
+    objectFit: "contain",
+    opacity: 0.85,
+    transition: "opacity 0.2s",
+  },
+  penIcon: {
+    width: 18,
+    height: 18,
     objectFit: "contain",
     opacity: 0.85,
     transition: "opacity 0.2s",
@@ -931,8 +1190,6 @@ const styles: { [key: string]: React.CSSProperties } = {
   statusLeave: {
     backgroundColor: "#F44336",
   },
-
-  /* Edit‐Status Text (Attendance) */
   editStatusText: {
     fontWeight: 300,
     fontSize: "0.875rem",
@@ -940,8 +1197,6 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
 
   /* ==================== OVERLAY & DRAWER ==================== */
-
-  // Full‐screen dimmed overlay
   overlay: {
     position: "fixed",
     top: 0,
@@ -951,25 +1206,21 @@ const styles: { [key: string]: React.CSSProperties } = {
     backgroundColor: "rgba(0, 0, 0, 0.6)",
     zIndex: 1000,
   },
-
-  // Drawer container: slides in from right
   drawerContainer: {
     position: "fixed",
     top: 0,
     right: 0,
-    width: "450px",           // made it wider (450px instead of 400px)
+    width: "450px",
     maxWidth: "100vw",
     height: "100vh",
     backgroundColor: "#2A2A2A",
     boxShadow: "-4px 0 12px rgba(0, 0, 0, 0.5)",
     display: "flex",
     flexDirection: "column",
-    transition: "transform 0.3s ease-out", // smooth slide animation
-    transform: "translateX(100%)",         // initially offscreen
+    transition: "transform 0.3s ease-out",
+    transform: "translateX(100%)",
     zIndex: 1001,
   },
-
-  /* Drawer Header */
   drawerHeader: {
     display: "flex",
     justifyContent: "space-between",
@@ -990,15 +1241,11 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: "1.25rem",
     cursor: "pointer",
   },
-
-  /* Drawer Body (scrollable) */
   drawerBody: {
     flexGrow: 1,
     overflowY: "auto",
     padding: "16px",
   },
-
-  /* Profile Picture Section */
   profilePicWrapper: {
     display: "flex",
     flexDirection: "column",
@@ -1028,8 +1275,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     textDecoration: "underline",
     cursor: "pointer",
   },
-
-  /* Form Grid (two columns) */
   formGrid: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
@@ -1076,8 +1321,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     resize: "vertical",
     minHeight: 80,
   },
-
-  /* Drawer Footer */
   drawerFooter: {
     padding: "16px",
     borderTop: "1px solid #444444",
