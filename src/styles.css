@@ -1,0 +1,10 @@
+/* src/styles.css */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden; /* Prevent any horizontal scrolling */
+  background-color: #111315; /* Ensure the background is always dark */
+}
