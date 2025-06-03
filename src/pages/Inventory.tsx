@@ -1,6 +1,7 @@
 // src/pages/Inventory.tsx
 import React, { useState, useEffect } from "react";
 import Header from "../components/Header";
+import InventoryFormDrawer from "../components/InventoryFormDrawer";
 
 import SearchIcon from "./search.svg";
 import PenIcon from "./pen.svg";
@@ -14,6 +15,7 @@ interface Product {
   status: "Active" | "Inactive" | "Draft";
   category: string;
   retailPrice: number;
+  perishable: boolean;
 }
 
 const sampleProducts: Product[] = [
@@ -25,56 +27,64 @@ const sampleProducts: Product[] = [
     status: "Active",
     category: "Chicken",
     retailPrice: 55.0,
+    perishable: true,
   },
   {
     id: "P002",
-    name: "Chicken Parmesan",
+    name: "Beef Burger",
     thumbnailUrl: "https://via.placeholder.com/60",
-    stockCount: 10,
+    stockCount: 5,
     status: "Active",
-    category: "Chicken",
-    retailPrice: 55.0,
+    category: "Beef",
+    retailPrice: 45.0,
+    perishable: true,
   },
   {
     id: "P003",
-    name: "Chicken Parmesan",
+    name: "Veggie Salad",
     thumbnailUrl: "https://via.placeholder.com/60",
-    stockCount: 10,
-    status: "Active",
-    category: "Chicken",
-    retailPrice: 55.0,
+    stockCount: 12,
+    status: "Inactive",
+    category: "Vegetarian",
+    retailPrice: 30.0,
+    perishable: false,
   },
   {
     id: "P004",
-    name: "Chicken Parmesan",
+    name: "Grilled Salmon",
     thumbnailUrl: "https://via.placeholder.com/60",
-    stockCount: 10,
-    status: "Active",
-    category: "Chicken",
-    retailPrice: 55.0,
+    stockCount: 0,
+    status: "Draft",
+    category: "Seafood",
+    retailPrice: 75.0,
+    perishable: true,
   },
   {
     id: "P005",
-    name: "Chicken Parmesan",
+    name: "Chicken Wings",
     thumbnailUrl: "https://via.placeholder.com/60",
-    stockCount: 10,
+    stockCount: 20,
     status: "Active",
     category: "Chicken",
-    retailPrice: 55.0,
+    retailPrice: 60.0,
+    perishable: true,
   },
   {
     id: "P006",
-    name: "Chicken Parmesan",
+    name: "Tofu Stir‐Fry",
     thumbnailUrl: "https://via.placeholder.com/60",
-    stockCount: 10,
+    stockCount: 8,
     status: "Active",
-    category: "Chicken",
-    retailPrice: 55.0,
+    category: "Vegetarian",
+    retailPrice: 35.0,
+    perishable: false,
   },
 ];
 
 export default function Inventory() {
-  // State (no real filtering for now)
+  // ─────────────────────────────────────────────────────────
+  // Search + filter state
+  // ─────────────────────────────────────────────────────────
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Inactive" | "Draft">("All");
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
@@ -84,9 +94,10 @@ export default function Inventory() {
   const [priceMin, setPriceMin] = useState<number | "">("");
   const [priceMax, setPriceMax] = useState<number | "">("");
 
+  // Displayed products (normally you’d filter based on above, but here we just show all)
   const [displayedProducts, setDisplayedProducts] = useState<Product[]>(sampleProducts);
   useEffect(() => {
-    // No actual filtering logic yet
+    // In a real app, apply searchTerm & filters here.
     setDisplayedProducts(sampleProducts);
   }, [searchTerm, statusFilter, categoryFilter, stockFilter, valueFilter, quantity, priceMin, priceMax]);
 
@@ -101,21 +112,54 @@ export default function Inventory() {
     setPriceMax("");
   };
 
+  // ─────────────────────────────────────────────────────────
+  // Drawer state: editingProduct = null → “Add New Inventory”
+  //                     otherwise → “Edit” mode
+  // ─────────────────────────────────────────────────────────
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+  const openDrawerForProduct = (prod: Product) => {
+    setEditingProduct(prod);
+    setIsDrawerOpen(true);
+  };
+
+  const openDrawerForAdd = () => {
+    setEditingProduct(null);
+    setIsDrawerOpen(true);
+  };
+
+  const closeDrawer = () => {
+    setIsDrawerOpen(false);
+    setEditingProduct(null);
+  };
+
+  const handleSaveDrawer = (updatedProduct: Product) => {
+    console.log("Save inventory:", updatedProduct);
+    // TODO: Replace with actual API call or state update
+    closeDrawer();
+  };
+
+  const handleScanBarcode = () => {
+    console.log("Scan barcode logic goes here…");
+    // Later, integrate your barcode scanning logic here
+  };
+
   return (
     <div style={styles.pageContainer}>
-      {/* Shared header */}
+      {/* Shared Header */}
       <Header title="Inventory" />
 
+      {/* Main content area */}
       <div style={styles.inner}>
         <div style={styles.mainFlex}>
-          {/** LEFT COLUMN (lowered by marginTop) **/}
+          {/** ───────── LEFT COLUMN: totals + filter card ───────── **/}
           <div style={styles.leftColumn}>
             <div style={styles.totalProductsTopRow}>
               {sampleProducts.length} total products
             </div>
-
             <div style={styles.filterCard}>
-              {/* PRODUCT STATUS */}
+              {/* Product Status */}
               <div style={styles.section}>
                 <div style={styles.cardTitle}>Product Status</div>
                 <div style={styles.statusButtonsRow}>
@@ -160,7 +204,7 @@ export default function Inventory() {
                 </div>
               </div>
 
-              {/* CATEGORY */}
+              {/* Category Filter */}
               <div style={styles.section}>
                 <div style={styles.cardTitle}>Category</div>
                 <select
@@ -175,7 +219,7 @@ export default function Inventory() {
                 </select>
               </div>
 
-              {/* STOCK */}
+              {/* Stock Filter */}
               <div style={styles.section}>
                 <div style={styles.cardTitle}>Stock</div>
                 <select
@@ -189,7 +233,7 @@ export default function Inventory() {
                 </select>
               </div>
 
-              {/* VALUE */}
+              {/* Value Filter */}
               <div style={styles.section}>
                 <div style={styles.cardTitle}>Value</div>
                 <select
@@ -204,19 +248,21 @@ export default function Inventory() {
                 </select>
               </div>
 
-              {/* QUANTITY */}
+              {/* Quantity Input */}
               <div style={styles.section}>
                 <div style={styles.cardTitle}>Piece / Item / Quantity</div>
                 <input
                   type="number"
                   placeholder="0"
                   value={quantity}
-                  onChange={(e) => setQuantity(e.target.value === "" ? "" : Number(e.target.value))}
+                  onChange={(e) =>
+                    setQuantity(e.target.value === "" ? "" : Number(e.target.value))
+                  }
                   style={styles.textInput}
                 />
               </div>
 
-              {/* PRICE */}
+              {/* Price Filter */}
               <div style={styles.section}>
                 <div style={styles.cardTitle}>Price</div>
                 <div style={styles.priceRow}>
@@ -224,7 +270,9 @@ export default function Inventory() {
                     type="number"
                     placeholder="0"
                     value={priceMin}
-                    onChange={(e) => setPriceMin(e.target.value === "" ? "" : Number(e.target.value))}
+                    onChange={(e) =>
+                      setPriceMin(e.target.value === "" ? "" : Number(e.target.value))
+                    }
                     style={styles.textInput}
                   />
                   <span style={styles.currencySign}>$</span>
@@ -234,23 +282,25 @@ export default function Inventory() {
                     type="number"
                     placeholder="0"
                     value={priceMax}
-                    onChange={(e) => setPriceMax(e.target.value === "" ? "" : Number(e.target.value))}
+                    onChange={(e) =>
+                      setPriceMax(e.target.value === "" ? "" : Number(e.target.value))
+                    }
                     style={styles.textInput}
                   />
                   <span style={styles.currencySign}>$</span>
                 </div>
               </div>
 
-              {/* RESET FILTERS */}
+              {/* Reset Filters Button */}
               <button onClick={handleResetFilters} style={styles.resetButton}>
                 Reset Filters
               </button>
             </div>
           </div>
 
-          {/** RIGHT COLUMN **/}
+          {/** ───────── RIGHT COLUMN: search/add + product list ───────── **/}
           <div style={styles.rightColumn}>
-            {/** TOP CONTROLS: search + far‐right Add button **/}
+            {/* Top Controls: Search bar + Add New Inventory */}
             <div style={styles.topControls}>
               <div style={styles.searchWrapper}>
                 <img src={SearchIcon} alt="Search" style={styles.searchIcon} />
@@ -263,10 +313,12 @@ export default function Inventory() {
                 />
               </div>
 
-              <button style={styles.addButton}>Add New Inventory</button>
+              <button style={styles.addButton} onClick={openDrawerForAdd}>
+                Add New Inventory
+              </button>
             </div>
 
-            {/** PRODUCT LIST **/}
+            {/* Product List */}
             <div style={styles.productList}>
               {displayedProducts.map((prod) => (
                 <div key={prod.id} style={styles.productCard}>
@@ -279,7 +331,7 @@ export default function Inventory() {
                     />
                   </div>
 
-                  {/* Name + “Stocked Product: X In Stock” */}
+                  {/* Name + Subtext */}
                   <div style={styles.productInfo}>
                     <div style={styles.productName}>{prod.name}</div>
                     <div style={styles.productSubtext}>
@@ -288,7 +340,7 @@ export default function Inventory() {
                     </div>
                   </div>
 
-                  {/* Meta (Status / Category / Retail Price) */}
+                  {/* Meta Columns: Status / Category / Retail Price */}
                   <div style={styles.productMeta}>
                     <div style={styles.metaColumn}>
                       <div style={styles.metaLabel}>Status</div>
@@ -304,9 +356,12 @@ export default function Inventory() {
                     </div>
                   </div>
 
-                  {/* Action Icons */}
+                  {/* Action Icons: Edit + Delete */}
                   <div style={styles.actionIcons}>
-                    <button style={styles.iconButton}>
+                    <button
+                      style={styles.iconButton}
+                      onClick={() => openDrawerForProduct(prod)}
+                    >
                       <img src={PenIcon} alt="Edit" style={styles.actionIconImage} />
                     </button>
                     <button style={styles.iconButton}>
@@ -319,13 +374,21 @@ export default function Inventory() {
           </div>
         </div>
       </div>
+
+      {/** ───────────── Add/Edit Drawer ───────────── **/}
+      <InventoryFormDrawer
+        product={editingProduct}
+        isOpen={isDrawerOpen}
+        onClose={closeDrawer}
+        onSave={handleSaveDrawer}
+        onScanBarcode={handleScanBarcode}
+      />
     </div>
   );
 }
 
-/** Inline Styles **/
+/** Inline Styles for Inventory.tsx **/
 const styles: { [key: string]: React.CSSProperties } = {
-  // Entire page container
   pageContainer: {
     display: "flex",
     flexDirection: "column",
@@ -335,17 +398,13 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontFamily: "Poppins, Helvetica, sans-serif",
     boxSizing: "border-box",
   },
-
-  // Inner area (below the header)
   inner: {
     padding: "16px",
     flexGrow: 1,
   },
-
-  // Main two-column flex wrapper
   mainFlex: {
     display: "flex",
-    gap: "16px", // gap between left and right columns
+    gap: "16px", // space between left and right columns
     height: "calc(100% - 64px)", // leave room for header + top controls
   },
 
@@ -354,16 +413,15 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: "flex",
     flexDirection: "column",
     alignItems: "stretch",
-    width: "280px", // fixed width for filters
-    gap: "16px",    // gap between “total products” & filter card
-    marginTop: "10px", // lower the left column slightly so it lines up with right top controls
+    width: "280px", // fixed width for filter card
+    gap: "16px",    // space between “total products” and card
+    marginTop: "8px", // align with the top of search bar on right
   },
   totalProductsTopRow: {
     fontSize: "1.25rem",
     fontWeight: 600,
     color: "#FFFFFF",
     whiteSpace: "nowrap",
-    marginBottom: "10px",
   },
   filterCard: {
     backgroundColor: "#2A2A2A",
@@ -375,145 +433,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     boxSizing: "border-box",
   },
 
-  /***** RIGHT COLUMN *****/
-  rightColumn: {
-    flexGrow: 1,
-    display: "flex",
-    flexDirection: "column",
-    gap: "16px",
-  },
-
-  // Top controls: search + add button, spaced apart
-  topControls: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  searchWrapper: {
-    position: "relative",
-    flexGrow: 1,
-    maxWidth: "400px",
-  },
-  searchIcon: {
-    position: "absolute",
-    left: "12px",
-    top: "50%",
-    transform: "translateY(-50%)",
-    width: "16px",
-    height: "16px",
-    opacity: 0.6,
-  },
-  searchInput: {
-    width: "100%",
-    padding: "8px 12px 8px 36px",
-    borderRadius: "20px",
-    border: "1px solid #323232",
-    backgroundColor: "#292C2D",
-    color: "#DDDDDD",
-    fontSize: "0.875rem",
-    outline: "none",
-    boxSizing: "border-box",
-  },
-  addButton: {
-    marginLeft: "16px",
-    backgroundColor: "#FAC1D9",
-    color: "#292C2D",
-    border: "none",
-    borderRadius: "8px",
-    padding: "8px 16px",
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    transition: "background-color 0.2s",
-  },
-
-  /***** PRODUCT LIST (RIGHT) *****/
-  productList: {
-    flexGrow: 1,
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-    overflowY: "auto",
-    padding: "4px 0",
-  },
-  productCard: {
-    display: "grid",
-    gridTemplateColumns: "auto 1fr auto auto",
-    alignItems: "center",
-    backgroundColor: "#2A2A2A",
-    borderRadius: "8px",
-    padding: "12px 16px",
-    gap: "16px",
-  },
-  productThumbWrapper: {
-    width: "60px",
-    height: "60px",
-    flexShrink: 0,
-  },
-  productThumb: {
-    width: "100%",
-    height: "100%",
-    borderRadius: "8px",
-    objectFit: "cover",
-  },
-  productInfo: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "4px",
-  },
-  productName: {
-    color: "#FFFFFF",
-    fontSize: "0.875rem",
-    fontWeight: 600,
-  },
-  productSubtext: {
-    color: "#DDDDDD",
-    fontSize: "0.75rem",
-  },
-  stockCount: {
-    color: "#FAC1D9",
-    fontWeight: 500,
-  },
-  productMeta: {
-    display: "flex",
-    gap: "24px",
-    marginLeft: "auto",
-    marginRight: "16px",
-  },
-  metaColumn: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "4px",
-  },
-  metaLabel: {
-    fontSize: "0.65rem",
-    color: "#AAAAAA",
-  },
-  metaValue: {
-    fontSize: "0.75rem",
-    color: "#DDDDDD",
-    fontWeight: 500,
-  },
-  actionIcons: {
-    display: "flex",
-    gap: "8px",
-  },
-  iconButton: {
-    backgroundColor: "transparent",
-    border: "none",
-    cursor: "pointer",
-    padding: "4px",
-    borderRadius: "4px",
-    transition: "background-color 0.2s",
-  },
-  actionIconImage: {
-    width: "16px",
-    height: "16px",
-    opacity: 0.8,
-  },
-
-  /***** GENERIC FILTER CARD SUB-STYLES *****/
   section: {
     display: "flex",
     flexDirection: "column",
@@ -623,5 +542,140 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: "pointer",
     width: "100%",
     transition: "background-color 0.2s",
+  },
+
+  /***** RIGHT COLUMN *****/
+  rightColumn: {
+    flexGrow: 1,
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+  },
+  topControls: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  searchWrapper: {
+    position: "relative",
+    flexGrow: 1,
+    maxWidth: "400px",
+  },
+  searchIcon: {
+    position: "absolute",
+    left: "12px",
+    top: "50%",
+    transform: "translateY(-50%)",
+    width: "16px",
+    height: "16px",
+    opacity: 0.6,
+  },
+  searchInput: {
+    width: "100%",
+    padding: "8px 12px 8px 36px",
+    borderRadius: "20px",
+    border: "1px solid #323232",
+    backgroundColor: "#292C2D",
+    color: "#DDDDDD",
+    fontSize: "0.875rem",
+    outline: "none",
+    boxSizing: "border-box",
+  },
+  addButton: {
+    marginLeft: "16px",
+    backgroundColor: "#FAC1D9",
+    color: "#292C2D",
+    border: "none",
+    borderRadius: "8px",
+    padding: "8px 16px",
+    fontSize: "0.875rem",
+    fontWeight: 500,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    transition: "background-color 0.2s",
+  },
+
+  productList: {
+    flexGrow: 1,
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+    overflowY: "auto",
+    padding: "4px 0",
+  },
+  productCard: {
+    display: "grid",
+    gridTemplateColumns: "auto 1fr auto auto",
+    alignItems: "center",
+    backgroundColor: "#2A2A2A",
+    borderRadius: "8px",
+    padding: "12px 16px",
+    gap: "16px",
+  },
+  productThumbWrapper: {
+    width: "60px",
+    height: "60px",
+    flexShrink: 0,
+  },
+  productThumb: {
+    width: "100%",
+    height: "100%",
+    borderRadius: "8px",
+    objectFit: "cover",
+  },
+  productInfo: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
+  },
+  productName: {
+    color: "#FFFFFF",
+    fontSize: "0.875rem",
+    fontWeight: 600,
+  },
+  productSubtext: {
+    color: "#DDDDDD",
+    fontSize: "0.75rem",
+  },
+  stockCount: {
+    color: "#FAC1D9",
+    fontWeight: 500,
+  },
+  productMeta: {
+    display: "flex",
+    gap: "24px",
+    marginLeft: "auto",
+    marginRight: "16px",
+  },
+  metaColumn: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
+  },
+  metaLabel: {
+    fontSize: "0.65rem",
+    color: "#AAAAAA",
+  },
+  metaValue: {
+    fontSize: "0.75rem",
+    color: "#DDDDDD",
+    fontWeight: 500,
+  },
+  actionIcons: {
+    display: "flex",
+    gap: "8px",
+  },
+  iconButton: {
+    backgroundColor: "transparent",
+    border: "none",
+    cursor: "pointer",
+    padding: "4px",
+    borderRadius: "4px",
+    transition: "background-color 0.2s",
+  },
+  actionIconImage: {
+    width: "16px",
+    height: "16px",
+    opacity: 0.8,
   },
 };
