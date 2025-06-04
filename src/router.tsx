@@ -15,8 +15,9 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Inventory from "./pages/Inventory";
 import Staff from "./pages/Staff";
-import StaffProfile from "./pages/StaffProfile"; // 👈 newly added
+import StaffProfile from "./pages/StaffProfile";
 import Reports from "./pages/Reports";
+import Profile from "./pages/Profile";
 
 export default function Router() {
   return (
@@ -52,6 +53,7 @@ export default function Router() {
                   <Route path="staff/:id" element={<StaffProfile />} />
 
                   <Route path="reports" element={<Reports />} />
+                  <Route path="profile" element={<Profile />} />
 
                   {/* Logout simply navigates back to /login */}
                   <Route path="logout" element={<Navigate to="/login" replace />} />
