@@ -18,6 +18,7 @@ import Staff from "./pages/Staff";
 import StaffProfile from "./pages/StaffProfile";
 import Reports from "./pages/Reports";
 import Profile from "./pages/Profile";
+import InventoryReport from "./pages/InventoryReport";
 
 export default function Router() {
   return (
@@ -53,6 +54,7 @@ export default function Router() {
                   <Route path="staff/:id" element={<StaffProfile />} />
 
                   <Route path="reports" element={<Reports />} />
+                  <Route path="reports/inventory" element={<InventoryReport />} />
                   <Route path="profile" element={<Profile />} />
 
                   {/* Logout simply navigates back to /login */}

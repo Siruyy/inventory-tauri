@@ -34,17 +34,18 @@ const RightSection = styled('div')({
 
 interface ReportTypeButtonProps {
   active?: boolean;
+  onClick?: () => void;
 }
 
-const ReportTypeButton = styled('button')<ReportTypeButtonProps>(({ active = false }) => ({
+const ReportTypeButton = styled('button')<ReportTypeButtonProps>(({ active = false, onClick }) => ({
   padding: '14px 22px',
   borderRadius: '7.5px',
   border: 'none',
   backgroundColor: active ? '#FAC1D9' : 'transparent',
-  color: active ? '#333333' : '#FFFFFF',
+  color: active ? '#000000' : '#FFFFFF',
   fontFamily: 'Poppins',
   fontSize: '16px',
-  fontWeight: 500,
+  fontWeight: 400,
   cursor: 'pointer',
   '&:hover': {
     backgroundColor: active ? '#FAC1D9' : 'rgba(250, 193, 217, 0.1)'
@@ -173,45 +174,11 @@ const ExportButton = styled('button')({
   cursor: 'pointer'
 });
 
-const StatsContainer = styled('div')({
-  display: 'flex',
-  gap: '40px',
-  marginBottom: '40px'
-});
-
-const StatsCard = styled('div')({
-  flex: 1,
-  backgroundColor: '#292C2D',
-  borderRadius: '10px',
-  padding: '35px 40px',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '31px'
-});
-
-const StatsTitle = styled('h2')({
-  margin: 0,
-  fontSize: '25px',
-  fontFamily: 'Poppins',
-  fontWeight: 700,
-  color: '#FFFFFF'
-});
-
-const StatItem = styled('div')({
-  backgroundColor: '#FAC1D9',
-  borderRadius: '7.5px',
-  padding: '14px 22px',
-  color: '#333333',
-  fontFamily: 'Poppins',
-  fontSize: '16px',
-  fontWeight: 500
-});
-
 const TableContainer = styled('div')({
   backgroundColor: '#292C2D',
   borderRadius: '10px',
-  padding: '25px',
-  marginBottom: '20px'
+  padding: '25px 22px',
+  marginBottom: '10px'
 });
 
 const Table = styled('table')({
@@ -238,18 +205,52 @@ const Table = styled('table')({
   }
 });
 
-export default function Reports() {
-  const [reportType, setReportType] = useState<'sales' | 'inventory'>('sales');
+export default function InventoryReport() {
   const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([new Date(), new Date()]);
   const [startDate, endDate] = dateRange;
   const navigate = useNavigate();
 
-  const handleReportTypeChange = (type: 'sales' | 'inventory') => {
-    setReportType(type);
-    if (type === 'inventory') {
-      navigate('/reports/inventory');
-    }
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    }).replace(/\//g, '.');
   };
+
+  const mockData = [
+    {
+      sNo: '01',
+      itemName: 'Chicken Permeson',
+      deliveryDate: '28. 03. 2024',
+      expiry: '28. 03. 2024',
+      supplier: 'ABC, Corp.',
+      qoQr: '50 \\ 50',
+      unitPrice: '$55.00',
+      totalCost: '$8000.00'
+    },
+    // Add more mock data for better visualization
+    {
+      sNo: '02',
+      itemName: 'Beef Steak',
+      deliveryDate: '28. 03. 2024',
+      expiry: '28. 03. 2024',
+      supplier: 'ABC, Corp.',
+      qoQr: '40 \\ 40',
+      unitPrice: '$65.00',
+      totalCost: '$7800.00'
+    },
+    {
+      sNo: '03',
+      itemName: 'Salmon Fillet',
+      deliveryDate: '28. 03. 2024',
+      expiry: '28. 03. 2024',
+      supplier: 'ABC, Corp.',
+      qoQr: '30 \\ 30',
+      unitPrice: '$45.00',
+      totalCost: '$4050.00'
+    }
+  ];
 
   return (
     <Container>
@@ -258,19 +259,15 @@ export default function Reports() {
         <FilterSection>
           <FilterButtons>
             <ReportTypeButton 
-              active={reportType === 'sales'} 
-              onClick={() => handleReportTypeChange('sales')}
+              active={false}
+              onClick={() => navigate('/reports')}
             >
               Sales & Revenue Report
             </ReportTypeButton>
-            <ReportTypeButton 
-              active={reportType === 'inventory'} 
-              onClick={() => handleReportTypeChange('inventory')}
-            >
+            <ReportTypeButton active={true}>
               Inventory Report
             </ReportTypeButton>
           </FilterButtons>
-
           <RightSection>
             <DatePickerContainer>
               <DatePicker
@@ -288,50 +285,35 @@ export default function Reports() {
                 showMonthDropdown
               />
             </DatePickerContainer>
-
             <ExportButton>Export Data</ExportButton>
           </RightSection>
         </FilterSection>
-
-        <StatsContainer>
-          <StatsCard>
-            <StatsTitle>Total Sales: ₱ 12,493.00</StatsTitle>
-            <StatItem>Total Transactions: 50</StatItem>
-            <StatItem>Total Items Sold: 50</StatItem>
-            <StatItem>Average Items Per Transaction: 50</StatItem>
-          </StatsCard>
-
-          <StatsCard>
-            <StatsTitle>Total Revenue: ₱ 10,493.00</StatsTitle>
-            <StatItem>Gross Revenue: ₱ 1,230</StatItem>
-            <StatItem>Net Revenue: ₱ 1,230</StatItem>
-            <StatItem>Total Profit: ₱ 1,230</StatItem>
-          </StatsCard>
-        </StatsContainer>
 
         <TableContainer>
           <Table>
             <thead>
               <tr>
                 <th>S.No</th>
-                <th>Top Selling Food</th>
-                <th>Revenue By Date</th>
-                <th>Sell Price</th>
-                <th>Profit</th>
-                <th>Profit Margin</th>
-                <th>Total Revenue</th>
+                <th>Item Name</th>
+                <th>Delivery Date</th>
+                <th>Expiry</th>
+                <th>Supplier</th>
+                <th>QO \ QR</th>
+                <th>Unit Price</th>
+                <th>Total Cost</th>
               </tr>
             </thead>
             <tbody>
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((item) => (
-                <tr key={item}>
-                  <td>0{item}</td>
-                  <td>Chicken Permeson</td>
-                  <td>28. 03. 2024</td>
-                  <td>$55.00</td>
-                  <td>$7,985.00</td>
-                  <td>15.00%</td>
-                  <td>$8000.00</td>
+              {mockData.map((item, index) => (
+                <tr key={index}>
+                  <td>{item.sNo}</td>
+                  <td>{item.itemName}</td>
+                  <td>{item.deliveryDate}</td>
+                  <td>{item.expiry}</td>
+                  <td>{item.supplier}</td>
+                  <td>{item.qoQr}</td>
+                  <td>{item.unitPrice}</td>
+                  <td>{item.totalCost}</td>
                 </tr>
               ))}
             </tbody>
@@ -340,4 +322,4 @@ export default function Reports() {
       </ContentContainer>
     </Container>
   );
-}
+} 

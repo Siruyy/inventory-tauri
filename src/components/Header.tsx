@@ -66,9 +66,10 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "16px 24px",
+    padding: "24px 20px",
     backgroundColor: "#1F1F1F",
     boxSizing: "border-box",
+    height: "80px"
   },
   left: {
     display: "flex",
@@ -91,7 +92,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   title: {
     fontFamily: "Poppins, Helvetica, sans-serif",
     fontWeight: 600,
-    fontSize: "1.25rem",
+    fontSize: "1.5rem",
     color: "#FFFFFF",
     margin: 0,
   },
