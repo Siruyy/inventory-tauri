@@ -1,14 +1,16 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 
 // Import SVG icons
-import ProfileIcon from "./profile-icon.svg";
-import ManageAccessIcon from "./manage-access-icon.svg";
+import ProfileIcon from "./profile.svg";
+import ManageAccessIcon from "./access.svg";
 import LogoutIcon from "../pages/logout.svg";
 import EditIcon from "./edit-icon.svg";
-import ShowPasswordIcon from "./show-password-icon.svg";
 
 export default function Profile(): JSX.Element {
+  const navigate = useNavigate();
+  const [activeNav, setActiveNav] = useState<'profile' | 'manage' | 'logout'>('profile');
   const [formData, setFormData] = useState({
     firstName: "John Doe",
     email: "johndoe123@gmail.com",
@@ -44,6 +46,16 @@ export default function Profile(): JSX.Element {
     });
   };
 
+  const handleNavClick = (nav: 'profile' | 'manage' | 'logout') => {
+    setActiveNav(nav);
+    if (nav === 'logout') {
+      // Add any cleanup logic here (clear tokens, session, etc.)
+      setTimeout(() => {
+        navigate('/login');
+      }, 200); // Small delay to show the button active state
+    }
+  };
+
   return (
     <div style={styles.pageContainer}>
       <div style={styles.mainContent}>
@@ -52,23 +64,44 @@ export default function Profile(): JSX.Element {
         <div style={styles.contentWrapper}>
           {/* Profile Navigation */}
           <div style={styles.profileNav}>
-            <div style={styles.profileNavItem}>
-              <div style={styles.profileNavIcon}>
+            <div 
+              style={{
+                ...styles.profileNavItem, 
+                ...(activeNav === 'profile' ? styles.profileNavItemActive : {})
+              }}
+              onClick={() => handleNavClick('profile')}
+            >
+              <div style={activeNav === 'profile' ? styles.profileNavIconActive : styles.profileNavIconInactive}>
                 <img src={ProfileIcon} alt="Profile" style={styles.navIcon} />
               </div>
-              <span style={styles.profileNavText}>My Profile</span>
+              <span style={activeNav === 'profile' ? styles.profileNavTextActive : styles.profileNavTextInactive}>
+                My Profile
+              </span>
             </div>
-            <div style={styles.profileNavItem}>
-              <div style={styles.profileNavIconInactive}>
+            <div 
+              style={{
+                ...styles.profileNavItem, 
+                ...(activeNav === 'manage' ? styles.profileNavItemActive : {})
+              }}
+              onClick={() => handleNavClick('manage')}
+            >
+              <div style={activeNav === 'manage' ? styles.profileNavIconActive : styles.profileNavIconInactive}>
                 <img src={ManageAccessIcon} alt="Manage Access" style={styles.navIcon} />
               </div>
-              <span style={styles.profileNavTextInactive}>Manage Access</span>
+              <span style={activeNav === 'manage' ? styles.profileNavTextActive : styles.profileNavTextInactive}>
+                Manage Access
+              </span>
             </div>
-            <div style={styles.profileNavItem}>
+            <div 
+              style={styles.profileNavItem}
+              onClick={() => handleNavClick('logout')}
+            >
               <div style={styles.profileNavIconInactive}>
                 <img src={LogoutIcon} alt="Logout" style={styles.navIcon} />
               </div>
-              <span style={styles.profileNavTextInactive}>Logout</span>
+              <span style={styles.profileNavTextInactive}>
+                Logout
+              </span>
             </div>
           </div>
 
@@ -143,7 +176,6 @@ export default function Profile(): JSX.Element {
                     style={styles.showPasswordButton}
                     onClick={() => setShowNewPassword(!showNewPassword)}
                   >
-                    <img src={ShowPasswordIcon} alt="Show Password" style={styles.showPasswordIcon} />
                   </button>
                 </div>
               </div>
@@ -162,7 +194,6 @@ export default function Profile(): JSX.Element {
                     style={styles.showPasswordButton}
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   >
-                    <img src={ShowPasswordIcon} alt="Show Password" style={styles.showPasswordIcon} />
                   </button>
                 </div>
               </div>
@@ -218,6 +249,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     width: "319px",
     borderRadius: "10px",
     flexShrink: 0,
+    height: "236px",
+    justifyContent: "center",
   },
   profileNavItem: {
     display: "flex",
@@ -226,6 +259,14 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: "14px 41px",
     borderRadius: "8px",
     cursor: "pointer",
+    width: "279px",
+    height: "52px",
+    transition: "all 0.3s ease",
+    boxSizing: "border-box",
+    margin: "0 auto",
+  },
+  profileNavItemActive: {
+    backgroundColor: "#FAC1D9",
   },
   profileNavIcon: {
     width: "20px",
@@ -233,8 +274,14 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FAC1D9",
-    borderRadius: "50%",
+  },
+  profileNavIconActive: {
+    width: "20px",
+    height: "20px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    filter: "brightness(0)",
   },
   profileNavIconInactive: {
     width: "20px",
@@ -242,27 +289,29 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    color: "#FFFFFF",
   },
   navIcon: {
     width: "100%",
     height: "100%",
   },
-  profileNavText: {
+  profileNavTextActive: {
     color: "#333333",
     fontSize: "16px",
     fontWeight: 500,
+    marginLeft: "7px",
   },
   profileNavTextInactive: {
     color: "#FFFFFF",
     fontSize: "16px",
     fontWeight: 500,
+    marginLeft: "7px",
   },
   profileContent: {
     backgroundColor: "#292C2D",
     borderRadius: "10px",
-    padding: "40px",
-    flexGrow: 1,
+    padding: "40px 39px",
+    width: "824px",
+    height: "904px",
   },
   sectionTitle: {
     fontSize: "25px",
@@ -327,6 +376,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: "flex",
     flexDirection: "column",
     gap: "8px",
+    width: "744px",
   },
   label: {
     fontSize: "16px",
@@ -342,10 +392,11 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: "16px",
     width: "100%",
     boxSizing: "border-box",
+    height: "65px",
   },
   passwordInputContainer: {
     position: "relative",
-    width: "100%",
+    width: "362px",
   },
   showPasswordButton: {
     position: "absolute",
@@ -360,6 +411,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   showPasswordIcon: {
     width: "20px",
     height: "20px",
+    color: "#777979",
   },
   actionButtons: {
     display: "flex",
