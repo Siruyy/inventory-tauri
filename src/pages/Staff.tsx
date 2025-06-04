@@ -3,13 +3,13 @@ import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import Header from "../components/Header";
 
-// SVG imports (place these SVG files under src/pages/)
-import EyeIcon from "./eye.svg";
-import PenIcon from "./pen.svg";
+// SVG imports
+import EyeIcon from "/icons/eye.svg";
+import PenIcon from "/icons/pen.svg";
 
 //
 // Re‐use the same initialStaffData array that StaffProfile also needs.
-// In a real app you’d fetch this from your backend or share via context.
+// In a real app you'd fetch this from your backend or share via context.
 // For now, we hard‐code it here so that both Staff.tsx and StaffProfile.tsx
 // refer to the exact same data.
 //
@@ -185,7 +185,7 @@ export default function Staff(): JSX.Element {
     setShowDrawer(true);
   };
 
-  // Clicking “Add Staff”
+  // Clicking "Add Staff"
   const handleAddClick = () => {
     setFormData({
       avatar: "",

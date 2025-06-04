@@ -1,7 +1,7 @@
 // src/pages/Login.tsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import mdiHide from "./mdi-hide.svg";
+import mdiHide from "/icons/mdi-hide.svg";
 
 export default function Login(): JSX.Element {
   const [username, setUsername] = useState("");

@@ -3,13 +3,13 @@ import React from "react";
 import { NavLink } from "react-router-dom";
 import Header from "../components/Header";
 
-// Import your summary‐card icons (place these SVG files in src/pages/)
-import DailySalesIcon from "./Daily Sales.svg";
-import MonthlyIcon from "./Monthly.svg";
-import StaffIcon from "./staff-sidebar.svg";
+// Import your summary-card icons
+import DailySalesIcon from "/icons/Daily Sales.svg";
+import MonthlyIcon from "/icons/Monthly.svg";
+import StaffIcon from "/icons/staff-sidebar.svg";
 
 export default function Dashboard(): JSX.Element {
-  // Sample data for “Popular Item” list
+  // Sample data for "Popular Item" list
   const popularItems = [
     {
       id: "#1001",

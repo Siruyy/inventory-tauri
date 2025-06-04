@@ -3,9 +3,9 @@ import React, { useState, useEffect } from "react";
 import Header from "../components/Header";
 import InventoryFormDrawer from "../components/InventoryFormDrawer";
 
-import SearchIcon from "./search.svg";
-import PenIcon from "./pen.svg";
-import TrashIcon from "./trash.svg";
+import SearchIcon from "/icons/search.svg";
+import PenIcon from "/icons/pen.svg";
+import TrashIcon from "/icons/trash.svg";
 
 interface Product {
   id: string;
@@ -94,7 +94,7 @@ export default function Inventory() {
   const [priceMin, setPriceMin] = useState<number | "">("");
   const [priceMax, setPriceMax] = useState<number | "">("");
 
-  // Displayed products (normally you’d filter based on above, but here we just show all)
+  // Displayed products (normally you'd filter based on above, but here we just show all)
   const [displayedProducts, setDisplayedProducts] = useState<Product[]>(sampleProducts);
   useEffect(() => {
     // In a real app, apply searchTerm & filters here.
@@ -113,8 +113,8 @@ export default function Inventory() {
   };
 
   // ─────────────────────────────────────────────────────────
-  // Drawer state: editingProduct = null → “Add New Inventory”
-  //                     otherwise → “Edit” mode
+  // Drawer state: editingProduct = null → "Add New Inventory"
+  //                     otherwise → "Edit" mode
   // ─────────────────────────────────────────────────────────
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -414,7 +414,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexDirection: "column",
     alignItems: "stretch",
     width: "280px", // fixed width for filter card
-    gap: "16px",    // space between “total products” and card
+    gap: "16px",    // space between "total products" and card
     marginTop: "8px", // align with the top of search bar on right
   },
   totalProductsTopRow: {

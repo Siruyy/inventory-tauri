@@ -3,12 +3,12 @@ import React from "react";
 import { NavLink } from "react-router-dom";
 
 // Import your SVG icons
-import DashboardSvg from "../pages/dashboard.svg";
-import StaffSvg from "../pages/staff-sidebar.svg";
-import InventorySvg from "../pages/inventory.svg";
-import ReportsSvg from "../pages/report.svg";
-import OrderSvg from "../pages/order.svg";
-import LogoutSvg from "../pages/logout.svg";
+import DashboardSvg from "/icons/dashboard.svg";
+import StaffSvg from "/icons/staff-sidebar.svg";
+import InventorySvg from "/icons/inventory.svg";
+import ReportsSvg from "/icons/report.svg";
+import OrderSvg from "/icons/order.svg";
+import LogoutSvg from "/icons/logout.svg";
 
 export default function Sidebar() {
   interface NavItemProps {
@@ -38,7 +38,7 @@ export default function Sidebar() {
 
   return (
     <aside style={styles.container}>
-      {/* “IMS” at top */}
+      {/* "IMS" at top */}
       <div style={styles.logoContainer}>
         <span style={styles.logoText}>IMS</span>
       </div>
