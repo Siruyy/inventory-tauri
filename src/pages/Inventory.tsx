@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from "react";
 import Header from "../components/Header";
 import InventoryFormDrawer from "../components/InventoryFormDrawer";
+import CategoryFormDrawer from "../components/CategoryFormDrawer";
+import CategoryCards from "../components/CategoryCards";
 
 import SearchIcon from "/icons/search.svg";
 import PenIcon from "/icons/pen.svg";
@@ -86,20 +88,34 @@ export default function Inventory() {
   // Search + filter state
   // ─────────────────────────────────────────────────────────
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Inactive" | "Draft">("All");
+  const [statusFilter, setStatusFilter] = useState<
+    "All" | "Active" | "Inactive" | "Draft"
+  >("All");
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
-  const [stockFilter, setStockFilter] = useState<"All" | "InStock" | "OutOfStock">("All");
+  const [stockFilter, setStockFilter] = useState<
+    "All" | "InStock" | "OutOfStock"
+  >("All");
   const [valueFilter, setValueFilter] = useState<string>("All");
   const [quantity, setQuantity] = useState<number | "">("");
   const [priceMin, setPriceMin] = useState<number | "">("");
   const [priceMax, setPriceMax] = useState<number | "">("");
 
   // Displayed products (normally you'd filter based on above, but here we just show all)
-  const [displayedProducts, setDisplayedProducts] = useState<Product[]>(sampleProducts);
+  const [displayedProducts, setDisplayedProducts] =
+    useState<Product[]>(sampleProducts);
   useEffect(() => {
     // In a real app, apply searchTerm & filters here.
     setDisplayedProducts(sampleProducts);
-  }, [searchTerm, statusFilter, categoryFilter, stockFilter, valueFilter, quantity, priceMin, priceMax]);
+  }, [
+    searchTerm,
+    statusFilter,
+    categoryFilter,
+    stockFilter,
+    valueFilter,
+    quantity,
+    priceMin,
+    priceMax,
+  ]);
 
   const handleResetFilters = () => {
     setSearchTerm("");
@@ -145,6 +161,86 @@ export default function Inventory() {
     // Later, integrate your barcode scanning logic here
   };
 
+  // Category data with placeholder icons
+  const categories = [
+    {
+      name: "Category Name",
+      icon: "https://via.placeholder.com/40",
+      itemCount: 20,
+    },
+    {
+      name: "Category Name",
+      icon: "https://via.placeholder.com/40",
+      itemCount: 20,
+    },
+    {
+      name: "Category Name",
+      icon: "https://via.placeholder.com/40",
+      itemCount: 20,
+    },
+    {
+      name: "Category Name",
+      icon: "https://via.placeholder.com/40",
+      itemCount: 20,
+    },
+    {
+      name: "Category Name",
+      icon: "https://via.placeholder.com/40",
+      itemCount: 20,
+    },
+    {
+      name: "Category Name",
+      icon: "https://via.placeholder.com/40",
+      itemCount: 20,
+    },
+    {
+      name: "Category Name",
+      icon: "https://via.placeholder.com/40",
+      itemCount: 20,
+    },
+    {
+      name: "Category Name",
+      icon: "https://via.placeholder.com/40",
+      itemCount: 20,
+    },
+    {
+      name: "Category Name",
+      icon: "https://via.placeholder.com/40",
+      itemCount: 20,
+    },
+    {
+      name: "Category Name",
+      icon: "https://via.placeholder.com/40",
+      itemCount: 20,
+    },
+  ];
+
+  const [isCategoryDrawerOpen, setIsCategoryDrawerOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<{
+    name: string;
+    icon: string;
+    itemCount: number;
+  } | null>(null);
+
+  const handleSaveCategory = (categoryData: {
+    name: string;
+    imageUrl: string;
+  }) => {
+    console.log("Save category:", categoryData);
+    // TODO: Replace with actual API call or state update
+    setIsCategoryDrawerOpen(false);
+    setEditingCategory(null);
+  };
+
+  const handleEditCategory = (category: {
+    name: string;
+    icon: string;
+    itemCount: number;
+  }) => {
+    setEditingCategory(category);
+    setIsCategoryDrawerOpen(true);
+  };
+
   return (
     <div style={styles.pageContainer}>
       {/* Shared Header */}
@@ -167,7 +263,9 @@ export default function Inventory() {
                     onClick={() => setStatusFilter("All")}
                     style={{
                       ...styles.statusButton,
-                      ...(statusFilter === "All" ? styles.statusButtonActive : {}),
+                      ...(statusFilter === "All"
+                        ? styles.statusButtonActive
+                        : {}),
                     }}
                   >
                     All <span style={styles.statusBadge}>150</span>
@@ -176,7 +274,9 @@ export default function Inventory() {
                     onClick={() => setStatusFilter("Active")}
                     style={{
                       ...styles.statusButtonMini,
-                      ...(statusFilter === "Active" ? styles.statusButtonActiveMini : {}),
+                      ...(statusFilter === "Active"
+                        ? styles.statusButtonActiveMini
+                        : {}),
                     }}
                   >
                     Active <span style={styles.statusBadgeMini}>120</span>
@@ -187,7 +287,9 @@ export default function Inventory() {
                     onClick={() => setStatusFilter("Inactive")}
                     style={{
                       ...styles.statusButtonMini,
-                      ...(statusFilter === "Inactive" ? styles.statusButtonActiveMini : {}),
+                      ...(statusFilter === "Inactive"
+                        ? styles.statusButtonActiveMini
+                        : {}),
                     }}
                   >
                     Inactive <span style={styles.statusBadgeMini}>10</span>
@@ -196,7 +298,9 @@ export default function Inventory() {
                     onClick={() => setStatusFilter("Draft")}
                     style={{
                       ...styles.statusButtonMini,
-                      ...(statusFilter === "Draft" ? styles.statusButtonActiveMini : {}),
+                      ...(statusFilter === "Draft"
+                        ? styles.statusButtonActiveMini
+                        : {}),
                     }}
                   >
                     Draft <span style={styles.statusBadgeMini}>10</span>
@@ -256,7 +360,9 @@ export default function Inventory() {
                   placeholder="0"
                   value={quantity}
                   onChange={(e) =>
-                    setQuantity(e.target.value === "" ? "" : Number(e.target.value))
+                    setQuantity(
+                      e.target.value === "" ? "" : Number(e.target.value)
+                    )
                   }
                   style={styles.textInput}
                 />
@@ -271,7 +377,9 @@ export default function Inventory() {
                     placeholder="0"
                     value={priceMin}
                     onChange={(e) =>
-                      setPriceMin(e.target.value === "" ? "" : Number(e.target.value))
+                      setPriceMin(
+                        e.target.value === "" ? "" : Number(e.target.value)
+                      )
                     }
                     style={styles.textInput}
                   />
@@ -283,7 +391,9 @@ export default function Inventory() {
                     placeholder="0"
                     value={priceMax}
                     onChange={(e) =>
-                      setPriceMax(e.target.value === "" ? "" : Number(e.target.value))
+                      setPriceMax(
+                        e.target.value === "" ? "" : Number(e.target.value)
+                      )
                     }
                     style={styles.textInput}
                   />
@@ -313,10 +423,24 @@ export default function Inventory() {
                 />
               </div>
 
-              <button style={styles.addButton} onClick={openDrawerForAdd}>
-                Add New Inventory
-              </button>
+              <div style={styles.buttonGroup}>
+                <button
+                  style={styles.addButton}
+                  onClick={() => setIsCategoryDrawerOpen(true)}
+                >
+                  Add New Category
+                </button>
+                <button style={styles.addButton} onClick={openDrawerForAdd}>
+                  Add New Inventory
+                </button>
+              </div>
             </div>
+
+            {/* Category Cards */}
+            <CategoryCards
+              categories={categories}
+              onEditCategory={handleEditCategory}
+            />
 
             {/* Product List */}
             <div style={styles.productList}>
@@ -336,7 +460,9 @@ export default function Inventory() {
                     <div style={styles.productName}>{prod.name}</div>
                     <div style={styles.productSubtext}>
                       Stocked Product:{" "}
-                      <span style={styles.stockCount}>{prod.stockCount} In Stock</span>
+                      <span style={styles.stockCount}>
+                        {prod.stockCount} In Stock
+                      </span>
                     </div>
                   </div>
 
@@ -352,7 +478,9 @@ export default function Inventory() {
                     </div>
                     <div style={styles.metaColumn}>
                       <div style={styles.metaLabel}>Retail Price</div>
-                      <div style={styles.metaValue}>${prod.retailPrice.toFixed(2)}</div>
+                      <div style={styles.metaValue}>
+                        ${prod.retailPrice.toFixed(2)}
+                      </div>
                     </div>
                   </div>
 
@@ -362,10 +490,18 @@ export default function Inventory() {
                       style={styles.iconButton}
                       onClick={() => openDrawerForProduct(prod)}
                     >
-                      <img src={PenIcon} alt="Edit" style={styles.actionIconImage} />
+                      <img
+                        src={PenIcon}
+                        alt="Edit"
+                        style={styles.actionIconImage}
+                      />
                     </button>
                     <button style={styles.iconButton}>
-                      <img src={TrashIcon} alt="Delete" style={styles.actionIconImage} />
+                      <img
+                        src={TrashIcon}
+                        alt="Delete"
+                        style={styles.actionIconImage}
+                      />
                     </button>
                   </div>
                 </div>
@@ -382,6 +518,17 @@ export default function Inventory() {
         onClose={closeDrawer}
         onSave={handleSaveDrawer}
         onScanBarcode={handleScanBarcode}
+      />
+
+      {/** ───────────── Category Drawer ───────────── **/}
+      <CategoryFormDrawer
+        isOpen={isCategoryDrawerOpen}
+        onClose={() => {
+          setIsCategoryDrawerOpen(false);
+          setEditingCategory(null);
+        }}
+        onSave={handleSaveCategory}
+        category={editingCategory}
       />
     </div>
   );
@@ -414,7 +561,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexDirection: "column",
     alignItems: "stretch",
     width: "280px", // fixed width for filter card
-    gap: "16px",    // space between "total products" and card
+    gap: "16px", // space between "total products" and card
     marginTop: "8px", // align with the top of search bar on right
   },
   totalProductsTopRow: {
@@ -422,6 +569,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: 600,
     color: "#FFFFFF",
     whiteSpace: "nowrap",
+    marginBottom: "11px",
   },
   filterCard: {
     backgroundColor: "#2A2A2A",
@@ -581,8 +729,12 @@ const styles: { [key: string]: React.CSSProperties } = {
     outline: "none",
     boxSizing: "border-box",
   },
-  addButton: {
+  buttonGroup: {
+    display: "flex",
+    gap: "16px",
     marginLeft: "16px",
+  },
+  addButton: {
     backgroundColor: "#FAC1D9",
     color: "#292C2D",
     border: "none",
