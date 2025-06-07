@@ -1,11 +1,6 @@
 // src/router.tsx
 import React from "react";
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 // Shared layout
 import Sidebar from "./components/Sidebar";
@@ -19,6 +14,7 @@ import StaffProfile from "./pages/StaffProfile";
 import Reports from "./pages/Reports";
 import Profile from "./pages/Profile";
 import InventoryReport from "./pages/InventoryReport";
+import Orders from "./pages/Orders";
 
 export default function Router() {
   return (
@@ -44,6 +40,7 @@ export default function Router() {
                   {/* Main Application Pages */}
                   <Route path="dashboard" element={<Dashboard />} />
                   <Route path="inventory" element={<Inventory />} />
+                  <Route path="order" element={<Orders />} />
 
                   {/* 
                     Staff: 
@@ -54,11 +51,17 @@ export default function Router() {
                   <Route path="staff/:id" element={<StaffProfile />} />
 
                   <Route path="reports" element={<Reports />} />
-                  <Route path="reports/inventory" element={<InventoryReport />} />
+                  <Route
+                    path="reports/inventory"
+                    element={<InventoryReport />}
+                  />
                   <Route path="profile" element={<Profile />} />
 
                   {/* Logout simply navigates back to /login */}
-                  <Route path="logout" element={<Navigate to="/login" replace />} />
+                  <Route
+                    path="logout"
+                    element={<Navigate to="/login" replace />}
+                  />
 
                   {/* Catch-all: redirect any unknown paths back to /dashboard */}
                   <Route

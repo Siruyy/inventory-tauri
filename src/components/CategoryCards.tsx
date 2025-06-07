@@ -10,16 +10,22 @@ interface Category {
 interface CategoryCardsProps {
   categories: Category[];
   onEditCategory: (category: Category) => void;
+  hideEditButton?: boolean;
 }
 
 export default function CategoryCards({
   categories,
   onEditCategory,
+  hideEditButton = false,
 }: CategoryCardsProps) {
   return (
     <div style={styles.container}>
       {categories.map((category, index) => (
-        <div key={index} style={styles.card}>
+        <div
+          key={index}
+          style={styles.card}
+          onClick={() => onEditCategory(category)}
+        >
           {/* Category Icon */}
           <div style={styles.iconContainer}>
             <img src={category.icon} alt={category.name} style={styles.icon} />
@@ -32,12 +38,17 @@ export default function CategoryCards({
           </div>
 
           {/* Edit Icon */}
-          <button
-            style={styles.editButton}
-            onClick={() => onEditCategory(category)}
-          >
-            <img src={PenIcon} alt="Edit" style={styles.editIcon} />
-          </button>
+          {!hideEditButton && (
+            <button
+              style={styles.editButton}
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditCategory(category);
+              }}
+            >
+              <img src={PenIcon} alt="Edit" style={styles.editIcon} />
+            </button>
+          )}
         </div>
       ))}
     </div>
@@ -62,6 +73,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: "flex",
     flexDirection: "column",
     justifyContent: "space-between",
+    cursor: "pointer",
   },
   iconContainer: {
     width: "40px",
