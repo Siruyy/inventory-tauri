@@ -11,7 +11,7 @@ fn main() {
     tauri::Builder::default()
         // Register all the necessary plugins
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_path::init())
+        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         
         .setup(|app| {
@@ -26,6 +26,11 @@ fn main() {
             let pool = establish_connection_pool(&db_path);
 
             run_migrations(&pool);
+
+            // Initialize admin user
+            if let Err(e) = db::models::User::ensure_admin_exists(&pool) {
+                eprintln!("Failed to initialize admin user: {}", e);
+            }
 
             app.manage(pool);
 

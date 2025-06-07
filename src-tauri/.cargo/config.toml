@@ -1,0 +1,6 @@
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-LC:/vcpkg/installed/x64-windows-static/lib"]
+
+[env]
+SQLITE3_LIB_DIR = "C:/vcpkg/installed/x64-windows-static/lib"
+SQLITE3_INCLUDE_DIR = "C:/vcpkg/installed/x64-windows-static/include" 

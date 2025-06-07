@@ -48,11 +48,46 @@ pub struct LoginCredentials {
 }
 
 impl User {
+    pub fn ensure_admin_exists(pool: &DbPool) -> Result<(), UserError> {
+        let mut conn = pool.get().unwrap();
+        
+        // Check if admin already exists
+        if users::table
+            .filter(users::username.eq("admin"))
+            .first::<User>(&mut conn)
+            .is_ok()
+        {
+            return Ok(());
+        }
+
+        // Create admin user if it doesn't exist
+        let password_hash = hash("admin".as_bytes(), DEFAULT_COST)?;
+        let new_admin = NewUser {
+            username: "admin".to_string(),
+            email: "admin@example.com".to_string(),
+            password_hash,
+            full_name: "Administrator".to_string(),
+            role: "admin".to_string(),
+        };
+
+        diesel::insert_into(users::table)
+            .values(&new_admin)
+            .execute(&mut conn)
+            .map_err(UserError::DatabaseError)?;
+
+        Ok(())
+    }
+
     pub fn create(pool: &DbPool, new_user: NewUser) -> Result<User, UserError> {
         let mut conn = pool.get().unwrap();
         diesel::insert_into(users::table)
             .values(&new_user)
-            .get_result(&mut conn)
+            .execute(&mut conn)
+            .map_err(UserError::DatabaseError)?;
+
+        users::table
+            .filter(users::username.eq(&new_user.username))
+            .first(&mut conn)
             .map_err(UserError::DatabaseError)
     }
 
