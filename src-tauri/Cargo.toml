@@ -15,27 +15,25 @@ name = "inventory_tauri_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2.0.0-rc.13", features = [] }
+tauri-build = { version = "2.0.0-rc.13" }
 
 [dependencies]
-tauri = { version = "2.0.0-rc.13", features = [
-    "shell-open",
-    "dialog-all",
-    "fs-all",
-    "path-all",
-    "window-all",
-    "protocol-all"
-] }
+# The "dialog-all" feature has been removed from here
+tauri = { version = "2.0.0-rc.13", features = ["shell-open"] }
+
+# Add the dialog plugin with its feature
+tauri-plugin-dialog = "2.0.0-rc.8"
+
+# Your other dependencies remain the same
+tauri-plugin-opener = "2.2.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1.36", features = ["full"] }
-diesel = { version = "2.1.0", features = ["sqlite", "r2d2"] }
-diesel_migrations = { version = "2.1.0" }
-dotenvy = "0.15"
-bcrypt = "0.15"
-jsonwebtoken = "9.2"
+diesel = { version = "2.1", features = ["sqlite", "r2d2", "chrono"] }
+diesel_migrations = "2.1"
 chrono = { version = "0.4", features = ["serde"] }
+jsonwebtoken = "8"
+bcrypt = "0.14"
 thiserror = "1.0"
+tokio = { version = "1.36", features = ["full"] }
+libsqlite3-sys = { version = "0.27.0", features = ["bundled"] }
 rand = "0.8"
-tauri-plugin-shell = "2.2.1"
-
