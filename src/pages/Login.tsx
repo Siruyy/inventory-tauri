@@ -1,17 +1,34 @@
 // src/pages/Login.tsx
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import mdiHide from "/icons/mdi-hide.svg";
 
 export default function Login(): JSX.Element {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const from = (location.state as any)?.from?.pathname || "/dashboard";
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: replace with real authentication via Tauri
-    navigate("/dashboard");
+    setError("");
+    setIsLoading(true);
+
+    try {
+      await login(username, password);
+      navigate(from, { replace: true });
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -33,15 +50,15 @@ export default function Login(): JSX.Element {
         style={{
           backgroundColor: "#292c2d",
           borderRadius: 24,
-          padding: "60px 60px",   // ↑ increased top/bottom & side padding
+          padding: "60px 60px",
           width: "100%",
-          maxWidth: 550,          // keep the card from growing too wide
+          maxWidth: 550,
           maxHeight: 700,
           boxSizing: "border-box",
           boxShadow: "0 8px 20px rgba(0, 0, 0, 0.3)",
           display: "flex",
           flexDirection: "column",
-          gap: "32px",            // ↑ increased gap between header and form
+          gap: "32px",
         }}
       >
         {/* CARD HEADER */}
@@ -49,7 +66,7 @@ export default function Login(): JSX.Element {
           <h1
             style={{
               margin: 0,
-              fontSize: "1.875rem",                   // 30px
+              fontSize: "1.875rem",
               fontFamily: "Poppins, Helvetica, sans-serif",
               fontWeight: 500,
               color: "#FFFFFF",
@@ -63,14 +80,29 @@ export default function Login(): JSX.Element {
             style={{
               margin: 0,
               fontFamily: "Poppins, Helvetica, sans-serif",
-              fontWeight: 400,                        // Poppins-Regular
-              fontSize: "0.875rem",                   // 14px
-              color: "#E5E7EB",                       // lighter gray
+              fontWeight: 400,
+              fontSize: "0.875rem",
+              color: "#E5E7EB",
               textAlign: "center",
             }}
           >
             Please enter your credentials below to continue
           </p>
+
+          {error && (
+            <p
+              style={{
+                margin: 0,
+                fontFamily: "Poppins, Helvetica, sans-serif",
+                fontWeight: 400,
+                fontSize: "0.875rem",
+                color: "#ef4444",
+                textAlign: "center",
+              }}
+            >
+              {error}
+            </p>
+          )}
         </div>
 
         {/* FORM */}
@@ -79,7 +111,7 @@ export default function Login(): JSX.Element {
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: "24px",  // ↑ increased gap between field groups
+            gap: "24px",
           }}
         >
           {/* USERNAME FIELD */}
@@ -88,8 +120,8 @@ export default function Login(): JSX.Element {
               htmlFor="username"
               style={{
                 fontFamily: "Poppins, Helvetica, sans-serif",
-                fontWeight: 500,          // Poppins-Medium
-                fontSize: "0.875rem",     // 14px
+                fontWeight: 500,
+                fontSize: "0.875rem",
                 color: "#FFFFFF",
               }}
             >
@@ -100,11 +132,11 @@ export default function Login(): JSX.Element {
                 position: "relative",
                 backgroundColor: "#3c4041",
                 borderRadius: 12,
-                height: 48,              // fixed height
+                height: 48,
                 display: "flex",
                 alignItems: "center",
                 paddingLeft: 16,
-                paddingRight: 48,        // room for an icon
+                paddingRight: 48,
               }}
             >
               <input
@@ -114,6 +146,7 @@ export default function Login(): JSX.Element {
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Enter your username"
                 required
+                disabled={isLoading}
                 style={{
                   width: "100%",
                   height: "100%",
@@ -122,20 +155,9 @@ export default function Login(): JSX.Element {
                   outline: "none",
                   color: "#E5E7EB",
                   fontFamily: "Poppins, Helvetica, sans-serif",
-                  fontWeight: 300,       // Poppins-Light
-                  fontSize: "1rem",      // 16px
+                  fontWeight: 300,
+                  fontSize: "1rem",
                   padding: 0,
-                }}
-              />
-              <img
-                src={mdiHide}
-                alt=""
-                style={{
-                  position: "absolute",
-                  right: 16,
-                  width: 20,
-                  height: 20,
-                  opacity: 0,            // hide for now
                 }}
               />
             </div>
@@ -147,8 +169,8 @@ export default function Login(): JSX.Element {
               htmlFor="password"
               style={{
                 fontFamily: "Poppins, Helvetica, sans-serif",
-                fontWeight: 500,         // Poppins-Medium
-                fontSize: "0.875rem",    // 14px
+                fontWeight: 500,
+                fontSize: "0.875rem",
                 color: "#FFFFFF",
               }}
             >
@@ -163,16 +185,17 @@ export default function Login(): JSX.Element {
                 display: "flex",
                 alignItems: "center",
                 paddingLeft: 16,
-                paddingRight: 48,       // room for the eye icon
+                paddingRight: 48,
               }}
             >
               <input
                 id="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
                 required
+                disabled={isLoading}
                 style={{
                   width: "100%",
                   height: "100%",
@@ -181,8 +204,8 @@ export default function Login(): JSX.Element {
                   outline: "none",
                   color: "#E5E7EB",
                   fontFamily: "Poppins, Helvetica, sans-serif",
-                  fontWeight: 300,     // Poppins-Light
-                  fontSize: "1rem",    // 16px
+                  fontWeight: 300,
+                  fontSize: "1rem",
                   padding: 0,
                 }}
               />
@@ -197,7 +220,7 @@ export default function Login(): JSX.Element {
                   cursor: "pointer",
                   opacity: 0.6,
                 }}
-                // TODO: wire up onClick to toggle input.type
+                onClick={() => setShowPassword(!showPassword)}
               />
             </div>
           </div>
@@ -205,21 +228,22 @@ export default function Login(): JSX.Element {
           {/* LOGIN BUTTON */}
           <button
             type="submit"
+            disabled={isLoading}
             style={{
-              marginTop: "16px",      // ↑ leave extra space above button
+              marginTop: "16px",
               width: "100%",
               height: 48,
-              backgroundColor: "#fac1d9",
+              backgroundColor: isLoading ? "#d1a1b6" : "#fac1d9",
               border: "none",
               borderRadius: 12,
               fontFamily: "Poppins, Helvetica, sans-serif",
               fontWeight: 500,
               fontSize: "1rem",
               color: "#333333",
-              cursor: "pointer",
+              cursor: isLoading ? "not-allowed" : "pointer",
             }}
           >
-            Login
+            {isLoading ? "Logging in..." : "Login"}
           </button>
         </form>
       </div>

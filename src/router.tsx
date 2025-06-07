@@ -1,9 +1,11 @@
 // src/router.tsx
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useAuth } from "./context/AuthContext";
 
 // Shared layout
 import Sidebar from "./components/Sidebar";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 // Page components
 import Login from "./pages/Login";
@@ -16,6 +18,20 @@ import Profile from "./pages/Profile";
 import InventoryReport from "./pages/InventoryReport";
 import Orders from "./pages/Orders";
 
+// AuthenticatedLayout component to wrap protected routes
+const AuthenticatedLayout: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  const { logout } = useAuth();
+
+  return (
+    <div style={styles.container}>
+      <Sidebar onLogout={logout} />
+      <div style={styles.content}>{children}</div>
+    </div>
+  );
+};
+
 export default function Router() {
   return (
     <BrowserRouter>
@@ -27,9 +43,8 @@ export default function Router() {
         <Route
           path="/*"
           element={
-            <div style={styles.container}>
-              <Sidebar />
-              <div style={styles.content}>
+            <ProtectedRoute>
+              <AuthenticatedLayout>
                 <Routes>
                   {/* Redirect root "/" to "/dashboard" */}
                   <Route
@@ -42,13 +57,23 @@ export default function Router() {
                   <Route path="inventory" element={<Inventory />} />
                   <Route path="order" element={<Orders />} />
 
-                  {/* 
-                    Staff: 
-                      - "/staff"           → Staff list 
-                      - "/staff/:id"       → StaffProfile for that ID 
-                  */}
-                  <Route path="staff" element={<Staff />} />
-                  <Route path="staff/:id" element={<StaffProfile />} />
+                  {/* Staff routes - require admin role */}
+                  <Route
+                    path="staff"
+                    element={
+                      <ProtectedRoute requiredRole="admin">
+                        <Staff />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="staff/:id"
+                    element={
+                      <ProtectedRoute requiredRole="admin">
+                        <StaffProfile />
+                      </ProtectedRoute>
+                    }
+                  />
 
                   <Route path="reports" element={<Reports />} />
                   <Route
@@ -57,20 +82,14 @@ export default function Router() {
                   />
                   <Route path="profile" element={<Profile />} />
 
-                  {/* Logout simply navigates back to /login */}
-                  <Route
-                    path="logout"
-                    element={<Navigate to="/login" replace />}
-                  />
-
                   {/* Catch-all: redirect any unknown paths back to /dashboard */}
                   <Route
                     path="*"
                     element={<Navigate to="/dashboard" replace />}
                   />
                 </Routes>
-              </div>
-            </div>
+              </AuthenticatedLayout>
+            </ProtectedRoute>
           }
         />
       </Routes>

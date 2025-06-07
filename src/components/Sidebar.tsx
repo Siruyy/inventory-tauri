@@ -10,7 +10,11 @@ import ReportsSvg from "/icons/report.svg";
 import OrderSvg from "/icons/order.svg";
 import LogoutSvg from "/icons/logout.svg";
 
-export default function Sidebar() {
+interface SidebarProps {
+  onLogout: () => void;
+}
+
+export default function Sidebar({ onLogout }: SidebarProps) {
   interface NavItemProps {
     to: string;
     label: string;
@@ -55,19 +59,12 @@ export default function Sidebar() {
       {/* Spacer so Logout sits at bottom; no separator above Logout */}
       <div style={styles.spacer} />
 
-      {/* Logout link */}
+      {/* Logout button */}
       <div style={styles.logoutContainer}>
-        <NavLink
-          to="/logout"
-          style={({ isActive }) =>
-            isActive
-              ? { ...styles.navButton, ...styles.navButtonActive }
-              : styles.navButton
-          }
-        >
+        <button onClick={onLogout} style={styles.navButton}>
           <img src={LogoutSvg} alt="Logout" style={styles.navIcon} />
           <span style={styles.navLabel}>Logout</span>
-        </NavLink>
+        </button>
       </div>
     </aside>
   );
@@ -88,7 +85,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     overflow: "hidden",
   },
   logoContainer: {
-    paddingTop: 12, // reduced from 16
+    paddingTop: 12,
     paddingBottom: 8,
     display: "flex",
     justifyContent: "center",
@@ -96,7 +93,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   logoText: {
     fontFamily: "Poppins, Helvetica, sans-serif",
     fontWeight: 700,
-    fontSize: "1.3rem", // reduced from 1.5rem
+    fontSize: "1.3rem",
     color: "#fac1d9",
   },
   navContainer: {
@@ -112,41 +109,43 @@ const styles: { [key: string]: React.CSSProperties } = {
     textDecoration: "none",
     backgroundColor: "transparent",
     color: "#cccccc",
-    width: "75%",    // 75% of 140px = 105px (smaller than 80%)
-    height: 64,      // reduced from 80
+    width: "75%",
+    height: 64,
     borderRadius: 8,
-    padding: 6,      // reduced from 8
+    padding: 6,
     boxSizing: "border-box",
     transition: "background-color 0.2s, color 0.2s",
+    border: "none",
+    cursor: "pointer",
   },
   navButtonActive: {
     backgroundColor: "#fac1d9",
     color: "#292c2d",
   },
   navIcon: {
-    width: 28,       // reduced from 32
-    height: 28,      // reduced from 32
-    marginBottom: 2, // reduced from 4
+    width: 28,
+    height: 28,
+    marginBottom: 2,
     objectFit: "contain",
   },
   navLabel: {
     fontFamily: "Poppins, Helvetica, sans-serif",
     fontWeight: 500,
-    fontSize: "0.8rem", // reduced from 0.9rem
+    fontSize: "0.8rem",
     textAlign: "center",
   },
   separator: {
     borderTop: "1px solid #3a3a3a",
-    width: "50%",        // reduced from 60%
-    margin: "8px 0",     // reduced vertical margin from 12px
+    width: "50%",
+    margin: "8px 0",
     alignSelf: "center",
   },
   spacer: {
-    flexGrow: 1, // pushes the Logout link to the very bottom
+    flexGrow: 1,
   },
   logoutContainer: {
     display: "flex",
     justifyContent: "center",
-    paddingBottom: 12, // reduced from 16
+    paddingBottom: 12,
   },
 };
