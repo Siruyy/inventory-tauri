@@ -1,54 +1,53 @@
 import React from "react";
 import PenIcon from "/icons/pen.svg";
-
-interface Category {
-  name: string;
-  icon: string;
-  itemCount: number;
-}
+import { useCategories, type Category } from "../hooks/useCategories";
 
 interface CategoryCardsProps {
-  categories: Category[];
-  onEditCategory: (category: Category) => void;
-  hideEditButton?: boolean;
+  selectedCategoryId?: number;
+  onSelectCategory: (categoryId?: number) => void;
 }
 
-export default function CategoryCards({
-  categories,
-  onEditCategory,
-  hideEditButton = false,
+export function CategoryCards({
+  selectedCategoryId,
+  onSelectCategory,
 }: CategoryCardsProps) {
+  const { categories } = useCategories();
+
   return (
     <div style={styles.container}>
-      {categories.map((category, index) => (
+      {categories.map((category: Category) => (
         <div
-          key={index}
+          key={category.id}
           style={styles.card}
-          onClick={() => onEditCategory(category)}
+          onClick={() => onSelectCategory(category.id)}
         >
           {/* Category Icon */}
           <div style={styles.iconContainer}>
-            <img src={category.icon} alt={category.name} style={styles.icon} />
+            <img
+              src="https://via.placeholder.com/40"
+              alt={category.name}
+              style={styles.icon}
+            />
           </div>
 
           {/* Category Info */}
           <div style={styles.infoContainer}>
             <div style={styles.categoryName}>{category.name}</div>
-            <div style={styles.itemCount}>{category.itemCount} items</div>
+            <div style={styles.itemCount}>
+              {category.description || "No description"}
+            </div>
           </div>
 
           {/* Edit Icon */}
-          {!hideEditButton && (
-            <button
-              style={styles.editButton}
-              onClick={(e) => {
-                e.stopPropagation();
-                onEditCategory(category);
-              }}
-            >
-              <img src={PenIcon} alt="Edit" style={styles.editIcon} />
-            </button>
-          )}
+          <button
+            style={styles.editButton}
+            onClick={(e) => {
+              e.stopPropagation();
+              // We'll implement edit functionality later
+            }}
+          >
+            <img src={PenIcon} alt="Edit" style={styles.editIcon} />
+          </button>
         </div>
       ))}
     </div>

@@ -1,16 +1,16 @@
 import React, { useState } from "react";
 import Header from "../components/Header";
-import CategoryCards from "../components/CategoryCards";
+import { CategoryCards } from "../components/CategoryCards";
 import "../styles/Orders.css";
 
 // Sample category data
 const sampleCategories = [
-  { name: "All", icon: "/icons/apps.svg", itemCount: 65 },
-  { name: "Beverages", icon: "/icons/beverage.svg", itemCount: 20 },
-  { name: "Main Course", icon: "/icons/food.svg", itemCount: 15 },
-  { name: "Desserts", icon: "/icons/dessert.svg", itemCount: 10 },
-  { name: "Appetizers", icon: "/icons/appetizer.svg", itemCount: 12 },
-  { name: "Sides", icon: "/icons/sides.svg", itemCount: 8 },
+  { id: 1, name: "All", description: "65 items" },
+  { id: 2, name: "Beverages", description: "20 items" },
+  { id: 3, name: "Main Course", description: "15 items" },
+  { id: 4, name: "Desserts", description: "10 items" },
+  { id: 5, name: "Appetizers", description: "12 items" },
+  { id: 6, name: "Sides", description: "8 items" },
 ];
 
 // Sample menu items data
@@ -55,7 +55,9 @@ interface Order {
 }
 
 const Orders: React.FC = () => {
-  const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<
+    number | undefined
+  >(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentOrder, setCurrentOrder] = useState<Order>({
     orderId: `ORD-${Date.now()}`,
@@ -71,12 +73,16 @@ const Orders: React.FC = () => {
     icon: string;
     itemCount: number;
   }) => {
-    setSelectedCategory(category.name);
+    setSelectedCategoryId(
+      sampleCategories.find((c) => c.name === category.name)?.id
+    );
   };
 
   const filteredMenuItems = sampleMenuItems.filter(
     (item) =>
-      (selectedCategory === "All" || item.category === selectedCategory) &&
+      (selectedCategoryId === 1 ||
+        item.category ===
+          sampleCategories.find((c) => c.id === selectedCategoryId)?.name) &&
       (!searchQuery ||
         item.name.toLowerCase().includes(searchQuery.toLowerCase()))
   );
@@ -100,9 +106,8 @@ const Orders: React.FC = () => {
             {/* Categories Section */}
             <div className="categories-section">
               <CategoryCards
-                categories={sampleCategories}
-                onEditCategory={handleCategoryClick}
-                hideEditButton={true}
+                selectedCategoryId={selectedCategoryId}
+                onSelectCategory={setSelectedCategoryId}
               />
             </div>
 

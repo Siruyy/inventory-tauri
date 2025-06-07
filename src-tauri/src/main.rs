@@ -4,42 +4,37 @@ mod auth;
 mod commands;
 mod db;
 
-use db::{establish_connection_pool, run_migrations};
-use tauri::Manager;
+use std::sync::Mutex;
+use rusqlite::Connection;
+use commands::{
+    auth::*,
+    category::*,
+    product::*,
+};
+use crate::db::DbState;
 
 fn main() {
+    let db_path = "inventory.db";
+    let conn = Connection::open(db_path).expect("Failed to open database");
+
     tauri::Builder::default()
-        // Register all the necessary plugins
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_shell::init())
-        
-        .setup(|app| {
-            // This setup for the database path is from the previous step and is correct.
-            let app_data_dir = app
-                .path()
-                .app_data_dir()
-                .expect("Failed to get app data directory");
-            
-            let db_path = app_data_dir.join("db.sqlite");
-
-            let pool = establish_connection_pool(&db_path);
-
-            run_migrations(&pool);
-
-            // Initialize admin user
-            if let Err(e) = db::models::User::ensure_admin_exists(&pool) {
-                eprintln!("Failed to initialize admin user: {}", e);
-            }
-
-            app.manage(pool);
-
-            Ok(())
+        .manage(DbState {
+            connection: Mutex::new(conn),
         })
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
-            commands::login,
-            commands::register,
-            commands::verify_auth,
+            register,
+            verify_auth,
+            get_all_categories,
+            add_category,
+            delete_category,
+            get_all_products,
+            get_products_by_category,
+            add_product,
+            delete_product,
+            update_product_stock,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
