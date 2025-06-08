@@ -24,6 +24,7 @@ interface ProductListProps {
   filters?: FilterOptions;
   updateStock: (vars: { id: number; newStock: number }) => void;
   deleteProduct: (id: number) => void;
+  onEdit?: (product: Product) => void;
 }
 
 export function ProductList({
@@ -32,6 +33,7 @@ export function ProductList({
   filters,
   updateStock,
   deleteProduct,
+  onEdit,
 }: ProductListProps) {
   const [editingStock, setEditingStock] = useState<{
     id: number;
@@ -269,7 +271,7 @@ export function ProductList({
                   </span>
                 </td>
                 <td style={tableStyles.cellRight}>
-                  ${product.unit_price.toFixed(2)}
+                  ₱{product.unit_price.toFixed(2)}
                 </td>
                 <td style={tableStyles.lastCell}>
                   <div
@@ -281,12 +283,16 @@ export function ProductList({
                   >
                     <button
                       style={{ background: "none", border: "none" }}
-                      onClick={() =>
-                        setEditingStock({
-                          id: product.id,
-                          value: product.current_stock,
-                        })
-                      }
+                      onClick={() => {
+                        if (onEdit) {
+                          onEdit(product);
+                        } else {
+                          setEditingStock({
+                            id: product.id,
+                            value: product.current_stock,
+                          });
+                        }
+                      }}
                     >
                       <img
                         src={PenIcon}

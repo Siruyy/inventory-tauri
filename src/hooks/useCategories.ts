@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 // Temporarily disable toast notifications
-// import { toast } from "sonner";
+import { toast } from "sonner";
 
 // Add debug logs
 console.log("Loading useCategories module");
@@ -165,6 +165,12 @@ export function useCategories() {
     onSuccess: (data) => {
       console.log("Category added successfully");
 
+      // Show success toast notification
+      toast.success("Category added successfully", {
+        description: `${data.name} has been added to your categories.`,
+        duration: 5000,
+      });
+
       // Wait a bit before refetching to allow the UI to stabilize
       setTimeout(() => {
         refetchCategories();
@@ -172,6 +178,13 @@ export function useCategories() {
     },
     onError: (error, newCategory, context) => {
       console.error("Failed to add category:", error);
+
+      // Show error toast notification
+      toast.error("Failed to add category", {
+        description:
+          "There was an error adding the category. Please try again.",
+        duration: 5000,
+      });
 
       // Revert back to the previous state if available
       if (context?.previousCategories) {
@@ -212,6 +225,12 @@ export function useCategories() {
     onSuccess: () => {
       console.log("Category deleted successfully");
 
+      // Show success toast notification
+      toast.success("Category deleted successfully", {
+        description: "The category has been removed.",
+        duration: 5000,
+      });
+
       // Wait a bit before refetching to allow the UI to stabilize
       setTimeout(() => {
         refetchCategories();
@@ -220,6 +239,13 @@ export function useCategories() {
     },
     onError: (error, id, context) => {
       console.error("Failed to delete category:", error);
+
+      // Show error toast notification
+      toast.error("Failed to delete category", {
+        description:
+          "There was an error deleting the category. Please try again.",
+        duration: 5000,
+      });
 
       // Revert back to the previous state if available
       if (context?.previousCategories) {

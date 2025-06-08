@@ -3,7 +3,7 @@ import React, { Component, ErrorInfo } from "react";
 import Router from "./router";
 import { AuthProvider } from "./context/AuthContext";
 // Temporarily disable toast
-// import { Toaster } from 'sonner';
+import { Toaster } from "sonner";
 
 // Error boundary to catch rendering errors
 class ErrorBoundary extends Component<
@@ -71,9 +71,7 @@ export default function App() {
     <ErrorBoundary>
       <AuthProvider>
         <Router />
-        {/* Temporarily removed:
-        <Toaster richColors position="top-right" /> 
-        */}
+        <Toaster richColors position="top-right" duration={5000} />
       </AuthProvider>
     </ErrorBoundary>
   );

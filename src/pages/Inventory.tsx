@@ -19,7 +19,8 @@ export default function Inventory() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isCategoryDrawerOpen, setIsCategoryDrawerOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const { products, addProduct, updateStock, deleteProduct } =
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const { products, addProduct, updateProduct, updateStock, deleteProduct } =
     useProducts(selectedCategoryId);
   const { categories, addCategory } = useCategories();
 
@@ -59,38 +60,72 @@ export default function Inventory() {
       console.log("Selected category:", product.category);
       console.log("Mapped to category ID:", categoryObj.id);
 
-      // Convert the product data to the format expected by addProduct
-      const newProduct = {
-        name: product.name,
-        description: "", // Not provided in the drawer form
-        sku: `SKU-${Date.now()}`, // Generate a temporary SKU
-        category_id: categoryObj.id,
-        unit_price: product.retailPrice,
-        current_stock: product.stockCount,
-        minimum_stock: Math.max(1, Math.floor(product.stockCount * 0.2)), // Set minimum to 20% of current or at least 1
-        supplier: null,
-      };
+      // Check if this is an edit (has id) or a new product
+      if (selectedProduct && selectedProduct.id) {
+        // EDIT mode - convert the product data for update
+        const updatedProduct = {
+          id: parseInt(selectedProduct.id),
+          name: product.name,
+          description: "", // Not provided in the drawer form
+          category_id: categoryObj.id,
+          unit_price: product.retailPrice,
+          current_stock: product.stockCount,
+        };
 
-      console.log("Sending new product data:", newProduct);
+        console.log("Updating product:", updatedProduct);
 
-      // Use timeout to ensure UI has time to update before mutation
-      setTimeout(() => {
-        addProduct(newProduct, {
-          onSuccess: () => {
-            // Use timeout to ensure state updates don't conflict
-            setTimeout(() => {
-              setIsDrawerOpen(false);
+        // Use timeout to ensure UI has time to update before mutation
+        setTimeout(() => {
+          updateProduct(updatedProduct, {
+            onSuccess: () => {
+              // Use timeout to ensure state updates don't conflict
+              setTimeout(() => {
+                setIsDrawerOpen(false);
+                setIsProcessing(false);
+                setSelectedProduct(null);
+              }, 100);
+            },
+            onError: (error) => {
+              console.error("Error updating product:", error);
               setIsProcessing(false);
-            }, 100);
-          },
-          onError: (error) => {
-            console.error("Error adding product:", error);
-            setIsProcessing(false);
-          },
-        });
-      }, 50);
+            },
+          });
+        }, 50);
+      } else {
+        // ADD mode - convert the product data for new product
+        const newProduct = {
+          name: product.name,
+          description: "", // Not provided in the drawer form
+          sku: `SKU-${Date.now()}`, // Generate a temporary SKU
+          category_id: categoryObj.id,
+          unit_price: product.retailPrice,
+          current_stock: product.stockCount,
+          minimum_stock: Math.max(1, Math.floor(product.stockCount * 0.2)), // Set minimum to 20% of current or at least 1
+          supplier: null,
+        };
+
+        console.log("Adding new product:", newProduct);
+
+        // Use timeout to ensure UI has time to update before mutation
+        setTimeout(() => {
+          addProduct(newProduct, {
+            onSuccess: () => {
+              // Use timeout to ensure state updates don't conflict
+              setTimeout(() => {
+                setIsDrawerOpen(false);
+                setIsProcessing(false);
+                setSelectedProduct(null);
+              }, 100);
+            },
+            onError: (error) => {
+              console.error("Error adding product:", error);
+              setIsProcessing(false);
+            },
+          });
+        }, 50);
+      }
     },
-    [addProduct, categories, isProcessing]
+    [addProduct, updateProduct, categories, isProcessing, selectedProduct]
   );
 
   // Memoized save category handler to prevent unnecessary re-renders
@@ -126,10 +161,32 @@ export default function Inventory() {
     [addCategory, isProcessing]
   );
 
+  // Handle edit product
+  const handleEditProduct = useCallback(
+    (product: import("../hooks/useProducts").Product) => {
+      // Convert the product from DB format to the drawer format
+      const formattedProduct = {
+        id: product.id.toString(),
+        name: product.name,
+        thumbnailUrl: "",
+        stockCount: product.current_stock,
+        status: product.current_stock > 0 ? "Active" : "Inactive",
+        category: product.category_name,
+        retailPrice: product.unit_price,
+        perishable: false,
+      };
+
+      setSelectedProduct(formattedProduct);
+      setIsDrawerOpen(true);
+    },
+    []
+  );
+
   // Handle drawer close with safety checks
   const handleCloseDrawer = useCallback(() => {
     if (!isProcessing) {
       setIsDrawerOpen(false);
+      setSelectedProduct(null);
     }
   }, [isProcessing]);
 
@@ -347,7 +404,7 @@ export default function Inventory() {
                   <h3 style={styles.filterTitle}>Price</h3>
                   <div style={styles.priceInputs}>
                     <div style={styles.priceInputGroup}>
-                      <label style={styles.priceLabel}>Min ($)</label>
+                      <label style={styles.priceLabel}>Min (₱)</label>
                       <input
                         type="number"
                         value={priceRange.min}
@@ -363,7 +420,7 @@ export default function Inventory() {
                   </div>
                   <div style={styles.priceInputs}>
                     <div style={styles.priceInputGroup}>
-                      <label style={styles.priceLabel}>Max ($)</label>
+                      <label style={styles.priceLabel}>Max (₱)</label>
                       <input
                         type="number"
                         value={priceRange.max}
@@ -403,6 +460,7 @@ export default function Inventory() {
                 filters={filters}
                 updateStock={updateStock}
                 deleteProduct={deleteProduct}
+                onEdit={handleEditProduct}
               />
             </div>
           </div>
@@ -411,7 +469,7 @@ export default function Inventory() {
 
       {/* Inventory Form Drawer */}
       <InventoryFormDrawer
-        product={null}
+        product={selectedProduct}
         isOpen={isDrawerOpen}
         onClose={handleCloseDrawer}
         onSave={handleSaveProduct}

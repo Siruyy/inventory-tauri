@@ -9,6 +9,7 @@ use commands::{
     auth::*,
     category::*,
     product::*,
+    transaction::*,
 };
 use crate::db::DbState;
 use bcrypt::{hash, DEFAULT_COST};
@@ -237,18 +238,33 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
-            greet,
+            // Auth
             register,
-            verify_auth,
             login,
+            verify_auth,
+            
+            // Categories
             get_all_categories,
             add_category,
             delete_category,
+            
+            // Products
             get_all_products,
             get_products_by_category,
             add_product,
             delete_product,
             update_product_stock,
+            update_product,
+            
+            // Transactions
+            create_order,
+            get_order_by_id,
+            get_order_items,
+            get_order_with_items,
+            get_recent_orders,
+            
+            // Misc
+            greet
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

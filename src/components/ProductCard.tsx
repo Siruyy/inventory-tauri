@@ -36,7 +36,7 @@ export function ProductCard({
         <p style={styles.productSku}>SKU: {product.sku}</p>
         <div style={styles.priceStockContainer}>
           <div style={styles.priceContainer}>
-            <span style={styles.priceCurrency}>$</span>
+            <span style={styles.priceCurrency}>₱</span>
             <span style={styles.priceValue}>
               {product.unit_price.toFixed(2)}
             </span>

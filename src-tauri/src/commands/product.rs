@@ -2,6 +2,18 @@ use crate::db::models::product::{Product, NewProduct, ProductWithCategory};
 use crate::db::DbState;
 use rusqlite::{params, Result};
 
+#[derive(Debug, serde::Deserialize)]
+pub struct UpdateProduct {
+    pub id: i32,
+    pub name: String,
+    pub description: Option<String>,
+    pub category_id: i32,
+    pub unit_price: f64,
+    pub current_stock: i32,
+    pub minimum_stock: Option<i32>,
+    pub supplier: Option<String>,
+}
+
 #[tauri::command]
 pub fn get_all_products(state: tauri::State<DbState>) -> Result<Vec<ProductWithCategory>, String> {
     println!("Backend: Getting all products");
@@ -346,4 +358,114 @@ pub fn update_product_stock(state: tauri::State<DbState>, id: i32, new_stock: i3
     ).map_err(|e| e.to_string())?;
 
     Ok(())
+}
+
+#[tauri::command]
+pub fn update_product(state: tauri::State<DbState>, product: UpdateProduct) -> Result<ProductWithCategory, String> {
+    println!("Backend: Updating product with ID: {}", product.id);
+    
+    // Get a connection from the pool with proper error handling
+    let mut conn = match state.pool.get() {
+        Ok(conn) => conn,
+        Err(e) => {
+            let error_msg = format!("Failed to get connection from pool: {}", e);
+            println!("Backend error: {}", error_msg);
+            return Err(error_msg);
+        }
+    };
+    
+    // Wrap the entire operation in a transaction to ensure atomicity
+    let tx = match conn.transaction() {
+        Ok(tx) => tx,
+        Err(e) => {
+            let error_msg = format!("Failed to start transaction: {}", e);
+            println!("Backend error: {}", error_msg);
+            return Err(error_msg);
+        }
+    };
+    
+    // Use the minimum_stock from the update if provided, otherwise calculate it
+    let minimum_stock = product.minimum_stock.unwrap_or_else(|| {
+        // Set minimum to 20% of current stock or at least 1
+        std::cmp::max(1, (product.current_stock as f64 * 0.2) as i32)
+    });
+    
+    // Update the product
+    let updated_count = match tx.execute(
+        "UPDATE products SET 
+            name = ?1, 
+            description = ?2, 
+            category_id = ?3, 
+            unit_price = ?4, 
+            current_stock = ?5, 
+            minimum_stock = ?6, 
+            supplier = ?7, 
+            updated_at = datetime('now') 
+         WHERE id = ?8",
+        params![
+            product.name,
+            product.description,
+            product.category_id,
+            product.unit_price,
+            product.current_stock,
+            minimum_stock,
+            product.supplier,
+            product.id
+        ],
+    ) {
+        Ok(count) => count,
+        Err(e) => {
+            let error_msg = format!("Backend error updating product: {}", e);
+            println!("{}", error_msg);
+            return Err(error_msg);
+        }
+    };
+
+    if updated_count == 0 {
+        println!("Backend: No product found with ID: {}", product.id);
+        return Err("Product not found".to_string());
+    }
+    
+    // Retrieve the updated product with category information
+    let updated_product = match tx.query_row(
+        "SELECT p.id, p.name, p.description, p.sku, p.category_id, c.name, p.unit_price, 
+                p.current_stock, p.minimum_stock, p.supplier, p.created_at, p.updated_at 
+         FROM products p
+         JOIN categories c ON p.category_id = c.id
+         WHERE p.id = ?1",
+        params![product.id],
+        |row| {
+            Ok(ProductWithCategory {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                description: row.get(2)?,
+                sku: row.get(3)?,
+                category_id: row.get(4)?,
+                category_name: row.get(5)?,
+                unit_price: row.get(6)?,
+                current_stock: row.get(7)?,
+                minimum_stock: row.get(8)?,
+                supplier: row.get(9)?,
+                created_at: row.get(10)?,
+                updated_at: row.get(11)?,
+            })
+        }
+    ) {
+        Ok(product) => product,
+        Err(e) => {
+            let error_msg = format!("Failed to query updated product: {}", e);
+            println!("Backend error: {}", error_msg);
+            return Err(error_msg);
+        }
+    };
+    
+    // Commit the transaction
+    if let Err(e) = tx.commit() {
+        let error_msg = format!("Failed to commit transaction: {}", e);
+        println!("Backend error: {}", error_msg);
+        return Err(error_msg);
+    }
+
+    println!("Backend: Successfully updated product: {}", updated_product.name);
+    Ok(updated_product)
 }

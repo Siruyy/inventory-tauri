@@ -1,45 +1,17 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Header from "../components/Header";
-import { CategoryCards } from "../components/CategoryCards";
+import { OrderCategoryCards } from "../components/OrderCategoryCards";
+import { useProducts } from "../hooks/useProducts";
+import {
+  useOrders,
+  type NewOrder,
+  type NewOrderItem,
+  type CreateOrderRequest,
+} from "../hooks/useOrders";
 import "../styles/Orders.css";
 
-// Sample category data
-const sampleCategories = [
-  { id: 1, name: "All", description: "65 items" },
-  { id: 2, name: "Beverages", description: "20 items" },
-  { id: 3, name: "Main Course", description: "15 items" },
-  { id: 4, name: "Desserts", description: "10 items" },
-  { id: 5, name: "Appetizers", description: "12 items" },
-  { id: 6, name: "Sides", description: "8 items" },
-];
-
-// Sample menu items data
-const sampleMenuItems = [
-  {
-    id: "1",
-    name: "Iced Coffee",
-    price: 3.99,
-    category: "Beverages",
-    image: "/icons/beverage.svg",
-  },
-  {
-    id: "2",
-    name: "Chicken Rice",
-    price: 12.99,
-    category: "Main Course",
-    image: "/icons/food.svg",
-  },
-  {
-    id: "3",
-    name: "Chocolate Cake",
-    price: 6.99,
-    category: "Desserts",
-    image: "/icons/dessert.svg",
-  },
-];
-
 interface OrderItem {
-  id: string;
+  id: number;
   name: string;
   quantity: number;
   price: number;
@@ -57,7 +29,7 @@ interface Order {
 const Orders: React.FC = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<
     number | undefined
-  >(1);
+  >(undefined);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentOrder, setCurrentOrder] = useState<Order>({
     orderId: `ORD-${Date.now()}`,
@@ -67,25 +39,181 @@ const Orders: React.FC = () => {
     total: 0,
     cashier: "John Doe", // TODO: Replace with actual logged-in user
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleCategoryClick = (category: {
-    name: string;
-    icon: string;
-    itemCount: number;
-  }) => {
-    setSelectedCategoryId(
-      sampleCategories.find((c) => c.name === category.name)?.id
-    );
+  // Always fetch all products and filter on client side
+  const { products: allProducts, isLoading, refetchProducts } = useProducts();
+  const { createOrder } = useOrders();
+
+  // Filter products by category client-side instead of relying on backend
+  const categoryFilteredProducts =
+    selectedCategoryId !== undefined
+      ? allProducts.filter(
+          (product) => product.category_id === selectedCategoryId
+        )
+      : allProducts;
+
+  // Add debugging for category selection
+  useEffect(() => {
+    console.log("Orders: Selected category changed to:", selectedCategoryId);
+    console.log("All products:", allProducts.length);
+
+    if (selectedCategoryId) {
+      const filteredCount = allProducts.filter(
+        (p) => p.category_id === selectedCategoryId
+      ).length;
+      console.log(`Products in category ${selectedCategoryId}:`, filteredCount);
+    }
+  }, [selectedCategoryId, allProducts]);
+
+  // Filter by search query
+  const filteredProducts = categoryFilteredProducts.filter(
+    (product) =>
+      !searchQuery ||
+      product.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Handle category selection
+  const handleCategorySelect = (categoryId: number | undefined) => {
+    console.log("Orders: Setting category ID to:", categoryId);
+    setSelectedCategoryId(categoryId);
   };
 
-  const filteredMenuItems = sampleMenuItems.filter(
-    (item) =>
-      (selectedCategoryId === 1 ||
-        item.category ===
-          sampleCategories.find((c) => c.id === selectedCategoryId)?.name) &&
-      (!searchQuery ||
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  // Add product to order
+  const addProductToOrder = (product: any) => {
+    setCurrentOrder((prevOrder) => {
+      // Check if the product is already in the order
+      const existingItemIndex = prevOrder.items.findIndex(
+        (item) => item.id === product.id
+      );
+
+      let updatedItems;
+
+      if (existingItemIndex >= 0) {
+        // Increase quantity if already in order
+        updatedItems = [...prevOrder.items];
+        updatedItems[existingItemIndex] = {
+          ...updatedItems[existingItemIndex],
+          quantity: updatedItems[existingItemIndex].quantity + 1,
+        };
+      } else {
+        // Add new item to order
+        updatedItems = [
+          ...prevOrder.items,
+          {
+            id: product.id,
+            name: product.name,
+            quantity: 1,
+            price: product.unit_price,
+          },
+        ];
+      }
+
+      // Calculate updated totals
+      const subtotal = updatedItems.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
+      const tax = subtotal * 0.1; // 10% tax
+      const total = subtotal + tax;
+
+      return {
+        ...prevOrder,
+        items: updatedItems,
+        subtotal,
+        tax,
+        total,
+      };
+    });
+  };
+
+  // Remove product from order
+  const removeProductFromOrder = (productId: number) => {
+    setCurrentOrder((prevOrder) => {
+      const updatedItems = prevOrder.items
+        .map((item) => {
+          if (item.id === productId) {
+            return {
+              ...item,
+              quantity: item.quantity - 1,
+            };
+          }
+          return item;
+        })
+        .filter((item) => item.quantity > 0);
+
+      const subtotal = updatedItems.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
+      const tax = subtotal * 0.1; // 10% tax
+      const total = subtotal + tax;
+
+      return {
+        ...prevOrder,
+        items: updatedItems,
+        subtotal,
+        tax,
+        total,
+      };
+    });
+  };
+
+  // Handle completing the order
+  const completeOrder = async () => {
+    if (currentOrder.items.length === 0 || isSubmitting) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Create request for backend
+      const newOrder: NewOrder = {
+        order_id: currentOrder.orderId,
+        cashier: currentOrder.cashier,
+        subtotal: currentOrder.subtotal,
+        tax: currentOrder.tax,
+        total: currentOrder.total,
+        status: "completed",
+      };
+
+      const orderItems: NewOrderItem[] = currentOrder.items.map((item) => ({
+        product_id: item.id,
+        quantity: item.quantity,
+        price: item.price,
+      }));
+
+      const request: CreateOrderRequest = {
+        order: newOrder,
+        items: orderItems,
+      };
+
+      // Send to backend
+      await createOrder.mutateAsync(request);
+
+      // After successful order creation, refresh product data (since quantities changed)
+      refetchProducts();
+
+      // Reset the order
+      setCurrentOrder({
+        orderId: `ORD-${Date.now()}`,
+        items: [],
+        subtotal: 0,
+        tax: 0,
+        total: 0,
+        cashier: "John Doe", // TODO: Replace with actual logged-in user
+      });
+
+      // Show success message
+      alert("Order completed successfully!");
+    } catch (error) {
+      console.error("Failed to complete order:", error);
+      alert("Failed to complete order. See console for details.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="orders-container">
@@ -103,29 +231,53 @@ const Orders: React.FC = () => {
               />
             </div>
 
-            {/* Categories Section */}
+            {/* Categories Section - Using OrderCategoryCards to hide edit/delete buttons */}
             <div className="categories-section">
-              <CategoryCards
+              <OrderCategoryCards
                 selectedCategoryId={selectedCategoryId}
-                onSelectCategory={setSelectedCategoryId}
+                onSelectCategory={handleCategorySelect}
               />
             </div>
 
             {/* Menu Items Section with Scrollable Container */}
             <div className="menu-items-section">
-              <div className="menu-items-grid">
-                {filteredMenuItems.map((item) => (
-                  <div key={item.id} className="menu-item-card">
-                    <div className="menu-item-image">
-                      <img src={item.image} alt={item.name} />
+              {isLoading ? (
+                <div className="loading-indicator">Loading products...</div>
+              ) : (
+                <div className="menu-items-grid">
+                  {filteredProducts.length > 0 ? (
+                    filteredProducts.map((product) => (
+                      <div
+                        key={product.id}
+                        className="menu-item-card"
+                        onClick={() => addProductToOrder(product)}
+                      >
+                        <div className="menu-item-image">
+                          {/* Use product icon or a placeholder based on category */}
+                          <img
+                            src={
+                              product.category_name === "Beverage"
+                                ? "/icons/beverage.svg"
+                                : product.category_name === "Food"
+                                ? "/icons/food.svg"
+                                : "/icons/item.svg"
+                            }
+                            alt={product.name}
+                          />
+                        </div>
+                        <div className="menu-item-info">
+                          <h3>{product.name}</h3>
+                          <p>₱{product.unit_price.toFixed(2)}</p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="no-products-message">
+                      No products found in this category
                     </div>
-                    <div className="menu-item-info">
-                      <h3>{item.name}</h3>
-                      <p>${item.price.toFixed(2)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           <div className="order-slip-panel">
@@ -140,27 +292,47 @@ const Orders: React.FC = () => {
                     <span className="item-name">{item.name}</span>
                     <span className="item-quantity">x{item.quantity}</span>
                   </div>
-                  <span className="item-price">
-                    ${(item.price * item.quantity).toFixed(2)}
-                  </span>
+                  <div className="item-actions">
+                    <span className="item-price">
+                      ₱{(item.price * item.quantity).toFixed(2)}
+                    </span>
+                    <button
+                      className="remove-item-btn"
+                      onClick={() => removeProductFromOrder(item.id)}
+                    >
+                      −
+                    </button>
+                  </div>
                 </div>
               ))}
+              {currentOrder.items.length === 0 && (
+                <div className="empty-order">
+                  <p>No items added yet</p>
+                  <p>Click on products to add them to your order</p>
+                </div>
+              )}
             </div>
             <div className="order-summary">
               <div className="summary-row">
                 <span>Subtotal</span>
-                <span>${currentOrder.subtotal.toFixed(2)}</span>
+                <span>₱{currentOrder.subtotal.toFixed(2)}</span>
               </div>
               <div className="summary-row">
                 <span>Tax (10%)</span>
-                <span>${currentOrder.tax.toFixed(2)}</span>
+                <span>₱{currentOrder.tax.toFixed(2)}</span>
               </div>
               <div className="summary-row total">
                 <span>Total</span>
-                <span>${currentOrder.total.toFixed(2)}</span>
+                <span>₱{currentOrder.total.toFixed(2)}</span>
               </div>
             </div>
-            <button className="complete-order-btn">Complete Order</button>
+            <button
+              className="complete-order-btn"
+              onClick={completeOrder}
+              disabled={currentOrder.items.length === 0 || isSubmitting}
+            >
+              {isSubmitting ? "Processing..." : "Complete Order"}
+            </button>
           </div>
         </div>
       </div>

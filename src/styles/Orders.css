@@ -82,35 +82,43 @@
 .menu-item-card {
   background-color: #292c2d;
   border-radius: 10px;
-  padding: 16px;
+  padding: 20px;
   cursor: pointer;
-  transition: transform 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.2);
+  height: 160px;
 }
 
 .menu-item-card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-4px);
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.3);
 }
 
 .menu-item-image {
-  width: 100%;
-  height: 120px;
+  width: 60px;
+  height: 60px;
   border-radius: 8px;
   overflow: hidden;
-  margin-bottom: 12px;
-  background-color: #383c3d;
+  margin-bottom: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .menu-item-image img {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   object-fit: contain;
+  color: #0088ff;
 }
 
 .menu-item-info {
-  text-align: left;
+  text-align: center;
+  width: 100%;
 }
 
 .menu-item-info h3 {
@@ -118,7 +126,8 @@
   font-size: 16px;
   font-weight: 500;
   color: #ffffff;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
+  text-align: center;
 }
 
 .menu-item-info p {
@@ -126,6 +135,7 @@
   font-size: 14px;
   color: #fac1d9;
   font-weight: 500;
+  text-align: center;
 }
 
 .order-slip-panel {
@@ -233,4 +243,81 @@
 
 .complete-order-btn:active {
   opacity: 0.8;
+}
+
+.item-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.remove-item-btn {
+  background-color: #3a3d40;
+  color: #ffffff;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.remove-item-btn:hover {
+  background-color: #e53935;
+}
+
+.loading-indicator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  color: #bbbbbb;
+  font-size: 16px;
+}
+
+.empty-order {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #777979;
+  text-align: center;
+  padding: 20px;
+}
+
+.empty-order p {
+  margin: 5px 0;
+}
+
+.empty-order p:first-child {
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.empty-order p:last-child {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.complete-order-btn:disabled {
+  background-color: #4d4d4d;
+  color: #777979;
+  cursor: not-allowed;
+}
+
+.no-products-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  width: 100%;
+  color: #777979;
+  font-size: 16px;
+  text-align: center;
+  padding: 20px;
 }
