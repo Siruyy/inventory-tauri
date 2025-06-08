@@ -8,7 +8,7 @@ pub fn get_all_products(state: tauri::State<DbState>) -> Result<Vec<ProductWithC
     
     let mut stmt = conn.prepare(
         "SELECT p.id, p.name, p.description, p.sku, p.category_id, c.name as category_name, 
-         p.unit_price, p.current_stock, p.minimum_stock, p.location, p.created_at, p.updated_at
+         p.unit_price, p.current_stock, p.minimum_stock, p.supplier, p.created_at, p.updated_at
          FROM products p
          JOIN categories c ON p.category_id = c.id
          ORDER BY p.name"
@@ -25,7 +25,7 @@ pub fn get_all_products(state: tauri::State<DbState>) -> Result<Vec<ProductWithC
             unit_price: row.get(6)?,
             current_stock: row.get(7)?,
             minimum_stock: row.get(8)?,
-            location: row.get(9)?,
+            supplier: row.get(9)?,
             created_at: row.get(10)?,
             updated_at: row.get(11)?,
         })
@@ -40,7 +40,7 @@ pub fn get_products_by_category(state: tauri::State<DbState>, category_id: i32) 
     
     let mut stmt = conn.prepare(
         "SELECT p.id, p.name, p.description, p.sku, p.category_id, c.name as category_name, 
-         p.unit_price, p.current_stock, p.minimum_stock, p.location, p.created_at, p.updated_at
+         p.unit_price, p.current_stock, p.minimum_stock, p.supplier, p.created_at, p.updated_at
          FROM products p
          JOIN categories c ON p.category_id = c.id
          WHERE p.category_id = ?1
@@ -58,7 +58,7 @@ pub fn get_products_by_category(state: tauri::State<DbState>, category_id: i32) 
             unit_price: row.get(6)?,
             current_stock: row.get(7)?,
             minimum_stock: row.get(8)?,
-            location: row.get(9)?,
+            supplier: row.get(9)?,
             created_at: row.get(10)?,
             updated_at: row.get(11)?,
         })
@@ -72,9 +72,9 @@ pub fn add_product(state: tauri::State<DbState>, product: NewProduct) -> Result<
     let conn = state.connection.lock().map_err(|_| "Failed to lock database")?;
     
     let mut stmt = conn.prepare(
-        "INSERT INTO products (name, description, sku, category_id, unit_price, current_stock, minimum_stock, location)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-         RETURNING id, name, description, sku, category_id, unit_price, current_stock, minimum_stock, location, created_at, updated_at"
+        "INSERT INTO products (name, description, sku, category_id, unit_price, current_stock, minimum_stock, supplier, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, datetime('now'), datetime('now'))
+         RETURNING id, name, description, sku, category_id, unit_price, current_stock, minimum_stock, supplier, created_at, updated_at"
     ).map_err(|e| e.to_string())?;
 
     stmt.query_row(
@@ -86,7 +86,7 @@ pub fn add_product(state: tauri::State<DbState>, product: NewProduct) -> Result<
             product.unit_price,
             product.current_stock,
             product.minimum_stock,
-            product.location,
+            product.supplier,
         ],
         |row| {
             Ok(Product {
@@ -98,7 +98,7 @@ pub fn add_product(state: tauri::State<DbState>, product: NewProduct) -> Result<
                 unit_price: row.get(5)?,
                 current_stock: row.get(6)?,
                 minimum_stock: row.get(7)?,
-                location: row.get(8)?,
+                supplier: row.get(8)?,
                 created_at: row.get(9)?,
                 updated_at: row.get(10)?,
             })
@@ -123,7 +123,7 @@ pub fn update_product_stock(state: tauri::State<DbState>, id: i32, new_stock: i3
     let conn = state.connection.lock().map_err(|_| "Failed to lock database")?;
     
     conn.execute(
-        "UPDATE products SET current_stock = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
+        "UPDATE products SET current_stock = ?1, updated_at = datetime('now') WHERE id = ?2",
         params![new_stock, id]
     ).map_err(|e| e.to_string())?;
 

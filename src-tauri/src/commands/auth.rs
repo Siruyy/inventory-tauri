@@ -1,13 +1,12 @@
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use crate::auth::{create_token, verify_token};
-use crate::db::{DbPool, models::{LoginCredentials, NewUser, User}};
-use crate::db::establish_connection;
+use crate::db::models::{User, NewUser, LoginCredentials};
+use crate::db::DbState;
+
 use bcrypt::{hash, verify, DEFAULT_COST};
-use diesel::prelude::*;
-use jsonwebtoken::{encode, EncodingKey, Header};
-use std::time::{SystemTime, UNIX_EPOCH};
+use jsonwebtoken::{encode, EncodingKey, Header, decode, DecodingKey, Validation};
+use rusqlite::params;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {
@@ -30,71 +29,142 @@ pub struct RegisterRequest {
     full_name: String,
 }
 
+// Function to create a JWT token
+fn create_token(user: &User) -> Result<String, String> {
+    let expiration = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as usize + 24 * 3600; // 24 hours from now
+
+    let claims = Claims {
+        sub: user.username.clone(),
+        exp: expiration,
+        role: user.role.clone(),
+    };
+
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret("your-secret-key".as_ref()),
+    )
+    .map_err(|e| e.to_string())
+}
+
+// Function to verify a JWT token
+fn verify_token(token: &str) -> Result<Claims, String> {
+    let token_data = decode::<Claims>(
+        token,
+        &DecodingKey::from_secret("your-secret-key".as_ref()),
+        &Validation::default(),
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(token_data.claims)
+}
+
 #[tauri::command]
-pub async fn login(credentials: LoginCredentials) -> Result<String, String> {
-    let conn = &mut establish_connection();
-    let user = users::table
-        .filter(users::username.eq(&credentials.username))
-        .first::<User>(conn)
-        .map_err(|_| "User not found")?;
+pub fn login(credentials: LoginCredentials, db_state: State<DbState>) -> Result<AuthResponse, String> {
+    let conn = db_state.connection.lock().map_err(|_| "Failed to lock database")?;
+    
+    let mut stmt = conn.prepare("SELECT * FROM users WHERE username = ?")
+        .map_err(|_| "Failed to prepare statement")?;
+        
+    let user = stmt.query_row(params![credentials.username], |row| {
+        Ok(User {
+            id: row.get(0)?,
+            username: row.get(1)?,
+            email: row.get(2)?,
+            password_hash: row.get(3)?,
+            full_name: row.get(4)?,
+            role: row.get(5)?,
+            created_at: row.get(6)?,
+            updated_at: row.get(7)?,
+        })
+    }).map_err(|_| "User not found")?;
 
     if !verify(&credentials.password, &user.password_hash).map_err(|_| "Invalid password")? {
         return Err("Invalid password".to_string());
     }
 
-    let expiration = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as usize + 24 * 3600; // 24 hours from now
-
-    let claims = Claims {
-        sub: user.username,
-        exp: expiration,
-        role: user.role,
-    };
-
-    let token = encode(
-        &Header::default(),
-        &claims,
-        &EncodingKey::from_secret("your-secret-key".as_ref()),
-    )
-    .map_err(|_| "Could not create token")?;
-
-    Ok(token)
+    // Create token
+    let token = create_token(&user)?;
+    
+    // Return user and token
+    Ok(AuthResponse {
+        user,
+        token,
+    })
 }
 
 #[tauri::command]
-pub async fn register(new_user: NewUser) -> Result<User, String> {
-    let conn = &mut establish_connection();
+pub fn register(register_request: RegisterRequest, db_state: State<DbState>) -> Result<AuthResponse, String> {
+    let conn = db_state.connection.lock().map_err(|_| "Failed to lock database")?;
     
     // Check if username already exists
-    if users::table
-        .filter(users::username.eq(&new_user.username))
-        .first::<User>(conn)
-        .is_ok()
-    {
+    let mut stmt = conn.prepare("SELECT COUNT(*) FROM users WHERE username = ?")
+        .map_err(|_| "Failed to prepare statement")?;
+        
+    let count: i64 = stmt.query_row(params![&register_request.username], |row| row.get(0))
+        .map_err(|_| "Failed to check username")?;
+        
+    if count > 0 {
         return Err("Username already exists".to_string());
     }
 
-    let password_hash = hash(new_user.password.as_bytes(), DEFAULT_COST)
+    let password_hash = hash(register_request.password.as_bytes(), DEFAULT_COST)
         .map_err(|_| "Could not hash password")?;
 
-    let user = diesel::insert_into(users::table)
-        .values((
-            users::username.eq(new_user.username),
-            users::email.eq(new_user.email),
-            users::password_hash.eq(password_hash),
-            users::full_name.eq(new_user.full_name),
-            users::role.eq(new_user.role),
-        ))
-        .get_result::<User>(conn)
-        .map_err(|_| "Could not create user")?;
+    // Create the NewUser with the hashed password
+    let new_user = NewUser {
+        username: register_request.username,
+        email: register_request.email,
+        password_hash,
+        full_name: register_request.full_name,
+        role: "user".to_string(), // Default role
+    };
 
-    Ok(user)
+    // Insert the new user
+    conn.execute(
+        "INSERT INTO users (username, email, password_hash, full_name, role, created_at, updated_at) 
+         VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
+        params![
+            &new_user.username,
+            &new_user.email,
+            &new_user.password_hash,
+            &new_user.full_name,
+            &new_user.role,
+        ],
+    ).map_err(|_| "Could not create user")?;
+    
+    // Get the created user
+    let mut stmt = conn.prepare("SELECT * FROM users WHERE username = ?")
+        .map_err(|_| "Failed to prepare statement")?;
+        
+    let user = stmt.query_row(params![&new_user.username], |row| {
+        Ok(User {
+            id: row.get(0)?,
+            username: row.get(1)?,
+            email: row.get(2)?,
+            password_hash: row.get(3)?,
+            full_name: row.get(4)?,
+            role: row.get(5)?,
+            created_at: row.get(6)?,
+            updated_at: row.get(7)?,
+        })
+    }).map_err(|_| "Could not retrieve created user")?;
+
+    // Create token
+    let token = create_token(&user)?;
+    
+    // Return user and token
+    Ok(AuthResponse {
+        user,
+        token,
+    })
 }
 
 #[tauri::command]
-pub async fn verify_auth(token: String) -> Result<bool, String> {
+pub fn verify_auth(token: String) -> Result<bool, String> {
     verify_token(&token)
         .map(|_| true)
         .map_err(|e| e.to_string())

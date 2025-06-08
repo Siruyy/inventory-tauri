@@ -14,12 +14,13 @@ diesel::table! {
     products (id) {
         id -> Integer,
         name -> Text,
-        description -> Text,
+        description -> Nullable<Text>,
         sku -> Text,
         category_id -> Integer,
-        quantity -> Integer,
+        current_stock -> Integer,
+        minimum_stock -> Integer,
         unit_price -> Double,
-        location -> Text,
+        supplier -> Nullable<Text>,
         created_at -> Text,
         updated_at -> Text,
     }

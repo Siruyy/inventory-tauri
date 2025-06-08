@@ -35,15 +35,35 @@ export function AddCategoryDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">Add New Category</Button>
+        <Button
+          style={{
+            backgroundColor: "#FAC1D9",
+            color: "#333333",
+            fontWeight: 500,
+            padding: "10px 24px",
+            borderRadius: "8px",
+            border: "none",
+            whiteSpace: "nowrap",
+            minWidth: "190px",
+            fontSize: "15px",
+            maxWidth: "100%",
+            overflow: "visible",
+          }}
+          className="hover:bg-[#e0a9c1]"
+        >
+          Add New Category
+        </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="bg-[#292C2D] border-[#323232] text-[#FFFFFF]">
         <DialogHeader>
-          <DialogTitle>Add New Category</DialogTitle>
+          <DialogTitle className="text-[#FFFFFF]">Add New Category</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <label htmlFor="name" className="text-sm font-medium">
+            <label
+              htmlFor="name"
+              className="text-sm font-medium text-[#DDDDDD]"
+            >
               Name
             </label>
             <Input
@@ -51,10 +71,14 @@ export function AddCategoryDialog() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
+              className="bg-[#1F1F1F] border-[#323232] text-[#FFFFFF]"
             />
           </div>
           <div className="space-y-2">
-            <label htmlFor="description" className="text-sm font-medium">
+            <label
+              htmlFor="description"
+              className="text-sm font-medium text-[#DDDDDD]"
+            >
               Description
             </label>
             <Textarea
@@ -62,6 +86,7 @@ export function AddCategoryDialog() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
+              className="bg-[#1F1F1F] border-[#323232] text-[#FFFFFF]"
             />
           </div>
           <div className="flex justify-end space-x-2">
@@ -69,10 +94,16 @@ export function AddCategoryDialog() {
               type="button"
               variant="outline"
               onClick={() => setOpen(false)}
+              className="border-[#323232] text-[#DDDDDD] hover:bg-[#33363A] hover:text-[#FFFFFF]"
             >
               Cancel
             </Button>
-            <Button type="submit">Add Category</Button>
+            <Button
+              type="submit"
+              className="bg-[#FAC1D9] text-[#292C2D] hover:bg-[#e0a9c1]"
+            >
+              Add Category
+            </Button>
           </div>
         </form>
       </DialogContent>

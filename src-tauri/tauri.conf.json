@@ -36,16 +36,10 @@
   },
   "plugins": {
     "shell": {
-      "scope": ["shell:allow-open"]
+      "open": true
     },
     "fs": {
-      "scope": {
-        "allow": ["**"],
-        "deny": []
-      }
-    },
-    "dialog": {
-      "all": true
+      "requireLiteralLeadingDot": false
     }
   }
 }

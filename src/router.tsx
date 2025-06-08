@@ -103,10 +103,16 @@ const styles: { [key: string]: React.CSSProperties } = {
     height: "100vh",
     width: "100%",
     backgroundColor: "#1F1F1F",
+    overflow: "hidden",
+    boxSizing: "border-box",
   },
   content: {
     flex: 1,
     padding: "1rem",
     overflowY: "auto",
+    overflowX: "hidden",
+    boxSizing: "border-box",
+    width: "100%",
+    maxWidth: "100%",
   },
 };

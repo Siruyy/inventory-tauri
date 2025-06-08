@@ -15,10 +15,29 @@ export function CategoryCards({
 
   return (
     <div style={styles.container}>
+      {/* All category card */}
+      <div
+        style={{
+          ...styles.card,
+          ...styles.allCategoryCard,
+          ...(selectedCategoryId === undefined ? styles.selectedCard : {}),
+        }}
+        onClick={() => onSelectCategory(undefined)}
+      >
+        <div style={styles.allCategoryContent}>
+          <div style={styles.allCategoryIcon}>All</div>
+          <div style={styles.categoryName}>All Items</div>
+        </div>
+      </div>
+
+      {/* Category cards */}
       {categories.map((category: Category) => (
         <div
           key={category.id}
-          style={styles.card}
+          style={{
+            ...styles.card,
+            ...(selectedCategoryId === category.id ? styles.selectedCard : {}),
+          }}
           onClick={() => onSelectCategory(category.id)}
         >
           {/* Category Icon */}
@@ -33,9 +52,7 @@ export function CategoryCards({
           {/* Category Info */}
           <div style={styles.infoContainer}>
             <div style={styles.categoryName}>{category.name}</div>
-            <div style={styles.itemCount}>
-              {category.description || "No description"}
-            </div>
+            <div style={styles.itemCount}>20 items</div>
           </div>
 
           {/* Edit Icon */}
@@ -58,8 +75,13 @@ const styles: { [key: string]: React.CSSProperties } = {
   container: {
     display: "flex",
     flexWrap: "wrap",
-    gap: "7px",
+    gap: "16px",
     padding: "4px 0",
+    overflowX: "auto",
+    scrollbarWidth: "thin",
+    scrollbarColor: "#3A3D40 #1F1F1F",
+    msOverflowStyle: "none", // IE and Edge
+    paddingBottom: "8px",
   },
   card: {
     width: "152px",
@@ -73,6 +95,14 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexDirection: "column",
     justifyContent: "space-between",
     cursor: "pointer",
+    transition: "all 0.2s ease-in-out",
+    border: "1px solid #323232",
+    boxShadow: "0px 4px 10px rgba(0, 0, 0, 0.1)",
+    flexShrink: 0,
+  },
+  selectedCard: {
+    borderColor: "#FAC1D9",
+    backgroundColor: "#33363A",
   },
   iconContainer: {
     width: "40px",
@@ -80,10 +110,15 @@ const styles: { [key: string]: React.CSSProperties } = {
     position: "absolute",
     right: "15px",
     top: "15px",
+    backgroundColor: "#3A3D40",
+    borderRadius: "8px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
   icon: {
-    width: "100%",
-    height: "100%",
+    width: "24px",
+    height: "24px",
     objectFit: "contain",
   },
   infoContainer: {
@@ -102,29 +137,55 @@ const styles: { [key: string]: React.CSSProperties } = {
     lineHeight: "1.5em",
   },
   itemCount: {
-    color: "#FFFFFF",
+    color: "#AAAAAA",
     fontFamily: "Poppins",
-    fontSize: "16px",
+    fontSize: "14px",
     fontWeight: 300,
     lineHeight: "1.5em",
   },
   editButton: {
     position: "absolute",
     left: "15px",
-    top: "24px",
-    width: "22px",
-    height: "22px",
+    top: "15px",
+    width: "28px",
+    height: "28px",
     padding: 0,
     border: "none",
-    background: "transparent",
+    background: "rgba(250, 193, 217, 0.15)",
+    borderRadius: "6px",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
   },
   editIcon: {
-    width: "14.29px",
-    height: "14.29px",
+    width: "14px",
+    height: "14px",
     opacity: 0.9,
+  },
+  allCategoryCard: {
+    backgroundColor: "#292C2D",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  allCategoryContent: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "8px",
+  },
+  allCategoryIcon: {
+    width: "40px",
+    height: "40px",
+    borderRadius: "8px",
+    backgroundColor: "#3A3D40",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#FFFFFF",
+    fontWeight: "bold",
+    fontSize: "16px",
   },
 };

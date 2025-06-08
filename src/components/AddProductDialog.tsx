@@ -77,16 +77,38 @@ export function AddProductDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>Add New Inventory</Button>
+        <Button
+          style={{
+            backgroundColor: "#FAC1D9",
+            color: "#333333",
+            fontWeight: 500,
+            padding: "10px 24px",
+            borderRadius: "8px",
+            border: "none",
+            whiteSpace: "nowrap",
+            minWidth: "190px",
+            fontSize: "15px",
+            maxWidth: "100%",
+            overflow: "visible",
+          }}
+          className="hover:bg-[#e0a9c1]"
+        >
+          Add New Inventory
+        </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl bg-[#292C2D] border-[#323232] text-[#FFFFFF]">
         <DialogHeader>
-          <DialogTitle>Add New Inventory Item</DialogTitle>
+          <DialogTitle className="text-[#FFFFFF]">
+            Add New Inventory Item
+          </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label htmlFor="name" className="text-sm font-medium">
+              <label
+                htmlFor="name"
+                className="text-sm font-medium text-[#DDDDDD]"
+              >
                 Name
               </label>
               <Input
@@ -95,10 +117,14 @@ export function AddProductDialog() {
                 value={formData.name}
                 onChange={handleChange}
                 required
+                className="bg-[#1F1F1F] border-[#323232] text-[#FFFFFF]"
               />
             </div>
             <div className="space-y-2">
-              <label htmlFor="sku" className="text-sm font-medium">
+              <label
+                htmlFor="sku"
+                className="text-sm font-medium text-[#DDDDDD]"
+              >
                 SKU
               </label>
               <Input
@@ -107,12 +133,16 @@ export function AddProductDialog() {
                 value={formData.sku}
                 onChange={handleChange}
                 required
+                className="bg-[#1F1F1F] border-[#323232] text-[#FFFFFF]"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="description" className="text-sm font-medium">
+            <label
+              htmlFor="description"
+              className="text-sm font-medium text-[#DDDDDD]"
+            >
               Description
             </label>
             <Textarea
@@ -121,12 +151,16 @@ export function AddProductDialog() {
               value={formData.description}
               onChange={handleChange}
               rows={2}
+              className="bg-[#1F1F1F] border-[#323232] text-[#FFFFFF]"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label htmlFor="category" className="text-sm font-medium">
+              <label
+                htmlFor="category"
+                className="text-sm font-medium text-[#DDDDDD]"
+              >
                 Category
               </label>
               <Select
@@ -135,10 +169,10 @@ export function AddProductDialog() {
                   setFormData((prev) => ({ ...prev, category_id: value }))
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="bg-[#1F1F1F] border-[#323232] text-[#FFFFFF]">
                   <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-[#292C2D] border-[#323232] text-[#FFFFFF]">
                   {categories.map((category) => (
                     <SelectItem
                       key={category.id}
@@ -151,7 +185,10 @@ export function AddProductDialog() {
               </Select>
             </div>
             <div className="space-y-2">
-              <label htmlFor="location" className="text-sm font-medium">
+              <label
+                htmlFor="location"
+                className="text-sm font-medium text-[#DDDDDD]"
+              >
                 Location
               </label>
               <Input
@@ -159,13 +196,17 @@ export function AddProductDialog() {
                 name="location"
                 value={formData.location}
                 onChange={handleChange}
+                className="bg-[#1F1F1F] border-[#323232] text-[#FFFFFF]"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
-              <label htmlFor="unit_price" className="text-sm font-medium">
+              <label
+                htmlFor="unit_price"
+                className="text-sm font-medium text-[#DDDDDD]"
+              >
                 Unit Price
               </label>
               <Input
@@ -177,10 +218,14 @@ export function AddProductDialog() {
                 value={formData.unit_price}
                 onChange={handleNumberChange}
                 required
+                className="bg-[#1F1F1F] border-[#323232] text-[#FFFFFF]"
               />
             </div>
             <div className="space-y-2">
-              <label htmlFor="current_stock" className="text-sm font-medium">
+              <label
+                htmlFor="current_stock"
+                className="text-sm font-medium text-[#DDDDDD]"
+              >
                 Current Stock
               </label>
               <Input
@@ -191,10 +236,14 @@ export function AddProductDialog() {
                 value={formData.current_stock}
                 onChange={handleNumberChange}
                 required
+                className="bg-[#1F1F1F] border-[#323232] text-[#FFFFFF]"
               />
             </div>
             <div className="space-y-2">
-              <label htmlFor="minimum_stock" className="text-sm font-medium">
+              <label
+                htmlFor="minimum_stock"
+                className="text-sm font-medium text-[#DDDDDD]"
+              >
                 Minimum Stock
               </label>
               <Input
@@ -205,6 +254,7 @@ export function AddProductDialog() {
                 value={formData.minimum_stock}
                 onChange={handleNumberChange}
                 required
+                className="bg-[#1F1F1F] border-[#323232] text-[#FFFFFF]"
               />
             </div>
           </div>
@@ -214,10 +264,16 @@ export function AddProductDialog() {
               type="button"
               variant="outline"
               onClick={() => setOpen(false)}
+              className="border-[#323232] text-[#DDDDDD] hover:bg-[#33363A] hover:text-[#FFFFFF]"
             >
               Cancel
             </Button>
-            <Button type="submit">Add Item</Button>
+            <Button
+              type="submit"
+              className="bg-[#FAC1D9] text-[#292C2D] hover:bg-[#e0a9c1]"
+            >
+              Add Product
+            </Button>
           </div>
         </form>
       </DialogContent>

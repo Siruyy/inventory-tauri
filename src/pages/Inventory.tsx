@@ -1,115 +1,246 @@
 // src/pages/Inventory.tsx
 import React, { useState, useEffect } from "react";
-import Header from "../components/Header";
-import InventoryFormDrawer from "../components/InventoryFormDrawer";
-import CategoryFormDrawer from "../components/CategoryFormDrawer";
 import { CategoryCards } from "../components/CategoryCards";
 import { ProductList } from "../components/ProductList";
 import { AddCategoryDialog } from "../components/AddCategoryDialog";
 import { AddProductDialog } from "../components/AddProductDialog";
+import { Button } from "../components/ui/button";
+import { useProducts } from "../hooks/useProducts";
+import { useCategories } from "../hooks/useCategories";
+import Header from "../components/Header";
 
 import SearchIcon from "/icons/search.svg";
-import PenIcon from "/icons/pen.svg";
-import TrashIcon from "/icons/trash.svg";
-
-interface Product {
-  id: string;
-  name: string;
-  thumbnailUrl: string;
-  stockCount: number;
-  status: "Active" | "Inactive" | "Draft";
-  category: string;
-  retailPrice: number;
-  perishable: boolean;
-}
-
-const sampleProducts: Product[] = [
-  {
-    id: "P001",
-    name: "Chicken Parmesan",
-    thumbnailUrl: "https://via.placeholder.com/60",
-    stockCount: 10,
-    status: "Active",
-    category: "Chicken",
-    retailPrice: 55.0,
-    perishable: true,
-  },
-  {
-    id: "P002",
-    name: "Beef Burger",
-    thumbnailUrl: "https://via.placeholder.com/60",
-    stockCount: 5,
-    status: "Active",
-    category: "Beef",
-    retailPrice: 45.0,
-    perishable: true,
-  },
-  {
-    id: "P003",
-    name: "Veggie Salad",
-    thumbnailUrl: "https://via.placeholder.com/60",
-    stockCount: 12,
-    status: "Inactive",
-    category: "Vegetarian",
-    retailPrice: 30.0,
-    perishable: false,
-  },
-  {
-    id: "P004",
-    name: "Grilled Salmon",
-    thumbnailUrl: "https://via.placeholder.com/60",
-    stockCount: 0,
-    status: "Draft",
-    category: "Seafood",
-    retailPrice: 75.0,
-    perishable: true,
-  },
-  {
-    id: "P005",
-    name: "Chicken Wings",
-    thumbnailUrl: "https://via.placeholder.com/60",
-    stockCount: 20,
-    status: "Active",
-    category: "Chicken",
-    retailPrice: 60.0,
-    perishable: true,
-  },
-  {
-    id: "P006",
-    name: "Tofu Stir‐Fry",
-    thumbnailUrl: "https://via.placeholder.com/60",
-    stockCount: 8,
-    status: "Active",
-    category: "Vegetarian",
-    retailPrice: 35.0,
-    perishable: false,
-  },
-];
 
 export default function Inventory() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number>();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [priceRange, setPriceRange] = useState({ min: 0, max: 1000 });
+  const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const { products } = useProducts();
+  const { categories } = useCategories();
+
+  // Calculate total products
+  const totalProducts = products.length;
+
+  const handleReset = () => {
+    setFilterStatus(null);
+    setPriceRange({ min: 0, max: 1000 });
+    setSearchTerm("");
+    setSelectedCategoryId(undefined);
+  };
+
+  // Prepare filters for the ProductList component
+  const filters = {
+    status: filterStatus,
+    priceRange: priceRange,
+  };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Inventory</h1>
-        <div className="space-x-4">
-          <AddCategoryDialog />
-          <AddProductDialog />
+    <div style={styles.pageContainer}>
+      {/* Header */}
+      <Header title="Inventory" />
+
+      <div style={styles.inner}>
+        {/* Header Actions Section */}
+        <div style={styles.headerActionsRow}>
+          <div style={styles.totalProductsContainer}>
+            <span style={styles.totalProductsCount}>{totalProducts}</span>
+            <span style={styles.totalProductsLabel}>total products</span>
+          </div>
+          <div style={styles.actionButtons}>
+            <div style={styles.searchContainer}>
+              <img src={SearchIcon} alt="Search" style={styles.searchIcon} />
+              <input
+                type="text"
+                placeholder="Search products..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={styles.searchInput}
+              />
+            </div>
+            <AddCategoryDialog />
+            <AddProductDialog />
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div style={styles.mainContent}>
+          <div style={styles.contentLayout}>
+            {/* Left Column - Filter Card */}
+            <div style={styles.filterCardContainer}>
+              <div style={styles.filterCard}>
+                <div style={styles.filterSection}>
+                  <h3 style={styles.filterTitle}>Product Status</h3>
+                  <div style={styles.statusButtons}>
+                    <button
+                      style={{
+                        ...styles.statusButton,
+                        ...(filterStatus === null
+                          ? styles.statusButtonActive
+                          : {}),
+                      }}
+                      onClick={() => setFilterStatus(null)}
+                    >
+                      All
+                      <span style={styles.statusBadge}>{products.length}</span>
+                    </button>
+                    <button
+                      style={{
+                        ...styles.statusButton,
+                        ...(filterStatus === "active"
+                          ? styles.statusButtonActive
+                          : {}),
+                      }}
+                      onClick={() =>
+                        setFilterStatus(
+                          filterStatus === "active" ? null : "active"
+                        )
+                      }
+                    >
+                      Active
+                      <span style={styles.statusBadge}>
+                        {products.filter((p) => p.current_stock > 0).length}
+                      </span>
+                    </button>
+                    <button
+                      style={{
+                        ...styles.statusButton,
+                        ...(filterStatus === "outOfStock"
+                          ? styles.statusButtonActive
+                          : {}),
+                      }}
+                      onClick={() =>
+                        setFilterStatus(
+                          filterStatus === "outOfStock" ? null : "outOfStock"
+                        )
+                      }
+                    >
+                      Out of Stock
+                      <span style={styles.statusBadge}>
+                        {products.filter((p) => p.current_stock === 0).length}
+                      </span>
+                    </button>
+                    <button
+                      style={{
+                        ...styles.statusButton,
+                        ...(filterStatus === "lowStock"
+                          ? styles.statusButtonActive
+                          : {}),
+                      }}
+                      onClick={() =>
+                        setFilterStatus(
+                          filterStatus === "lowStock" ? null : "lowStock"
+                        )
+                      }
+                    >
+                      Low Stock
+                      <span style={styles.statusBadge}>
+                        {
+                          products.filter(
+                            (p) =>
+                              p.current_stock <= p.minimum_stock &&
+                              p.current_stock > 0
+                          ).length
+                        }
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                <div style={styles.filterSection}>
+                  <h3 style={styles.filterTitle}>Category</h3>
+                  <select
+                    style={styles.dropdown}
+                    value={
+                      selectedCategoryId ? selectedCategoryId.toString() : ""
+                    }
+                    onChange={(e) =>
+                      setSelectedCategoryId(
+                        e.target.value ? Number(e.target.value) : undefined
+                      )
+                    }
+                  >
+                    <option value="">All Categories</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id.toString()}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={styles.filterSection}>
+                  <h3 style={styles.filterTitle}>Price</h3>
+                  <div style={styles.priceInputs}>
+                    <div style={styles.priceInputGroup}>
+                      <label style={styles.priceLabel}>Min ($)</label>
+                      <input
+                        type="number"
+                        value={priceRange.min}
+                        onChange={(e) =>
+                          setPriceRange({
+                            ...priceRange,
+                            min: Number(e.target.value),
+                          })
+                        }
+                        style={styles.priceInput}
+                      />
+                    </div>
+                  </div>
+                  <div style={styles.priceInputs}>
+                    <div style={styles.priceInputGroup}>
+                      <label style={styles.priceLabel}>Max ($)</label>
+                      <input
+                        type="number"
+                        value={priceRange.max}
+                        onChange={(e) =>
+                          setPriceRange({
+                            ...priceRange,
+                            max: Number(e.target.value),
+                          })
+                        }
+                        style={styles.priceInput}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <button style={styles.resetButton} onClick={handleReset}>
+                  Reset Filters
+                </button>
+              </div>
+            </div>
+
+            {/* Right Column - Categories and Products */}
+            <div style={styles.rightColumnContent}>
+              {/* Categories Section */}
+              <div style={styles.categoriesSection}>
+                <CategoryCards
+                  selectedCategoryId={selectedCategoryId}
+                  onSelectCategory={setSelectedCategoryId}
+                />
+              </div>
+
+              {/* Divider */}
+              <div style={styles.divider}></div>
+
+              {/* Products Section */}
+              <div style={styles.productsSection}>
+                <ProductList
+                  selectedCategoryId={selectedCategoryId}
+                  searchTerm={searchTerm}
+                  filters={filters}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-
-      <CategoryCards
-        selectedCategoryId={selectedCategoryId}
-        onSelectCategory={setSelectedCategoryId}
-      />
-
-      <ProductList selectedCategoryId={selectedCategoryId} />
     </div>
   );
 }
 
-/** Inline Styles for Inventory.tsx **/
+/** Styles for Inventory.tsx **/
 const styles: { [key: string]: React.CSSProperties } = {
   pageContainer: {
     display: "flex",
@@ -119,290 +250,216 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: "#FFFFFF",
     fontFamily: "Poppins, Helvetica, sans-serif",
     boxSizing: "border-box",
+    width: "100%",
+    maxWidth: "100%",
+    overflowX: "hidden",
   },
   inner: {
-    padding: "16px",
+    padding: "24px",
     flexGrow: 1,
-  },
-  mainFlex: {
-    display: "flex",
-    gap: "16px", // space between left and right columns
-    height: "calc(100% - 64px)", // leave room for header + top controls
-  },
-
-  /***** LEFT COLUMN *****/
-  leftColumn: {
     display: "flex",
     flexDirection: "column",
-    alignItems: "stretch",
-    width: "280px", // fixed width for filter card
-    gap: "16px", // space between "total products" and card
-    marginTop: "8px", // align with the top of search bar on right
+    gap: "16px",
+    width: "100%",
+    maxWidth: "100%",
+    boxSizing: "border-box",
   },
-  totalProductsTopRow: {
-    fontSize: "1.25rem",
-    fontWeight: 600,
+  headerActionsRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "16px",
+    width: "100%",
+    flexWrap: "wrap" as const,
+    gap: "16px",
+  },
+  actionButtons: {
+    display: "flex",
+    gap: "16px",
+    alignItems: "center",
+    flexWrap: "wrap" as const,
+  },
+  searchContainer: {
+    display: "flex",
+    alignItems: "center",
+    backgroundColor: "transparent",
+    borderRadius: "50px",
+    padding: "6px 16px",
+    width: "250px",
+    border: "1px solid #FFFFFF",
+    height: "35px",
+  },
+  searchIcon: {
+    width: "16px",
+    height: "16px",
+    marginRight: "8px",
+  },
+  searchInput: {
+    backgroundColor: "transparent",
+    border: "none",
     color: "#FFFFFF",
-    whiteSpace: "nowrap",
-    marginBottom: "11px",
+    fontSize: "14px",
+    width: "100%",
+    outline: "none",
+  },
+  mainContent: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+    width: "100%",
+  },
+  contentLayout: {
+    display: "flex",
+    gap: "24px",
+    width: "100%",
+    flexWrap: "wrap" as const,
+    boxSizing: "border-box",
+  },
+  filterCardContainer: {
+    width: "280px",
+    flexShrink: 0,
+    flexGrow: 0,
+    maxWidth: "100%",
+    boxSizing: "border-box",
+  },
+  rightColumnContent: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+    flex: 1,
+    minWidth: "0",
+    maxWidth: "100%",
+    boxSizing: "border-box",
+  },
+  totalProductsContainer: {
+    display: "flex",
+    flexDirection: "column",
+  },
+  totalProductsLabel: {
+    fontSize: "16px",
+    fontWeight: 300,
+    color: "#FFFFFF",
+  },
+  totalProductsCount: {
+    fontSize: "25px",
+    fontWeight: 500,
+    color: "#FFFFFF",
+  },
+  categoriesSection: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "16px",
+    width: "100%",
+  },
+  divider: {
+    width: "100%",
+    height: "1px",
+    backgroundColor: "#5E5E5E",
+    margin: "8px 0",
+  },
+  productsSection: {
+    display: "flex",
+    flexDirection: "column",
+    width: "100%",
   },
   filterCard: {
-    backgroundColor: "#2A2A2A",
-    borderRadius: "8px",
-    padding: "16px",
+    backgroundColor: "#292C2D",
+    borderRadius: "12px",
+    padding: "24px",
     display: "flex",
     flexDirection: "column",
     gap: "24px",
-    boxSizing: "border-box",
+    border: "1px solid #323232",
   },
-
-  section: {
+  filterSection: {
     display: "flex",
     flexDirection: "column",
     gap: "12px",
   },
-  cardTitle: {
-    fontSize: "0.75rem",
+  filterTitle: {
+    fontSize: "16px",
     fontWeight: 500,
-    color: "#DDDDDD",
+    color: "#FFFFFF",
+    margin: 0,
   },
-  statusButtonsRow: {
+  statusButtons: {
     display: "flex",
+    flexDirection: "column",
     gap: "8px",
   },
   statusButton: {
-    flexGrow: 1,
+    width: "100%",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "8px 12px",
-    backgroundColor: "#2A2A2A",
+    padding: "10px 12px",
+    backgroundColor: "#3D4142",
     border: "1px solid #323232",
     borderRadius: "8px",
-    color: "#DDDDDD",
-    fontSize: "0.75rem",
+    color: "#FFFFFF",
+    fontSize: "14px",
     cursor: "pointer",
+    textAlign: "left",
   },
   statusButtonActive: {
-    backgroundColor: "#292C2D",
     borderColor: "#FAC1D9",
-    color: "#FFFFFF",
-  },
-  statusButtonMini: {
-    flexGrow: 1,
-    padding: "8px 12px",
-    backgroundColor: "#2A2A2A",
-    border: "1px solid #323232",
-    borderRadius: "8px",
-    color: "#DDDDDD",
-    fontSize: "0.75rem",
-    cursor: "pointer",
-  },
-  statusButtonActiveMini: {
-    backgroundColor: "#292C2D",
-    borderColor: "#FAC1D9",
-    color: "#FFFFFF",
   },
   statusBadge: {
-    marginLeft: "8px",
     backgroundColor: "#FAC1D9",
     color: "#292C2D",
-    borderRadius: "12px",
-    padding: "0 6px",
-    fontSize: "0.75rem",
-    fontWeight: 500,
-  },
-  statusBadgeMini: {
-    marginLeft: "4px",
-    backgroundColor: "#FAC1D9",
-    color: "#292C2D",
-    borderRadius: "12px",
-    padding: "0 4px",
-    fontSize: "0.65rem",
-    fontWeight: 500,
+    borderRadius: "5px",
+    padding: "2px 8px",
+    fontSize: "14px",
+    fontWeight: 300,
   },
   dropdown: {
-    backgroundColor: "#292C2D",
-    border: "1px solid #323232",
-    borderRadius: "8px",
-    padding: "8px 12px",
-    color: "#DDDDDD",
-    fontSize: "0.875rem",
-    outline: "none",
-    boxSizing: "border-box",
-  },
-  textInput: {
     width: "100%",
-    backgroundColor: "#292C2D",
+    backgroundColor: "#3D4142",
+    border: "1px solid #323232",
+    borderRadius: "8px",
+    padding: "10px 12px",
+    color: "#FFFFFF",
+    fontSize: "14px",
+    outline: "none",
+    appearance: "none",
+  },
+  priceInputs: {
+    display: "flex",
+    width: "100%",
+    paddingRight: "8px",
+  },
+  priceInputGroup: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
+    marginBottom: "12px",
+  },
+  priceLabel: {
+    fontSize: "12px",
+    color: "#AAAAAA",
+  },
+  priceInput: {
+    width: "calc(100% - 8px)",
+    backgroundColor: "#3D4142",
     border: "1px solid #323232",
     borderRadius: "8px",
     padding: "8px 12px",
-    color: "#DDDDDD",
-    fontSize: "0.875rem",
+    color: "#FFFFFF",
+    fontSize: "14px",
     outline: "none",
-    boxSizing: "border-box",
-  },
-  priceRow: {
-    display: "flex",
-    alignItems: "center",
-    position: "relative",
-  },
-  currencySign: {
-    position: "absolute",
-    right: "12px",
-    color: "#DDDDDD",
-    fontSize: "0.875rem",
   },
   resetButton: {
     marginTop: "auto",
     backgroundColor: "#FAC1D9",
-    color: "#292C2D",
+    color: "#333333",
     border: "none",
     borderRadius: "8px",
-    padding: "10px 0",
-    fontSize: "0.875rem",
+    padding: "14px 0",
+    fontSize: "16px",
     fontWeight: 500,
     cursor: "pointer",
     width: "100%",
     transition: "background-color 0.2s",
-  },
-
-  /***** RIGHT COLUMN *****/
-  rightColumn: {
-    flexGrow: 1,
-    display: "flex",
-    flexDirection: "column",
-    gap: "16px",
-  },
-  topControls: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  searchWrapper: {
-    position: "relative",
-    flexGrow: 1,
-    maxWidth: "400px",
-  },
-  searchIcon: {
-    position: "absolute",
-    left: "12px",
-    top: "50%",
-    transform: "translateY(-50%)",
-    width: "16px",
-    height: "16px",
-    opacity: 0.6,
-  },
-  searchInput: {
-    width: "100%",
-    padding: "8px 12px 8px 36px",
-    borderRadius: "20px",
-    border: "1px solid #323232",
-    backgroundColor: "#292C2D",
-    color: "#DDDDDD",
-    fontSize: "0.875rem",
-    outline: "none",
-    boxSizing: "border-box",
-  },
-  buttonGroup: {
-    display: "flex",
-    gap: "16px",
-    marginLeft: "16px",
-  },
-  addButton: {
-    backgroundColor: "#FAC1D9",
-    color: "#292C2D",
-    border: "none",
-    borderRadius: "8px",
-    padding: "8px 16px",
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    transition: "background-color 0.2s",
-  },
-
-  productList: {
-    flexGrow: 1,
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-    overflowY: "auto",
-    padding: "4px 0",
-  },
-  productCard: {
-    display: "grid",
-    gridTemplateColumns: "auto 1fr auto auto",
-    alignItems: "center",
-    backgroundColor: "#2A2A2A",
-    borderRadius: "8px",
-    padding: "12px 16px",
-    gap: "16px",
-  },
-  productThumbWrapper: {
-    width: "60px",
-    height: "60px",
-    flexShrink: 0,
-  },
-  productThumb: {
-    width: "100%",
-    height: "100%",
-    borderRadius: "8px",
-    objectFit: "cover",
-  },
-  productInfo: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "4px",
-  },
-  productName: {
-    color: "#FFFFFF",
-    fontSize: "0.875rem",
-    fontWeight: 600,
-  },
-  productSubtext: {
-    color: "#DDDDDD",
-    fontSize: "0.75rem",
-  },
-  stockCount: {
-    color: "#FAC1D9",
-    fontWeight: 500,
-  },
-  productMeta: {
-    display: "flex",
-    gap: "24px",
-    marginLeft: "auto",
-    marginRight: "16px",
-  },
-  metaColumn: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "4px",
-  },
-  metaLabel: {
-    fontSize: "0.65rem",
-    color: "#AAAAAA",
-  },
-  metaValue: {
-    fontSize: "0.75rem",
-    color: "#DDDDDD",
-    fontWeight: 500,
-  },
-  actionIcons: {
-    display: "flex",
-    gap: "8px",
-  },
-  iconButton: {
-    backgroundColor: "transparent",
-    border: "none",
-    cursor: "pointer",
-    padding: "4px",
-    borderRadius: "4px",
-    transition: "background-color 0.2s",
-  },
-  actionIconImage: {
-    width: "16px",
-    height: "16px",
-    opacity: 0.8,
   },
 };

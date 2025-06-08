@@ -1,5 +1,5 @@
 // src/pages/Login.tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import mdiHide from "/icons/mdi-hide.svg";
@@ -13,6 +13,10 @@ export default function Login(): JSX.Element {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
+
+  useEffect(() => {
+    console.log("Login component rendered");
+  }, []);
 
   const from = (location.state as any)?.from?.pathname || "/dashboard";
 
