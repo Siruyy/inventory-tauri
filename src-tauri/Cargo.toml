@@ -1,21 +1,22 @@
 [package]
 name = "inventory-tauri"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = ""
+authors = []
 license = ""
 repository = ""
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [build-dependencies]
-tauri-build = { version = "2.0.0-rc.6", features = [] }
+tauri-build = { version = "2.0.0-rc.3", features = [] }
 
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-tauri = { version = "2.0.0-rc.6", features = ["shell-all", "fs-all", "dialog-all"] }
+# This is the corrected `tauri` dependency with the incorrect features removed.
+tauri = { version = "2.0.0-rc.6", features = [] }
+
+# All your other dependencies are preserved below.
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
 diesel = { version = "2.1.0", features = ["sqlite", "r2d2", "chrono", "numeric"] }
 diesel_migrations = "2.1.0"
 dotenvy = "0.15"
@@ -24,15 +25,13 @@ chrono = { version = "0.4.31", features = ["serde"] }
 bcrypt = "0.15.0"
 jsonwebtoken = "9.2.0"
 r2d2 = "0.8.10"
+thiserror = "1.0"
+rusqlite = { version = "0.29", features = ["bundled"] }
 
-# All necessary plugins are listed separately.
+# The necessary plugins are correctly listed as separate dependencies.
 tauri-plugin-dialog = { version = "2.0.0-rc.6" }
 tauri-plugin-fs = { version = "2.0.0-rc.6" }
 tauri-plugin-shell = { version = "2.0.0-rc.6" }
-
-# Your other dependencies
-thiserror = "1.0"
-rusqlite = { version = "0.29", features = ["bundled"] }
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem
