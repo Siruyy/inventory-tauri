@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { mockCategories } from "./useCategories"; // Import mockCategories
 
 export interface Product {
   id: number;
@@ -133,10 +134,13 @@ export function useProducts(categoryId?: number) {
 
       const timestamp = new Date().toISOString();
 
-      // Find the category name based on category_id
-      const categoryName =
-        mockProducts.find((p) => p.category_id === newProduct.category_id)
-          ?.category_name || `Category ${newProduct.category_id}`;
+      // Find the category name based on category_id by looking up in mockCategories
+      const category = mockCategories.find(
+        (cat: { id: number }) => cat.id === newProduct.category_id
+      );
+      const categoryName = category
+        ? category.name
+        : `Category ${newProduct.category_id}`;
 
       const newProductWithId: Product = {
         id: newId,

@@ -15,7 +15,7 @@ export interface NewCategory {
 }
 
 // Mock categories for development - moved outside to persist between renders
-let mockCategories: Category[] = [
+export let mockCategories: Category[] = [
   {
     id: 1,
     name: "Electronics",
