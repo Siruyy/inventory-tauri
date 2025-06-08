@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from "react";
 import { CategoryCards } from "../components/CategoryCards";
 import { ProductList } from "../components/ProductList";
-import { AddCategoryDialog } from "../components/AddCategoryDialog";
-import { AddProductDialog } from "../components/AddProductDialog";
+import CategoryFormDrawer from "../components/CategoryFormDrawer";
+import InventoryFormDrawer from "../components/InventoryFormDrawer";
 import { Button } from "../components/ui/button";
 import { useProducts } from "../hooks/useProducts";
 import { useCategories } from "../hooks/useCategories";
@@ -16,8 +16,10 @@ export default function Inventory() {
   const [searchTerm, setSearchTerm] = useState("");
   const [priceRange, setPriceRange] = useState({ min: 0, max: 1000 });
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
-  const { products } = useProducts();
-  const { categories } = useCategories();
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isCategoryDrawerOpen, setIsCategoryDrawerOpen] = useState(false);
+  const { products, addProduct } = useProducts();
+  const { categories, addCategory } = useCategories();
 
   // Calculate total products
   const totalProducts = products.length;
@@ -27,6 +29,44 @@ export default function Inventory() {
     setPriceRange({ min: 0, max: 1000 });
     setSearchTerm("");
     setSelectedCategoryId(undefined);
+  };
+
+  const handleSaveProduct = (product: any) => {
+    // Convert the product data to the format expected by addProduct
+    const newProduct = {
+      name: product.name,
+      description: "", // Not provided in the drawer form
+      sku: `SKU-${Date.now()}`, // Generate a temporary SKU
+      category_id:
+        categories.find((cat) => cat.name === product.category)?.id || 1, // Map category name to ID
+      unit_price: product.retailPrice,
+      current_stock: product.stockCount,
+      minimum_stock: Math.max(1, Math.floor(product.stockCount * 0.2)), // Set minimum to 20% of current or at least 1
+      supplier: null,
+    };
+
+    addProduct(newProduct, {
+      onSuccess: () => {
+        setIsDrawerOpen(false);
+      },
+    });
+  };
+
+  const handleSaveCategory = (categoryData: {
+    name: string;
+    imageUrl: string;
+  }) => {
+    // Convert the category data to the format expected by addCategory
+    const newCategory = {
+      name: categoryData.name,
+      description: categoryData.imageUrl, // Store the imageUrl in the description field for now
+    };
+
+    addCategory(newCategory, {
+      onSuccess: () => {
+        setIsCategoryDrawerOpen(false);
+      },
+    });
   };
 
   // Prepare filters for the ProductList component
@@ -44,22 +84,49 @@ export default function Inventory() {
         {/* Header Actions Section */}
         <div style={styles.headerActionsRow}>
           <div style={styles.totalProductsContainer}>
+            <span style={styles.totalProductsLabel}>Total Products</span>
             <span style={styles.totalProductsCount}>{totalProducts}</span>
-            <span style={styles.totalProductsLabel}>total products</span>
           </div>
+
           <div style={styles.actionButtons}>
-            <div style={styles.searchContainer}>
-              <img src={SearchIcon} alt="Search" style={styles.searchIcon} />
-              <input
-                type="text"
-                placeholder="Search products..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={styles.searchInput}
-              />
-            </div>
-            <AddCategoryDialog />
-            <AddProductDialog />
+            <Button
+              style={{
+                backgroundColor: "#FAC1D9",
+                color: "#333333",
+                fontWeight: 500,
+                padding: "10px 24px",
+                borderRadius: "8px",
+                border: "none",
+                whiteSpace: "nowrap",
+                minWidth: "190px",
+                fontSize: "15px",
+                maxWidth: "100%",
+                overflow: "visible",
+              }}
+              className="hover:bg-[#e0a9c1]"
+              onClick={() => setIsCategoryDrawerOpen(true)}
+            >
+              Add New Category
+            </Button>
+            <Button
+              style={{
+                backgroundColor: "#FAC1D9",
+                color: "#333333",
+                fontWeight: 500,
+                padding: "10px 24px",
+                borderRadius: "8px",
+                border: "none",
+                whiteSpace: "nowrap",
+                minWidth: "190px",
+                fontSize: "15px",
+                maxWidth: "100%",
+                overflow: "visible",
+              }}
+              className="hover:bg-[#e0a9c1]"
+              onClick={() => setIsDrawerOpen(true)}
+            >
+              Add New Inventory
+            </Button>
           </div>
         </div>
 
@@ -213,6 +280,18 @@ export default function Inventory() {
 
             {/* Right Column - Categories and Products */}
             <div style={styles.rightColumnContent}>
+              {/* Search Bar positioned at top of right column to align with the All card */}
+              <div style={styles.searchContainer}>
+                <img src={SearchIcon} alt="Search" style={styles.searchIcon} />
+                <input
+                  type="text"
+                  placeholder="Search products..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={styles.searchInput}
+                />
+              </div>
+
               {/* Categories Section */}
               <div style={styles.categoriesSection}>
                 <CategoryCards
@@ -236,6 +315,21 @@ export default function Inventory() {
           </div>
         </div>
       </div>
+
+      {/* Inventory Form Drawer */}
+      <InventoryFormDrawer
+        product={null}
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        onSave={handleSaveProduct}
+      />
+
+      {/* Category Form Drawer */}
+      <CategoryFormDrawer
+        isOpen={isCategoryDrawerOpen}
+        onClose={() => setIsCategoryDrawerOpen(false)}
+        onSave={handleSaveCategory}
+      />
     </div>
   );
 }
@@ -285,9 +379,13 @@ const styles: { [key: string]: React.CSSProperties } = {
     backgroundColor: "transparent",
     borderRadius: "50px",
     padding: "6px 16px",
-    width: "250px",
+    width: "450px",
     border: "1px solid #FFFFFF",
     height: "35px",
+    marginBottom: "16px",
+    position: "absolute",
+    top: "0",
+    transform: "translateY(-70px)",
   },
   searchIcon: {
     width: "16px",
@@ -314,6 +412,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     width: "100%",
     flexWrap: "wrap" as const,
     boxSizing: "border-box",
+    position: "relative",
   },
   filterCardContainer: {
     width: "280px",
@@ -321,6 +420,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexGrow: 0,
     maxWidth: "100%",
     boxSizing: "border-box",
+    position: "relative",
+    marginTop: "-10px",
   },
   rightColumnContent: {
     display: "flex",
@@ -330,18 +431,21 @@ const styles: { [key: string]: React.CSSProperties } = {
     minWidth: "0",
     maxWidth: "100%",
     boxSizing: "border-box",
+    position: "relative",
   },
   totalProductsContainer: {
     display: "flex",
-    flexDirection: "column",
+    justifyContent: "space-between",
+    width: "280px",
+    alignItems: "center",
   },
   totalProductsLabel: {
-    fontSize: "16px",
+    fontSize: "20px",
     fontWeight: 300,
     color: "#FFFFFF",
   },
   totalProductsCount: {
-    fontSize: "25px",
+    fontSize: "30px",
     fontWeight: 500,
     color: "#FFFFFF",
   },
@@ -350,6 +454,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexWrap: "wrap",
     gap: "16px",
     width: "100%",
+    marginTop: "-10px",
   },
   divider: {
     width: "100%",

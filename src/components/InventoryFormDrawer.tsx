@@ -1,5 +1,7 @@
 // src/components/InventoryFormDrawer.tsx
 import React, { useState, useEffect } from "react";
+import { useCategories } from "../hooks/useCategories";
+import { open } from "@tauri-apps/plugin-dialog";
 
 interface Product {
   id: string;
@@ -27,7 +29,10 @@ export default function InventoryFormDrawer({
   onSave,
   onScanBarcode,
 }: InventoryFormDrawerProps) {
-  // Local form state; when “product” changes (or product === null), initialize fields
+  // Get categories from the hook
+  const { categories } = useCategories();
+
+  // Local form state; when "product" changes (or product === null), initialize fields
   const [formValues, setFormValues] = useState<Product>({
     id: "",
     name: "",
@@ -55,7 +60,7 @@ export default function InventoryFormDrawer({
     } else {
       // ADD mode: blank/default form
       setFormValues({
-        id: "",                // new ID will be assigned on save
+        id: "", // new ID will be assigned on save
         name: "",
         thumbnailUrl: "",
         stockCount: 0,
@@ -84,6 +89,31 @@ export default function InventoryFormDrawer({
 
   const handleSave = () => {
     onSave(formValues);
+  };
+
+  const handleImageSelect = async () => {
+    try {
+      // Open file dialog to select an image
+      const selected = await open({
+        multiple: false,
+        filters: [
+          {
+            name: "Images",
+            extensions: ["png", "jpg", "jpeg", "gif", "webp"],
+          },
+        ],
+      });
+
+      // If user selected a file, update the thumbnailUrl
+      if (selected && !Array.isArray(selected)) {
+        setFormValues((prev) => ({
+          ...prev,
+          thumbnailUrl: selected,
+        }));
+      }
+    } catch (error) {
+      console.error("Error selecting image:", error);
+    }
   };
 
   return (
@@ -142,13 +172,9 @@ export default function InventoryFormDrawer({
                   </div>
                 )}
               </div>
-              <button
-                onClick={() => onScanBarcode && onScanBarcode()}
-                style={styles.scanButton}
-              >
-                Scan Barcode
-              </button>
-              <div style={styles.changePicText}>Change Profile Picture</div>
+              <div style={styles.changePicText} onClick={handleImageSelect}>
+                Change Profile Picture
+              </div>
             </div>
 
             {/* Form fields */}
@@ -168,69 +194,86 @@ export default function InventoryFormDrawer({
               {/* CATEGORY */}
               <div style={styles.formRow}>
                 <label style={styles.label}>Category</label>
-                <select
-                  value={formValues.category}
-                  onChange={(e) => handleChange("category", e.target.value)}
-                  style={styles.dropdown}
-                >
-                  <option>All</option>
-                  <option>Chicken</option>
-                  <option>Beef</option>
-                  <option>Vegetarian</option>
-                </select>
+                <div style={styles.selectWrapper}>
+                  <select
+                    value={formValues.category}
+                    onChange={(e) => handleChange("category", e.target.value)}
+                    style={styles.dropdown}
+                  >
+                    <option value="All">All</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.name}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div style={styles.selectArrow}>▼</div>
+                </div>
               </div>
 
               {/* QUANTITY */}
               <div style={styles.formRow}>
                 <label style={styles.label}>Quantity</label>
-                <select
-                  value={formValues.stockCount}
-                  onChange={(e) =>
-                    handleChange("stockCount", Number(e.target.value))
-                  }
-                  style={styles.dropdown}
-                >
-                  {[...Array(51).keys()].map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
+                <div style={styles.selectWrapper}>
+                  <select
+                    value={formValues.stockCount}
+                    onChange={(e) =>
+                      handleChange("stockCount", Number(e.target.value))
+                    }
+                    style={styles.dropdown}
+                  >
+                    {[...Array(51).keys()].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                  <div style={styles.selectArrow}>▼</div>
+                </div>
               </div>
 
               {/* STOCK */}
               <div style={styles.formRow}>
                 <label style={styles.label}>Stock</label>
-                <select
-                  value={formValues.stockCount > 0 ? "InStock" : "OutOfStock"}
-                  onChange={(e) =>
-                    handleChange("stockCount", e.target.value === "InStock" ? 1 : 0)
-                  }
-                  style={styles.dropdown}
-                >
-                  <option value="InStock">In Stock</option>
-                  <option value="OutOfStock">Out of Stock</option>
-                </select>
+                <div style={styles.selectWrapper}>
+                  <select
+                    value={formValues.stockCount > 0 ? "InStock" : "OutOfStock"}
+                    onChange={(e) =>
+                      handleChange(
+                        "stockCount",
+                        e.target.value === "InStock" ? 1 : 0
+                      )
+                    }
+                    style={styles.dropdown}
+                  >
+                    <option value="InStock">In Stock</option>
+                    <option value="OutOfStock">Out of Stock</option>
+                  </select>
+                  <div style={styles.selectArrow}>▼</div>
+                </div>
               </div>
 
               {/* STATUS */}
-              <div style={styles.formRow}>
+              <div style={{ ...styles.formRow, gridColumn: "span 2" }}>
                 <label style={styles.label}>Status</label>
-                <select
-                  value={formValues.status}
-                  onChange={(e) =>
-                    handleChange("status", e.target.value as any)
-                  }
-                  style={styles.dropdown}
-                >
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                  <option value="Draft">Draft</option>
-                </select>
+                <div style={styles.selectWrapper}>
+                  <select
+                    value={formValues.status}
+                    onChange={(e) =>
+                      handleChange("status", e.target.value as any)
+                    }
+                    style={styles.dropdown}
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                    <option value="Draft">Draft</option>
+                  </select>
+                  <div style={styles.selectArrow}>▼</div>
+                </div>
               </div>
 
               {/* PRICE */}
-              <div style={styles.formRow}>
+              <div style={{ ...styles.formRow, gridColumn: "span 2" }}>
                 <label style={styles.label}>Price</label>
                 <div style={styles.priceWrapper}>
                   <input
@@ -242,12 +285,17 @@ export default function InventoryFormDrawer({
                     placeholder="Enter inventory price"
                     style={styles.textInput}
                   />
-                  <span style={styles.currencySign}>$</span>
                 </div>
               </div>
 
               {/* PERISHABLE */}
-              <div style={styles.formRow}>
+              <div
+                style={{
+                  ...styles.formRow,
+                  gridColumn: "span 2",
+                  marginTop: "24px",
+                }}
+              >
                 <span style={styles.label}>Perishable</span>
                 <div style={styles.radioGroup}>
                   <label style={styles.radioLabel}>
@@ -273,16 +321,16 @@ export default function InventoryFormDrawer({
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Footer: Cancel / Save */}
-            <div style={styles.drawerFooter}>
-              <button onClick={onClose} style={styles.cancelButton}>
-                Cancel
-              </button>
-              <button onClick={handleSave} style={styles.saveButton}>
-                Save
-              </button>
-            </div>
+          {/* Footer: Cancel / Save */}
+          <div style={styles.drawerFooter}>
+            <button onClick={onClose} style={styles.cancelButton}>
+              Cancel
+            </button>
+            <button onClick={handleSave} style={styles.saveButton}>
+              Save
+            </button>
           </div>
         </div>
       </div>
@@ -297,7 +345,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     right: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "rgba(0,0,0,0.6)",
     zIndex: 1000,
   },
   drawer: {
@@ -305,36 +353,36 @@ const styles: { [key: string]: React.CSSProperties } = {
     top: 0,
     right: 0,
     bottom: 0,
-    width: "480px",                     // ← Wider drawer
-    backgroundColor: "#2A2A2A",
+    width: "640px", // Wider drawer to match Figma design
+    backgroundColor: "#292C2D",
     boxShadow: "-4px 0 8px rgba(0,0,0,0.5)",
     display: "flex",
     flexDirection: "column",
-    borderTopLeftRadius: "16px",        // ← Rounded top‐left corner
-    borderBottomLeftRadius: "16px",     // ← Rounded bottom‐left corner
+    borderTopLeftRadius: "30px", // Rounded corners to match Figma
+    borderBottomLeftRadius: "30px", // Rounded corners to match Figma
     boxSizing: "border-box",
-    animation: "slideIn 0.3s ease-out forwards", // ← Slide‐in animation
+    animation: "slideIn 0.3s ease-out forwards", // Slide‐in animation
   },
   drawerHeader: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "16px 24px",               // ← Extra left/right padding
-    borderBottom: "1px solid #323232",
+    padding: "24px 30px",
+    borderBottom: "1px solid #5E5E5E",
   },
   drawerTitle: {
     color: "#FFFFFF",
-    fontSize: "1.1rem",
-    fontWeight: 600,
+    fontSize: "1.5rem",
+    fontWeight: 500,
   },
   closeButton: {
-    backgroundColor: "#383838",         // Circle background
+    backgroundColor: "#3D4142",
     border: "none",
     color: "#FFFFFF",
     fontSize: "1.2rem",
     fontWeight: 600,
-    width: "32px",
-    height: "32px",
+    width: "36px",
+    height: "36px",
     borderRadius: "50%",
     display: "flex",
     alignItems: "center",
@@ -343,7 +391,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     lineHeight: 1,
   },
   drawerBody: {
-    padding: "16px 24px",               // ← Extra left/right padding
+    padding: "24px 30px",
     flexGrow: 1,
     overflowY: "auto",
     display: "flex",
@@ -355,14 +403,15 @@ const styles: { [key: string]: React.CSSProperties } = {
   imageSection: {
     display: "flex",
     flexDirection: "column",
-    alignItems: "flex-start",
-    gap: "8px",
+    alignItems: "center",
+    gap: "16px",
+    marginBottom: "32px",
   },
   imagePlaceholder: {
-    width: "120px",
-    height: "120px",
-    backgroundColor: "#383838",
-    borderRadius: "8px",
+    width: "240px",
+    height: "216px",
+    backgroundColor: "#383C3D",
+    borderRadius: "10px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -370,7 +419,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   thumbnailImage: {
     width: "100%",
     height: "100%",
-    borderRadius: "8px",
+    borderRadius: "10px",
     objectFit: "cover",
   },
   thumbnailIconPlaceholder: {
@@ -378,23 +427,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: "center",
     justifyContent: "center",
   },
-  scanButton: {
-    marginTop: "8px",
-    backgroundColor: "#FAC1D9",
-    color: "#292C2D",
-    border: "none",
-    borderRadius: "8px",
-    padding: "8px 16px",
-    fontSize: "0.9rem",
-    fontWeight: 500,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    transition: "background-color 0.2s",
-  },
   changePicText: {
-    fontSize: "0.75rem",
+    fontSize: "0.9rem",
     color: "#FAC1D9",
-    textDecoration: "underline",
     cursor: "pointer",
   },
 
@@ -402,66 +437,87 @@ const styles: { [key: string]: React.CSSProperties } = {
   formGrid: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
-    columnGap: "16px",
-    rowGap: "16px",
+    columnGap: "20px",
+    rowGap: "20px",
+    width: "100%",
   },
   formRow: {
     display: "flex",
     flexDirection: "column",
-    gap: "6px",
+    gap: "8px",
   },
   label: {
     color: "#FFFFFF",
-    fontSize: "0.8rem",
+    fontSize: "1rem",
     fontWeight: 500,
   },
   textInput: {
-    padding: "8px 12px",
-    backgroundColor: "#383838",
+    padding: "12px 16px",
+    backgroundColor: "#3D4142",
     border: "1px solid #323232",
-    borderRadius: "6px",
+    borderRadius: "10px",
     color: "#DDDDDD",
     fontSize: "0.9rem",
     outline: "none",
     boxSizing: "border-box",
+    width: "100%",
   },
   dropdown: {
-    padding: "8px 12px",
-    backgroundColor: "#383838",
+    padding: "12px 16px",
+    backgroundColor: "#3D4142",
     border: "1px solid #323232",
-    borderRadius: "6px",
+    borderRadius: "10px",
     color: "#DDDDDD",
     fontSize: "0.9rem",
     outline: "none",
     boxSizing: "border-box",
+    width: "100%",
+    appearance: "none", // Remove default arrow
+  },
+  selectWrapper: {
+    position: "relative",
+    width: "100%",
+  },
+  selectArrow: {
+    position: "absolute",
+    right: "16px",
+    top: "50%",
+    transform: "translateY(-50%)",
+    color: "#777979",
+    fontSize: "0.7rem",
+    pointerEvents: "none",
   },
   priceWrapper: {
     position: "relative",
+    width: "100%",
   },
   currencySign: {
     position: "absolute",
-    right: "12px",
+    right: "16px",
     top: "50%",
     transform: "translateY(-50%)",
-    color: "#DDDDDD",
-    fontSize: "0.9rem",
+    color: "#FAC1D9",
+    fontSize: "1rem",
   },
   radioGroup: {
     display: "flex",
-    gap: "16px",
+    gap: "24px",
     alignItems: "center",
+    marginTop: "8px",
   },
   radioLabel: {
     display: "flex",
     alignItems: "center",
-    gap: "4px",
-    color: "#DDDDDD",
-    fontSize: "0.85rem",
+    gap: "8px",
+    color: "#777979",
+    fontSize: "0.9rem",
     cursor: "pointer",
   },
   radioInput: {
     accentColor: "#FAC1D9",
     cursor: "pointer",
+    width: "16px",
+    height: "16px",
   },
 
   // FOOTER (Cancel + Save)
@@ -470,25 +526,24 @@ const styles: { [key: string]: React.CSSProperties } = {
     justifyContent: "flex-end",
     alignItems: "center",
     gap: "16px",
-    padding: "16px 24px",               // ← Extra left/right padding
-    borderTop: "1px solid #323232",
+    padding: "24px 30px",
+    borderTop: "1px solid #5E5E5E",
   },
   cancelButton: {
     background: "transparent",
     border: "none",
     color: "#FFFFFF",
-    fontSize: "0.9rem",
+    fontSize: "1rem",
     cursor: "pointer",
-    textDecoration: "underline",
   },
   saveButton: {
     backgroundColor: "#FAC1D9",
     color: "#292C2D",
     border: "none",
-    borderRadius: "8px",
-    padding: "8px 20px",
-    fontSize: "0.9rem",
-    fontWeight: 600,
+    borderRadius: "10px",
+    padding: "16px 48px",
+    fontSize: "1rem",
+    fontWeight: 500,
     cursor: "pointer",
   },
 };

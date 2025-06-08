@@ -1,6 +1,7 @@
 import React from "react";
 import PenIcon from "/icons/pen.svg";
 import { useCategories, type Category } from "../hooks/useCategories";
+import { useProducts } from "../hooks/useProducts";
 
 interface CategoryCardsProps {
   selectedCategoryId?: number;
@@ -12,6 +13,13 @@ export function CategoryCards({
   onSelectCategory,
 }: CategoryCardsProps) {
   const { categories } = useCategories();
+  const { products } = useProducts();
+
+  // Count products per category
+  const getProductCountForCategory = (categoryId: number) => {
+    return products.filter((product) => product.category_id === categoryId)
+      .length;
+  };
 
   return (
     <div style={styles.container}>
@@ -27,46 +35,56 @@ export function CategoryCards({
         <div style={styles.allCategoryContent}>
           <div style={styles.allCategoryIcon}>All</div>
           <div style={styles.categoryName}>All Items</div>
+          <div style={{ ...styles.itemCount, marginTop: "4px" }}>
+            {products.length} item{products.length !== 1 ? "s" : ""}
+          </div>
         </div>
       </div>
 
       {/* Category cards */}
-      {categories.map((category: Category) => (
-        <div
-          key={category.id}
-          style={{
-            ...styles.card,
-            ...(selectedCategoryId === category.id ? styles.selectedCard : {}),
-          }}
-          onClick={() => onSelectCategory(category.id)}
-        >
-          {/* Category Icon */}
-          <div style={styles.iconContainer}>
-            <img
-              src="https://via.placeholder.com/40"
-              alt={category.name}
-              style={styles.icon}
-            />
-          </div>
-
-          {/* Category Info */}
-          <div style={styles.infoContainer}>
-            <div style={styles.categoryName}>{category.name}</div>
-            <div style={styles.itemCount}>20 items</div>
-          </div>
-
-          {/* Edit Icon */}
-          <button
-            style={styles.editButton}
-            onClick={(e) => {
-              e.stopPropagation();
-              // We'll implement edit functionality later
+      {categories.map((category: Category) => {
+        const productCount = getProductCountForCategory(category.id);
+        return (
+          <div
+            key={category.id}
+            style={{
+              ...styles.card,
+              ...(selectedCategoryId === category.id
+                ? styles.selectedCard
+                : {}),
             }}
+            onClick={() => onSelectCategory(category.id)}
           >
-            <img src={PenIcon} alt="Edit" style={styles.editIcon} />
-          </button>
-        </div>
-      ))}
+            {/* Category Icon */}
+            <div style={styles.iconContainer}>
+              <img
+                src={category.description || "https://via.placeholder.com/40"}
+                alt={category.name}
+                style={styles.icon}
+              />
+            </div>
+
+            {/* Category Info */}
+            <div style={styles.infoContainer}>
+              <div style={styles.categoryName}>{category.name}</div>
+              <div style={styles.itemCount}>
+                {productCount} item{productCount !== 1 ? "s" : ""}
+              </div>
+            </div>
+
+            {/* Edit Icon */}
+            <button
+              style={styles.editButton}
+              onClick={(e) => {
+                e.stopPropagation();
+                // We'll implement edit functionality later
+              }}
+            >
+              <img src={PenIcon} alt="Edit" style={styles.editIcon} />
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -96,13 +114,14 @@ const styles: { [key: string]: React.CSSProperties } = {
     justifyContent: "space-between",
     cursor: "pointer",
     transition: "all 0.2s ease-in-out",
-    border: "1px solid #323232",
+    border: "none",
     boxShadow: "0px 4px 10px rgba(0, 0, 0, 0.1)",
     flexShrink: 0,
   },
   selectedCard: {
     borderColor: "#FAC1D9",
     backgroundColor: "#33363A",
+    border: "1px solid #FAC1D9",
   },
   iconContainer: {
     width: "40px",

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
 import "./CategoryFormDrawer.css";
 
 interface CategoryFormDrawerProps {
@@ -35,7 +36,28 @@ export default function CategoryFormDrawer({
     });
     setCategoryName("");
     setImageUrl("");
-    onClose();
+  };
+
+  const handleImageSelect = async () => {
+    try {
+      // Open file dialog to select an image
+      const selected = await open({
+        multiple: false,
+        filters: [
+          {
+            name: "Images",
+            extensions: ["png", "jpg", "jpeg", "gif", "webp"],
+          },
+        ],
+      });
+
+      // If user selected a file, update the imageUrl
+      if (selected && !Array.isArray(selected)) {
+        setImageUrl(selected);
+      }
+    } catch (error) {
+      console.error("Error selecting image:", error);
+    }
   };
 
   return (
@@ -75,13 +97,20 @@ export default function CategoryFormDrawer({
           {/* Image Upload Section */}
           <div style={styles.imageSection}>
             <div style={styles.imagePreview}>
-              <img
-                src={imageUrl || "https://via.placeholder.com/240x216"}
-                alt="Category preview"
-                style={styles.previewImage}
-              />
+              {imageUrl ? (
+                <img
+                  src={imageUrl}
+                  alt="Category preview"
+                  style={styles.previewImage}
+                />
+              ) : (
+                <div style={styles.placeholderImage}></div>
+              )}
             </div>
-            <button style={styles.changeImageButton}>
+            <button
+              style={styles.changeImageButton}
+              onClick={handleImageSelect}
+            >
               Change Profile\Icon
             </button>
           </div>
@@ -123,7 +152,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
     zIndex: 1000,
     transition: "opacity 0.3s ease-in-out",
   },
@@ -131,25 +160,26 @@ const styles: { [key: string]: React.CSSProperties } = {
     position: "fixed",
     top: 0,
     right: 0,
-    width: "450px",
+    width: "640px",
     height: "100vh",
     backgroundColor: "#292C2D",
     zIndex: 1001,
     transition: "transform 0.3s ease-in-out",
     display: "flex",
     flexDirection: "column",
-    padding: "0",
     boxSizing: "border-box",
+    borderTopLeftRadius: "30px",
+    borderBottomLeftRadius: "30px",
   },
   header: {
-    padding: "24px",
+    padding: "60px 30px 20px 30px",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
   },
   title: {
     color: "#FFFFFF",
-    fontSize: "20px",
+    fontSize: "25px",
     fontWeight: 500,
     margin: 0,
   },
@@ -172,32 +202,34 @@ const styles: { [key: string]: React.CSSProperties } = {
   divider: {
     height: "1px",
     backgroundColor: "#5E5E5E",
-    margin: "0 24px",
+    margin: "0 30px",
   },
   content: {
-    padding: "24px",
+    padding: "30px",
     display: "flex",
     flexDirection: "column",
-    gap: "24px",
-    alignItems: "center",
+    gap: "60px",
     width: "100%",
     boxSizing: "border-box",
   },
   imageSection: {
     display: "flex",
     flexDirection: "column",
-    gap: "12px",
+    gap: "15px",
     alignItems: "center",
-    marginBottom: "24px",
     width: "100%",
-    padding: "0 24px",
     boxSizing: "border-box",
   },
   imagePreview: {
-    width: "120px",
-    height: "120px",
+    width: "239px",
+    height: "217px",
     borderRadius: "10px",
     overflow: "hidden",
+    backgroundColor: "#383C3D",
+  },
+  placeholderImage: {
+    width: "100%",
+    height: "100%",
     backgroundColor: "#383C3D",
   },
   previewImage: {
@@ -212,20 +244,17 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: "pointer",
     fontSize: "14px",
     padding: "0",
+    fontWeight: 400,
   },
   inputSection: {
     width: "100%",
-    paddingTop: "0",
-    paddingBottom: "0",
-    paddingLeft: "4px",
-    paddingRight: "24px",
     boxSizing: "border-box",
   },
   label: {
     color: "#FFFFFF",
-    fontSize: "14px",
+    fontSize: "16px",
     fontWeight: 500,
-    marginBottom: "12px",
+    marginBottom: "8px",
     display: "block",
   },
   inputWrapper: {
@@ -234,38 +263,40 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   input: {
     width: "100%",
-    height: "40px",
+    height: "65px",
     backgroundColor: "#3D4142",
     border: "none",
-    borderRadius: "8px",
-    padding: "0 12px",
+    borderRadius: "10px",
+    padding: "0 25px",
     color: "#FFFFFF",
-    fontSize: "14px",
+    fontSize: "16px",
     outline: "none",
   },
   footer: {
     marginTop: "auto",
-    padding: "24px",
+    padding: "24px 30px",
     display: "flex",
     justifyContent: "flex-end",
-    gap: "16px",
+    gap: "30px",
+    marginBottom: "40px",
   },
   cancelButton: {
-    padding: "8px 16px",
+    padding: "20px 0",
     backgroundColor: "transparent",
     border: "none",
     color: "#FFFFFF",
-    fontSize: "14px",
+    fontSize: "16px",
     fontWeight: 500,
     cursor: "pointer",
+    width: "58px",
   },
   saveButton: {
-    padding: "8px 24px",
+    padding: "20px 50px",
     backgroundColor: "#FAC1D9",
     border: "none",
-    borderRadius: "8px",
+    borderRadius: "10px",
     color: "#333333",
-    fontSize: "14px",
+    fontSize: "16px",
     fontWeight: 500,
     cursor: "pointer",
   },

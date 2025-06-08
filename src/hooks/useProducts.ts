@@ -27,8 +27,8 @@ export interface NewProduct {
   supplier: string | null;
 }
 
-// Mock products for development
-const mockProducts: Product[] = [
+// Mock products for development - moved outside to persist between renders
+let mockProducts: Product[] = [
   {
     id: 1,
     name: "Laptop",
@@ -114,7 +114,7 @@ export function useProducts(categoryId?: number) {
           mockProducts.filter((p) => p.category_id === categoryId)
         );
       }
-      return Promise.resolve(mockProducts);
+      return Promise.resolve([...mockProducts]);
     },
     // Commented out real API calls for now
     // queryFn: () =>
@@ -125,8 +125,38 @@ export function useProducts(categoryId?: number) {
 
   const addProduct = useMutation({
     mutationFn: (newProduct: NewProduct) => {
-      // Mock adding a product
-      console.log("Adding product:", newProduct);
+      // Mock adding a product by updating the mockProducts array
+      const newId =
+        mockProducts.length > 0
+          ? Math.max(...mockProducts.map((p) => p.id)) + 1
+          : 1;
+
+      const timestamp = new Date().toISOString();
+
+      // Find the category name based on category_id
+      const categoryName =
+        mockProducts.find((p) => p.category_id === newProduct.category_id)
+          ?.category_name || `Category ${newProduct.category_id}`;
+
+      const newProductWithId: Product = {
+        id: newId,
+        name: newProduct.name,
+        description: newProduct.description,
+        sku: newProduct.sku,
+        category_id: newProduct.category_id,
+        category_name: categoryName,
+        unit_price: newProduct.unit_price,
+        current_stock: newProduct.current_stock,
+        minimum_stock: newProduct.minimum_stock,
+        supplier: newProduct.supplier,
+        created_at: timestamp,
+        updated_at: timestamp,
+      };
+
+      // Add the new product to our mock data
+      mockProducts.push(newProductWithId);
+
+      console.log("Added product:", newProductWithId);
       return Promise.resolve();
       // Return to real API call later
       // return invoke("add_product", { product: newProduct })
@@ -138,8 +168,9 @@ export function useProducts(categoryId?: number) {
 
   const deleteProduct = useMutation({
     mutationFn: (id: number) => {
-      // Mock deleting a product
-      console.log("Deleting product:", id);
+      // Mock deleting a product by updating the mockProducts array
+      mockProducts = mockProducts.filter((product) => product.id !== id);
+      console.log("Deleted product:", id);
       return Promise.resolve();
       // Return to real API call later
       // return invoke("delete_product", { id })
@@ -151,8 +182,16 @@ export function useProducts(categoryId?: number) {
 
   const updateStock = useMutation({
     mutationFn: ({ id, newStock }: { id: number; newStock: number }) => {
-      // Mock updating stock
-      console.log("Updating stock for product", id, "to", newStock);
+      // Mock updating stock by modifying the product in mockProducts
+      const productIndex = mockProducts.findIndex((p) => p.id === id);
+      if (productIndex >= 0) {
+        mockProducts[productIndex] = {
+          ...mockProducts[productIndex],
+          current_stock: newStock,
+          updated_at: new Date().toISOString(),
+        };
+        console.log("Updated stock for product", id, "to", newStock);
+      }
       return Promise.resolve();
       // Return to real API call later
       // return invoke("update_product_stock", { id, newStock })
