@@ -39,7 +39,7 @@ export default function InventoryFormDrawer({
     thumbnailUrl: "",
     stockCount: 0,
     status: "Active",
-    category: "All",
+    category: "",
     retailPrice: 0,
     perishable: false,
   });
@@ -58,19 +58,20 @@ export default function InventoryFormDrawer({
         perishable: product.perishable ?? false,
       });
     } else {
-      // ADD mode: blank/default form
+      // ADD mode: blank/default form with first available category
+      const defaultCategory = categories.length > 0 ? categories[0].name : "";
       setFormValues({
         id: "", // new ID will be assigned on save
         name: "",
         thumbnailUrl: "",
         stockCount: 0,
         status: "Active",
-        category: "All",
+        category: defaultCategory,
         retailPrice: 0,
         perishable: false,
       });
     }
-  }, [product, isOpen]);
+  }, [product, isOpen, categories]);
 
   // If the drawer is closed, render nothing
   if (!isOpen) {
@@ -200,7 +201,6 @@ export default function InventoryFormDrawer({
                     onChange={(e) => handleChange("category", e.target.value)}
                     style={styles.dropdown}
                   >
-                    <option value="All">All</option>
                     {categories.map((category) => (
                       <option key={category.id} value={category.name}>
                         {category.name}
@@ -214,22 +214,16 @@ export default function InventoryFormDrawer({
               {/* QUANTITY */}
               <div style={styles.formRow}>
                 <label style={styles.label}>Quantity</label>
-                <div style={styles.selectWrapper}>
-                  <select
-                    value={formValues.stockCount}
-                    onChange={(e) =>
-                      handleChange("stockCount", Number(e.target.value))
-                    }
-                    style={styles.dropdown}
-                  >
-                    {[...Array(51).keys()].map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
-                  <div style={styles.selectArrow}>▼</div>
-                </div>
+                <input
+                  type="number"
+                  min="0"
+                  value={formValues.stockCount}
+                  onChange={(e) =>
+                    handleChange("stockCount", Number(e.target.value))
+                  }
+                  placeholder="Enter quantity"
+                  style={styles.textInput}
+                />
               </div>
 
               {/* STOCK */}

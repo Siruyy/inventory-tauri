@@ -1,9 +1,6 @@
 use bcrypt::{hash, verify, DEFAULT_COST};
-use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-
-use crate::db::schema::users;
 
 #[derive(Error, Debug)]
 pub enum UserError {
@@ -15,13 +12,11 @@ pub enum UserError {
     HashError(String),
 }
 
-#[derive(Queryable, Selectable, Identifiable, Debug, Serialize)]
-#[diesel(table_name = users)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct User {
     pub id: i32,
     pub username: String,
     pub email: String,
-    #[serde(skip_serializing)]
     pub password_hash: String,
     pub full_name: String,
     pub role: String,
@@ -29,17 +24,16 @@ pub struct User {
     pub updated_at: String,
 }
 
-#[derive(Insertable, Deserialize)]
-#[diesel(table_name = users)]
+#[derive(Deserialize)]
 pub struct NewUser {
     pub username: String,
     pub email: String,
-    pub password_hash: String,
+    pub password: String,
     pub full_name: String,
     pub role: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct LoginCredentials {
     pub username: String,
     pub password: String,

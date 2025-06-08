@@ -83,9 +83,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const login = async (username: string, password: string) => {
     try {
+      console.log("Attempting login with:", { username });
+
       const response = await invoke<AuthResponse>("login", {
-        credentials: { username, password },
+        creds: { username, password: password },
       });
+
+      console.log("Login response:", response);
 
       setUser(response.user);
       setToken(response.token);
@@ -93,7 +97,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Store auth data
       localStorage.setItem("auth_token", response.token);
       localStorage.setItem("auth_user", JSON.stringify(response.user));
+
+      console.log("Authentication completed successfully");
     } catch (error) {
+      console.error("Login error:", error);
       throw new Error(error as string);
     }
   };

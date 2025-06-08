@@ -8,7 +8,7 @@ import {
 } from "./ui/table";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Product, useProducts } from "../hooks/useProducts";
+import { Product } from "../hooks/useProducts";
 import { useState, useMemo } from "react";
 import PenIcon from "/icons/pen.svg";
 import TrashIcon from "/icons/trash.svg";
@@ -19,18 +19,20 @@ interface FilterOptions {
 }
 
 interface ProductListProps {
-  selectedCategoryId?: number;
+  products: Product[];
   searchTerm?: string;
   filters?: FilterOptions;
+  updateStock: (vars: { id: number; newStock: number }) => void;
+  deleteProduct: (id: number) => void;
 }
 
 export function ProductList({
-  selectedCategoryId,
+  products,
   searchTerm = "",
   filters,
+  updateStock,
+  deleteProduct,
 }: ProductListProps) {
-  const { products, updateStock, deleteProduct } =
-    useProducts(selectedCategoryId);
   const [editingStock, setEditingStock] = useState<{
     id: number;
     value: number;
@@ -46,10 +48,8 @@ export function ProductList({
         (product) =>
           product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (product.description &&
-            product.description
-              .toLowerCase()
-              .includes(searchTerm.toLowerCase()))
+          (product.supplier &&
+            product.supplier.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
 
@@ -86,12 +86,8 @@ export function ProductList({
 
   const handleUpdateStock = (product: Product) => {
     if (editingStock && editingStock.id === product.id) {
-      updateStock(
-        { id: product.id, newStock: editingStock.value },
-        {
-          onSuccess: () => setEditingStock(null),
-        }
-      );
+      updateStock({ id: product.id, newStock: editingStock.value });
+      setEditingStock(null);
     }
   };
 
@@ -248,54 +244,31 @@ export function ProductList({
                       />
                       <Button
                         size="sm"
+                        className="bg-[#FAC1D9] text-[#333333] hover:bg-[#e0a9c1]"
                         onClick={() => handleUpdateStock(product)}
-                        className="bg-[#FAC1D9] text-[#292C2D] hover:bg-[#e0a9c1]"
                       >
                         Save
                       </Button>
                     </div>
                   ) : (
-                    <span
-                      style={{
-                        cursor: "pointer",
-                        color:
-                          product.current_stock <= product.minimum_stock
-                            ? "#FF5555"
-                            : "inherit",
-                        fontWeight:
-                          product.current_stock <= product.minimum_stock
-                            ? 500
-                            : "normal",
-                        display: "block",
-                        textAlign: "left",
-                      }}
-                      onClick={() =>
-                        setEditingStock({
-                          id: product.id,
-                          value: product.current_stock,
-                        })
-                      }
-                    >
-                      {product.current_stock}
-                    </span>
+                    product.current_stock
                   )}
                 </td>
-                <td style={tableStyles.cell}>
-                  {product.current_stock === 0 ? (
-                    <span style={{ color: "#FF5555", fontWeight: 500 }}>
-                      Out of Stock
-                    </span>
-                  ) : product.current_stock <= product.minimum_stock ? (
-                    <span style={{ color: "#FFA500", fontWeight: 500 }}>
-                      Low Stock
-                    </span>
-                  ) : (
-                    <span style={{ color: "#4CAF50", fontWeight: 500 }}>
-                      Active
-                    </span>
-                  )}
+                <td style={{ ...tableStyles.cell, textAlign: "center" }}>
+                  <span
+                    style={{
+                      backgroundColor:
+                        product.current_stock > 0 ? "#2E7D32" : "#D32F2F",
+                      color: "white",
+                      padding: "4px 12px",
+                      borderRadius: "12px",
+                      fontSize: "12px",
+                    }}
+                  >
+                    {product.current_stock > 0 ? "Active" : "Out of Stock"}
+                  </span>
                 </td>
-                <td style={tableStyles.cell}>
+                <td style={tableStyles.cellRight}>
                   ${product.unit_price.toFixed(2)}
                 </td>
                 <td style={tableStyles.lastCell}>
@@ -303,52 +276,32 @@ export function ProductList({
                     style={{
                       display: "flex",
                       justifyContent: "center",
-                      gap: "10px",
+                      gap: "8px",
                     }}
                   >
                     <button
-                      style={{
-                        backgroundColor: "transparent",
-                        border: "1px solid #323232",
-                        borderRadius: "6px",
-                        padding: "6px",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        width: "28px",
-                        height: "28px",
-                      }}
-                      onClick={() => console.log("Edit product", product.id)}
-                      title="Edit"
+                      style={{ background: "none", border: "none" }}
+                      onClick={() =>
+                        setEditingStock({
+                          id: product.id,
+                          value: product.current_stock,
+                        })
+                      }
                     >
-                      <img src={PenIcon} alt="Edit" width="16" height="16" />
+                      <img
+                        src={PenIcon}
+                        alt="Edit"
+                        style={{ width: "16px", height: "16px" }}
+                      />
                     </button>
                     <button
-                      style={{
-                        backgroundColor: "rgba(255,85,85,0.1)",
-                        border: "1px solid rgba(255,85,85,0.2)",
-                        borderRadius: "6px",
-                        padding: "6px",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        width: "28px",
-                        height: "28px",
-                      }}
+                      style={{ background: "none", border: "none" }}
                       onClick={() => deleteProduct(product.id)}
-                      title="Delete"
                     >
                       <img
                         src={TrashIcon}
                         alt="Delete"
-                        width="16"
-                        height="16"
-                        style={{
-                          filter:
-                            "invert(54%) sepia(96%) saturate(2893%) hue-rotate(316deg) brightness(98%) contrast(101%)",
-                        }}
+                        style={{ width: "16px", height: "16px" }}
                       />
                     </button>
                   </div>

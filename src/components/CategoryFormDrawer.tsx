@@ -17,6 +17,7 @@ export default function CategoryFormDrawer({
 }: CategoryFormDrawerProps) {
   const [categoryName, setCategoryName] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   // Reset form when opening drawer or changing category
   useEffect(() => {
@@ -27,15 +28,37 @@ export default function CategoryFormDrawer({
       setCategoryName("");
       setImageUrl("");
     }
+    // Reset saving state when drawer opens/closes
+    setIsSaving(false);
   }, [category, isOpen]);
 
   const handleSave = () => {
-    onSave({
-      name: categoryName,
-      imageUrl: imageUrl || "https://via.placeholder.com/240x216",
-    });
-    setCategoryName("");
-    setImageUrl("");
+    // Prevent multiple save attempts
+    if (isSaving) return;
+
+    // Validate form
+    if (!categoryName.trim()) {
+      alert("Please enter a category name");
+      return;
+    }
+
+    // Set saving state to prevent multiple submissions
+    setIsSaving(true);
+
+    try {
+      // Call parent's onSave with a delay to prevent UI freezes
+      setTimeout(() => {
+        onSave({
+          name: categoryName,
+          imageUrl: imageUrl || "https://via.placeholder.com/240x216",
+        });
+      }, 50);
+
+      // Reset form (will be handled by useEffect when drawer closes)
+    } catch (error) {
+      console.error("Error saving category:", error);
+      setIsSaving(false);
+    }
   };
 
   const handleImageSelect = async () => {
@@ -85,7 +108,11 @@ export default function CategoryFormDrawer({
           <h2 style={styles.title}>
             {category ? "Edit Category" : "Add New Category"}
           </h2>
-          <button style={styles.closeButton} onClick={onClose}>
+          <button
+            style={styles.closeButton}
+            onClick={onClose}
+            disabled={isSaving}
+          >
             <span style={styles.closeIcon}>×</span>
           </button>
         </div>
@@ -110,6 +137,7 @@ export default function CategoryFormDrawer({
             <button
               style={styles.changeImageButton}
               onClick={handleImageSelect}
+              disabled={isSaving}
             >
               Change Profile\Icon
             </button>
@@ -126,6 +154,7 @@ export default function CategoryFormDrawer({
                 placeholder="Enter Category Name"
                 style={styles.input}
                 className="category-input"
+                disabled={isSaving}
               />
             </div>
           </div>
@@ -133,11 +162,19 @@ export default function CategoryFormDrawer({
 
         {/* Footer */}
         <div style={styles.footer}>
-          <button style={styles.cancelButton} onClick={onClose}>
+          <button
+            style={styles.cancelButton}
+            onClick={onClose}
+            disabled={isSaving}
+          >
             Cancel
           </button>
-          <button style={styles.saveButton} onClick={handleSave}>
-            Save
+          <button
+            style={styles.saveButton}
+            onClick={handleSave}
+            disabled={isSaving}
+          >
+            {isSaving ? "Saving..." : "Save"}
           </button>
         </div>
       </div>

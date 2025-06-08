@@ -1,5 +1,5 @@
 // src/pages/Inventory.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { CategoryCards } from "../components/CategoryCards";
 import { ProductList } from "../components/ProductList";
 import CategoryFormDrawer from "../components/CategoryFormDrawer";
@@ -18,7 +18,9 @@ export default function Inventory() {
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isCategoryDrawerOpen, setIsCategoryDrawerOpen] = useState(false);
-  const { products, addProduct } = useProducts();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { products, addProduct, updateStock, deleteProduct } =
+    useProducts(selectedCategoryId);
   const { categories, addCategory } = useCategories();
 
   // Calculate total products
@@ -31,49 +33,136 @@ export default function Inventory() {
     setSelectedCategoryId(undefined);
   };
 
-  const handleSaveProduct = (product: any) => {
-    // Convert the product data to the format expected by addProduct
-    const newProduct = {
-      name: product.name,
-      description: "", // Not provided in the drawer form
-      sku: `SKU-${Date.now()}`, // Generate a temporary SKU
-      category_id:
-        categories.find((cat) => cat.name === product.category)?.id || 1, // Map category name to ID
-      unit_price: product.retailPrice,
-      current_stock: product.stockCount,
-      minimum_stock: Math.max(1, Math.floor(product.stockCount * 0.2)), // Set minimum to 20% of current or at least 1
-      supplier: null,
-    };
-
-    addProduct(newProduct, {
-      onSuccess: () => {
-        setIsDrawerOpen(false);
-      },
-    });
+  const handleCategorySelect = (categoryId: number | undefined) => {
+    setSelectedCategoryId(categoryId);
   };
 
-  const handleSaveCategory = (categoryData: {
-    name: string;
-    imageUrl: string;
-  }) => {
-    // Convert the category data to the format expected by addCategory
-    const newCategory = {
-      name: categoryData.name,
-      description: categoryData.imageUrl, // Store the imageUrl in the description field for now
-    };
+  // Memoized save product handler to prevent unnecessary re-renders
+  const handleSaveProduct = useCallback(
+    (product: any) => {
+      // Prevent multiple submissions
+      if (isProcessing) return;
 
-    addCategory(newCategory, {
-      onSuccess: () => {
-        setIsCategoryDrawerOpen(false);
-      },
-    });
-  };
+      setIsProcessing(true);
+
+      // Find the correct category ID
+      const categoryObj = categories.find(
+        (cat) => cat.name === product.category
+      );
+      if (!categoryObj) {
+        console.error("Invalid category selected:", product.category);
+        console.log("Available categories:", categories);
+        setIsProcessing(false);
+        return;
+      }
+
+      console.log("Selected category:", product.category);
+      console.log("Mapped to category ID:", categoryObj.id);
+
+      // Convert the product data to the format expected by addProduct
+      const newProduct = {
+        name: product.name,
+        description: "", // Not provided in the drawer form
+        sku: `SKU-${Date.now()}`, // Generate a temporary SKU
+        category_id: categoryObj.id,
+        unit_price: product.retailPrice,
+        current_stock: product.stockCount,
+        minimum_stock: Math.max(1, Math.floor(product.stockCount * 0.2)), // Set minimum to 20% of current or at least 1
+        supplier: null,
+      };
+
+      console.log("Sending new product data:", newProduct);
+
+      // Use timeout to ensure UI has time to update before mutation
+      setTimeout(() => {
+        addProduct(newProduct, {
+          onSuccess: () => {
+            // Use timeout to ensure state updates don't conflict
+            setTimeout(() => {
+              setIsDrawerOpen(false);
+              setIsProcessing(false);
+            }, 100);
+          },
+          onError: (error) => {
+            console.error("Error adding product:", error);
+            setIsProcessing(false);
+          },
+        });
+      }, 50);
+    },
+    [addProduct, categories, isProcessing]
+  );
+
+  // Memoized save category handler to prevent unnecessary re-renders
+  const handleSaveCategory = useCallback(
+    (categoryData: { name: string; imageUrl: string }) => {
+      // Prevent multiple submissions
+      if (isProcessing) return;
+
+      setIsProcessing(true);
+
+      // Convert the category data to the format expected by addCategory
+      const newCategory = {
+        name: categoryData.name,
+        description: categoryData.imageUrl, // Store the imageUrl in the description field for now
+      };
+
+      // Use timeout to ensure UI has time to update before mutation
+      setTimeout(() => {
+        addCategory(newCategory, {
+          onSuccess: () => {
+            // Use timeout to ensure state updates don't conflict
+            setTimeout(() => {
+              setIsCategoryDrawerOpen(false);
+              setIsProcessing(false);
+            }, 100);
+          },
+          onError: () => {
+            setIsProcessing(false);
+          },
+        });
+      }, 50);
+    },
+    [addCategory, isProcessing]
+  );
+
+  // Handle drawer close with safety checks
+  const handleCloseDrawer = useCallback(() => {
+    if (!isProcessing) {
+      setIsDrawerOpen(false);
+    }
+  }, [isProcessing]);
+
+  // Handle category drawer close with safety checks
+  const handleCloseCategoryDrawer = useCallback(() => {
+    if (!isProcessing) {
+      setIsCategoryDrawerOpen(false);
+    }
+  }, [isProcessing]);
 
   // Prepare filters for the ProductList component
   const filters = {
     status: filterStatus,
     priceRange: priceRange,
   };
+
+  // Add effect to log when products change
+  useEffect(() => {
+    console.log("Inventory: Products updated:", products.length);
+    console.log("Inventory: Current selectedCategoryId:", selectedCategoryId);
+
+    // Check if products match the category
+    if (selectedCategoryId) {
+      const productsInCategory = products.filter(
+        (p) => p.category_id === selectedCategoryId
+      );
+      console.log(
+        `Inventory: Products matching category ${selectedCategoryId}:`,
+        productsInCategory.length
+      );
+      console.log("Products are:", products);
+    }
+  }, [products, selectedCategoryId]);
 
   return (
     <div style={styles.pageContainer}>
@@ -86,6 +175,22 @@ export default function Inventory() {
           <div style={styles.totalProductsContainer}>
             <span style={styles.totalProductsLabel}>Total Products</span>
             <span style={styles.totalProductsCount}>{totalProducts}</span>
+          </div>
+
+          <div style={styles.searchContainer}>
+            <img
+              src={SearchIcon}
+              alt="Search"
+              style={styles.searchIcon}
+              aria-hidden="true"
+            />
+            <input
+              type="text"
+              placeholder="Search products..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={styles.searchInput}
+            />
           </div>
 
           <div style={styles.actionButtons}>
@@ -105,6 +210,7 @@ export default function Inventory() {
               }}
               className="hover:bg-[#e0a9c1]"
               onClick={() => setIsCategoryDrawerOpen(true)}
+              disabled={isProcessing}
             >
               Add New Category
             </Button>
@@ -124,8 +230,9 @@ export default function Inventory() {
               }}
               className="hover:bg-[#e0a9c1]"
               onClick={() => setIsDrawerOpen(true)}
+              disabled={isProcessing}
             >
-              Add New Inventory
+              Add New Product
             </Button>
           </div>
         </div>
@@ -278,39 +385,25 @@ export default function Inventory() {
               </div>
             </div>
 
-            {/* Right Column - Categories and Products */}
-            <div style={styles.rightColumnContent}>
-              {/* Search Bar positioned at top of right column to align with the All card */}
-              <div style={styles.searchContainer}>
-                <img src={SearchIcon} alt="Search" style={styles.searchIcon} />
-                <input
-                  type="text"
-                  placeholder="Search products..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  style={styles.searchInput}
-                />
-              </div>
-
-              {/* Categories Section */}
-              <div style={styles.categoriesSection}>
-                <CategoryCards
-                  selectedCategoryId={selectedCategoryId}
-                  onSelectCategory={setSelectedCategoryId}
-                />
-              </div>
-
-              {/* Divider */}
-              <div style={styles.divider}></div>
-
-              {/* Products Section */}
-              <div style={styles.productsSection}>
-                <ProductList
-                  selectedCategoryId={selectedCategoryId}
-                  searchTerm={searchTerm}
-                  filters={filters}
-                />
-              </div>
+            {/* Right Column - Category Cards and Product List */}
+            <div style={styles.rightColumn}>
+              <CategoryCards
+                onSelectCategory={handleCategorySelect}
+                selectedCategoryId={selectedCategoryId}
+              />
+              <ProductList
+                products={
+                  selectedCategoryId
+                    ? products.filter(
+                        (p) => p.category_id === selectedCategoryId
+                      )
+                    : products
+                }
+                searchTerm={searchTerm}
+                filters={filters}
+                updateStock={updateStock}
+                deleteProduct={deleteProduct}
+              />
             </div>
           </div>
         </div>
@@ -320,14 +413,14 @@ export default function Inventory() {
       <InventoryFormDrawer
         product={null}
         isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
+        onClose={handleCloseDrawer}
         onSave={handleSaveProduct}
       />
 
       {/* Category Form Drawer */}
       <CategoryFormDrawer
         isOpen={isCategoryDrawerOpen}
-        onClose={() => setIsCategoryDrawerOpen(false)}
+        onClose={handleCloseCategoryDrawer}
         onSave={handleSaveCategory}
       />
     </div>
@@ -382,10 +475,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     width: "450px",
     border: "1px solid #FFFFFF",
     height: "35px",
-    marginBottom: "16px",
-    position: "absolute",
-    top: "0",
-    transform: "translateY(-70px)",
+    flexShrink: 0,
   },
   searchIcon: {
     width: "16px",
@@ -423,7 +513,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     position: "relative",
     marginTop: "-10px",
   },
-  rightColumnContent: {
+  rightColumn: {
     display: "flex",
     flexDirection: "column",
     gap: "16px",
@@ -448,24 +538,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: "30px",
     fontWeight: 500,
     color: "#FFFFFF",
-  },
-  categoriesSection: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "16px",
-    width: "100%",
-    marginTop: "-10px",
-  },
-  divider: {
-    width: "100%",
-    height: "1px",
-    backgroundColor: "#5E5E5E",
-    margin: "8px 0",
-  },
-  productsSection: {
-    display: "flex",
-    flexDirection: "column",
-    width: "100%",
   },
   filterCard: {
     backgroundColor: "#292C2D",

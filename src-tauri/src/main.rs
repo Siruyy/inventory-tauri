@@ -3,9 +3,7 @@
 mod auth;
 mod commands;
 mod db;
-mod models;
 
-use std::sync::Mutex;
 use rusqlite::Connection;
 use commands::{
     auth::*,
@@ -14,6 +12,7 @@ use commands::{
 };
 use crate::db::DbState;
 use bcrypt::{hash, DEFAULT_COST};
+use r2d2_sqlite::SqliteConnectionManager;
 
 // Function to initialize database with default admin user
 fn initialize_database(conn: &Connection) -> Result<(), String> {
@@ -213,7 +212,17 @@ fn initialize_database(conn: &Connection) -> Result<(), String> {
 
 fn main() {
     let db_path = "inventory.db";
-    let conn = Connection::open(db_path).expect("Failed to open database");
+    let manager = SqliteConnectionManager::file(db_path)
+        .with_init(|conn| {
+            // Enable foreign keys for each new connection from the pool
+            conn.execute_batch("PRAGMA foreign_keys = ON;")?;
+            Ok(())
+        });
+    let pool = r2d2::Pool::new(manager).expect("Failed to create pool.");
+    
+    // The initialize_database function needs a connection.
+    // I can get one from the pool.
+    let conn = pool.get().expect("Failed to get conn for init");
     
     // Initialize database with default admin user
     if let Err(e) = initialize_database(&conn) {
@@ -222,12 +231,13 @@ fn main() {
 
     tauri::Builder::default()
         .manage(DbState {
-            connection: Mutex::new(conn),
+            pool: pool,
         })
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            greet,
             register,
             verify_auth,
             login,
@@ -242,4 +252,9 @@ fn main() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[tauri::command]
+fn greet(name: &str) -> String {
+    format!("Hello, {}! You've been greeted from Rust!", name)
 }

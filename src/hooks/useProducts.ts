@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { mockCategories } from "./useCategories"; // Import mockCategories
+
+// Add debug logs
+console.log("Loading useProducts module");
 
 export interface Product {
   id: number;
@@ -28,7 +30,9 @@ export interface NewProduct {
   supplier: string | null;
 }
 
-// Mock products for development - moved outside to persist between renders
+// Mock products for development - for reference only, not used anymore
+// We're keeping this commented out for reference in case we need to roll back
+/*
 let mockProducts: Product[] = [
   {
     id: 1,
@@ -101,107 +105,253 @@ let mockProducts: Product[] = [
     updated_at: new Date().toISOString(),
   },
 ];
+*/
+
+// Helper function to wrap Tauri invocations with better error handling
+async function safeTauriInvoke<T>(command: string, args?: any): Promise<T> {
+  console.log(`Calling Tauri command: ${command}`, args);
+  try {
+    const result = await invoke<T>(command, args);
+    console.log(`Command ${command} succeeded:`, result);
+    return result;
+  } catch (error) {
+    console.error(`Command ${command} failed:`, error);
+    throw error;
+  }
+}
+
+// Helper to debounce function calls
+function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+
+  return function (...args: Parameters<T>): void {
+    if (timeout) clearTimeout(timeout);
+
+    timeout = setTimeout(() => {
+      func(...args);
+    }, wait);
+  };
+}
 
 export function useProducts(categoryId?: number) {
+  console.log("useProducts hook called with categoryId:", categoryId);
   const queryClient = useQueryClient();
 
-  // Use mockProducts for now
-  const { data: products, isLoading } = useQuery<Product[]>({
+  // Use real database data with better error handling
+  const {
+    data: products,
+    isLoading,
+    refetch: refetchProductsOriginal,
+  } = useQuery<Product[]>({
     queryKey: ["products", categoryId],
-    queryFn: () => {
-      // Return mock data filtered by category if specified
-      if (categoryId) {
-        return Promise.resolve(
-          mockProducts.filter((p) => p.category_id === categoryId)
-        );
+    queryFn: async () => {
+      try {
+        let result;
+        if (categoryId) {
+          console.log(`Fetching products for category ID: ${categoryId}`);
+          try {
+            // Use invoke directly to ensure proper parameter passing
+            console.log("Passing params to Tauri:", {
+              category_id: categoryId,
+            });
+            result = await invoke<Product[]>("get_products_by_category", {
+              category_id: categoryId,
+            });
+            console.log(
+              `Got ${result.length} products for category ${categoryId}:`,
+              result
+            );
+          } catch (error) {
+            console.error("Error calling get_products_by_category:", error);
+            // Fall back to all products
+            result = await safeTauriInvoke<Product[]>("get_all_products");
+          }
+        } else {
+          console.log("Fetching all products");
+          result = await safeTauriInvoke<Product[]>("get_all_products");
+          console.log(`Got ${result.length} products:`, result);
+        }
+        return result;
+      } catch (error) {
+        console.error("Failed to fetch products:", error);
+        return []; // Return empty array on error
       }
-      return Promise.resolve([...mockProducts]);
     },
-    // Commented out real API calls for now
-    // queryFn: () =>
-    //   categoryId
-    //     ? invoke("get_products_by_category", { categoryId })
-    //     : invoke("get_all_products"),
+    // Disable automatic refetching
+    refetchOnWindowFocus: false,
+    // Add more options to prevent crashes
+    retry: false,
+    // Add staleTime to prevent excessive refreshing
+    staleTime: 2000,
   });
 
+  // Debounce the refetch to prevent rapid re-renders causing crashes
+  const refetchProducts = debounce(async () => {
+    console.log("Debounced refetch products called");
+    await new Promise((resolve) => setTimeout(resolve, 100)); // Small delay
+    refetchProductsOriginal();
+  }, 300);
+
   const addProduct = useMutation({
-    mutationFn: (newProduct: NewProduct) => {
-      // Mock adding a product by updating the mockProducts array
-      const newId =
-        mockProducts.length > 0
-          ? Math.max(...mockProducts.map((p) => p.id)) + 1
-          : 1;
+    mutationFn: async (newProduct: NewProduct) => {
+      // Delay execution slightly to allow UI to settle
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return safeTauriInvoke<Product>("add_product", { product: newProduct });
+    },
+    onMutate: async (newProduct) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["products", categoryId] });
 
-      const timestamp = new Date().toISOString();
+      // Snapshot the previous value
+      const previousProducts = queryClient.getQueryData<Product[]>([
+        "products",
+        categoryId,
+      ]);
 
-      // Find the category name based on category_id by looking up in mockCategories
-      const category = mockCategories.find(
-        (cat: { id: number }) => cat.id === newProduct.category_id
-      );
-      const categoryName = category
-        ? category.name
-        : `Category ${newProduct.category_id}`;
+      // Optimistically update to the new value
+      if (previousProducts) {
+        queryClient.setQueryData<Product[]>(["products", categoryId], (old) => [
+          ...(old || []),
+          {
+            id: -1, // Temporary ID
+            name: newProduct.name,
+            description: newProduct.description,
+            sku: newProduct.sku,
+            category_id: newProduct.category_id,
+            category_name: "Loading...", // Will be updated when we refetch
+            unit_price: newProduct.unit_price,
+            current_stock: newProduct.current_stock,
+            minimum_stock: newProduct.minimum_stock,
+            supplier: newProduct.supplier,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          } as Product,
+        ]);
+      }
 
-      const newProductWithId: Product = {
-        id: newId,
-        name: newProduct.name,
-        description: newProduct.description,
-        sku: newProduct.sku,
-        category_id: newProduct.category_id,
-        category_name: categoryName,
-        unit_price: newProduct.unit_price,
-        current_stock: newProduct.current_stock,
-        minimum_stock: newProduct.minimum_stock,
-        supplier: newProduct.supplier,
-        created_at: timestamp,
-        updated_at: timestamp,
-      };
-
-      // Add the new product to our mock data
-      mockProducts.push(newProductWithId);
-
-      console.log("Added product:", newProductWithId);
-      return Promise.resolve();
-      // Return to real API call later
-      // return invoke("add_product", { product: newProduct })
+      return { previousProducts };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
+      console.log("Product added successfully");
+
+      // Wait a bit before refetching to allow the UI to stabilize
+      setTimeout(() => {
+        refetchProducts();
+      }, 200);
+    },
+    onError: (error, newProduct, context) => {
+      console.error("Failed to add product:", error);
+
+      // Revert back to the previous state if available
+      if (context?.previousProducts) {
+        queryClient.setQueryData<Product[]>(
+          ["products", categoryId],
+          context.previousProducts
+        );
+      }
     },
   });
 
   const deleteProduct = useMutation({
-    mutationFn: (id: number) => {
-      // Mock deleting a product by updating the mockProducts array
-      mockProducts = mockProducts.filter((product) => product.id !== id);
-      console.log("Deleted product:", id);
-      return Promise.resolve();
-      // Return to real API call later
-      // return invoke("delete_product", { id })
+    mutationFn: async (id: number) => {
+      // Delay execution slightly to allow UI to settle
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return safeTauriInvoke<void>("delete_product", { id });
+    },
+    onMutate: async (id) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["products", categoryId] });
+
+      // Snapshot the previous values
+      const previousProducts = queryClient.getQueryData<Product[]>([
+        "products",
+        categoryId,
+      ]);
+
+      // Optimistically update
+      if (previousProducts) {
+        queryClient.setQueryData<Product[]>(["products", categoryId], (old) =>
+          (old || []).filter((product) => product.id !== id)
+        );
+      }
+
+      return { previousProducts };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
+      console.log("Product deleted successfully");
+
+      // Wait a bit before refetching to allow the UI to stabilize
+      setTimeout(() => {
+        refetchProducts();
+      }, 200);
+    },
+    onError: (error, id, context) => {
+      console.error("Failed to delete product:", error);
+
+      // Revert back to the previous state if available
+      if (context?.previousProducts) {
+        queryClient.setQueryData<Product[]>(
+          ["products", categoryId],
+          context.previousProducts
+        );
+      }
     },
   });
 
   const updateStock = useMutation({
-    mutationFn: ({ id, newStock }: { id: number; newStock: number }) => {
-      // Mock updating stock by modifying the product in mockProducts
-      const productIndex = mockProducts.findIndex((p) => p.id === id);
-      if (productIndex >= 0) {
-        mockProducts[productIndex] = {
-          ...mockProducts[productIndex],
-          current_stock: newStock,
-          updated_at: new Date().toISOString(),
-        };
-        console.log("Updated stock for product", id, "to", newStock);
+    mutationFn: async ({ id, newStock }: { id: number; newStock: number }) => {
+      // Delay execution slightly to allow UI to settle
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return safeTauriInvoke<void>("update_product_stock", {
+        id,
+        new_stock: newStock,
+      });
+    },
+    onMutate: async ({ id, newStock }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["products", categoryId] });
+
+      // Snapshot the previous values
+      const previousProducts = queryClient.getQueryData<Product[]>([
+        "products",
+        categoryId,
+      ]);
+
+      // Optimistically update
+      if (previousProducts) {
+        queryClient.setQueryData<Product[]>(["products", categoryId], (old) =>
+          (old || []).map((product) => {
+            if (product.id === id) {
+              return { ...product, current_stock: newStock };
+            }
+            return product;
+          })
+        );
       }
-      return Promise.resolve();
-      // Return to real API call later
-      // return invoke("update_product_stock", { id, newStock })
+
+      return { previousProducts };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
+      console.log("Product stock updated successfully");
+
+      // Wait a bit before refetching to allow the UI to stabilize
+      setTimeout(() => {
+        refetchProducts();
+      }, 200);
+    },
+    onError: (error, variables, context) => {
+      console.error("Failed to update product stock:", error);
+
+      // Revert back to the previous state if available
+      if (context?.previousProducts) {
+        queryClient.setQueryData<Product[]>(
+          ["products", categoryId],
+          context.previousProducts
+        );
+      }
     },
   });
 
@@ -211,5 +361,6 @@ export function useProducts(categoryId?: number) {
     addProduct: addProduct.mutate,
     deleteProduct: deleteProduct.mutate,
     updateStock: updateStock.mutate,
+    refetchProducts,
   };
 }

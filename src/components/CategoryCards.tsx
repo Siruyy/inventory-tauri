@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import PenIcon from "/icons/pen.svg";
+import TrashIcon from "/icons/trash.svg";
 import { useCategories, type Category } from "../hooks/useCategories";
 import { useProducts } from "../hooks/useProducts";
 
@@ -12,17 +13,99 @@ export function CategoryCards({
   selectedCategoryId,
   onSelectCategory,
 }: CategoryCardsProps) {
-  const { categories } = useCategories();
-  const { products } = useProducts();
+  const { categories, deleteCategory, refetchCategories } = useCategories();
+  const { products, refetchProducts } = useProducts();
+  const [deletingCategoryId, setDeletingCategoryId] = useState<number | null>(
+    null
+  );
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  console.log("CategoryCards - categories:", categories);
+  console.log("CategoryCards - products:", products);
+  console.log("CategoryCards - selectedCategoryId:", selectedCategoryId);
 
   // Count products per category
   const getProductCountForCategory = (categoryId: number) => {
-    return products.filter((product) => product.category_id === categoryId)
-      .length;
+    const count = products.filter(
+      (product) => product.category_id === categoryId
+    ).length;
+    console.log(`Category ${categoryId} has ${count} products`);
+    return count;
+  };
+
+  // First step in delete process - mark category for deletion and show confirmation
+  const handleDeleteClick = (e: React.MouseEvent, categoryId: number) => {
+    e.stopPropagation();
+
+    if (isProcessing) return;
+
+    console.log("Marking category for deletion:", categoryId);
+    setDeletingCategoryId(categoryId);
+  };
+
+  // Confirm deletion
+  const confirmDelete = async () => {
+    if (deletingCategoryId !== null && !isProcessing) {
+      console.log("Confirming deletion for category:", deletingCategoryId);
+      setIsProcessing(true);
+
+      try {
+        await deleteCategory(deletingCategoryId);
+        console.log("Category deleted successfully");
+        // Explicitly refetch after deletion to ensure UI is up to date
+        refetchCategories();
+        refetchProducts();
+      } catch (error) {
+        console.error("Error deleting category:", error);
+      } finally {
+        setDeletingCategoryId(null);
+        setIsProcessing(false);
+      }
+    }
+  };
+
+  // Cancel deletion
+  const cancelDelete = () => {
+    if (!isProcessing) {
+      console.log("Canceling deletion");
+      setDeletingCategoryId(null);
+    }
   };
 
   return (
     <div style={styles.container}>
+      {/* Confirmation Dialog */}
+      {deletingCategoryId !== null && (
+        <div style={styles.confirmationOverlay}>
+          <div style={styles.confirmationDialog}>
+            <h3 style={styles.confirmationTitle}>Delete Category?</h3>
+            <p style={styles.confirmationText}>
+              Are you sure you want to delete this category? This action cannot
+              be undone.
+            </p>
+            <div style={styles.confirmationButtons}>
+              <button
+                style={styles.cancelButton}
+                onClick={cancelDelete}
+                disabled={isProcessing}
+              >
+                Cancel
+              </button>
+              <button
+                style={{
+                  ...styles.deleteButton,
+                  ...(isProcessing ? { opacity: 0.7 } : {}),
+                }}
+                onClick={confirmDelete}
+                disabled={isProcessing}
+              >
+                {isProcessing ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* All category card */}
       <div
         style={{
@@ -44,6 +127,7 @@ export function CategoryCards({
       {/* Category cards */}
       {categories.map((category: Category) => {
         const productCount = getProductCountForCategory(category.id);
+
         return (
           <div
             key={category.id}
@@ -72,16 +156,24 @@ export function CategoryCards({
               </div>
             </div>
 
-            {/* Edit Icon */}
-            <button
-              style={styles.editButton}
-              onClick={(e) => {
-                e.stopPropagation();
-                // We'll implement edit functionality later
-              }}
-            >
-              <img src={PenIcon} alt="Edit" style={styles.editIcon} />
-            </button>
+            {/* Edit & Delete Icons */}
+            <div style={styles.actionButtons}>
+              <button
+                style={styles.actionButton}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // We'll implement edit functionality later
+                }}
+              >
+                <img src={PenIcon} alt="Edit" style={styles.actionIcon} />
+              </button>
+              <button
+                style={styles.actionButton}
+                onClick={(e) => handleDeleteClick(e, category.id)}
+              >
+                <img src={TrashIcon} alt="Delete" style={styles.actionIcon} />
+              </button>
+            </div>
           </div>
         );
       })}
@@ -100,7 +192,67 @@ const styles: { [key: string]: React.CSSProperties } = {
     scrollbarColor: "#3A3D40 #1F1F1F",
     msOverflowStyle: "none", // IE and Edge
     paddingBottom: "8px",
+    position: "relative",
   },
+  // Add new styles for confirmation dialog
+  confirmationOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  },
+  confirmationDialog: {
+    backgroundColor: "#292C2D",
+    borderRadius: "8px",
+    padding: "24px",
+    width: "400px",
+    boxShadow: "0 4px 16px rgba(0, 0, 0, 0.2)",
+  },
+  confirmationTitle: {
+    color: "#FFFFFF",
+    fontSize: "20px",
+    fontWeight: 600,
+    marginTop: 0,
+    marginBottom: "16px",
+  },
+  confirmationText: {
+    color: "#DDDDDD",
+    fontSize: "16px",
+    marginBottom: "24px",
+    lineHeight: 1.5,
+  },
+  confirmationButtons: {
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: "12px",
+  },
+  cancelButton: {
+    backgroundColor: "#3A3D40",
+    color: "#FFFFFF",
+    border: "none",
+    padding: "8px 16px",
+    borderRadius: "4px",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: 500,
+  },
+  deleteButton: {
+    backgroundColor: "#E53935",
+    color: "#FFFFFF",
+    border: "none",
+    padding: "8px 16px",
+    borderRadius: "4px",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: 500,
+  },
+  // Existing styles
   card: {
     width: "152px",
     height: "146px",
@@ -162,10 +314,14 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: 300,
     lineHeight: "1.5em",
   },
-  editButton: {
+  actionButtons: {
     position: "absolute",
     left: "15px",
     top: "15px",
+    display: "flex",
+    gap: "8px",
+  },
+  actionButton: {
     width: "28px",
     height: "28px",
     padding: 0,
@@ -177,7 +333,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: "center",
     justifyContent: "center",
   },
-  editIcon: {
+  actionIcon: {
     width: "14px",
     height: "14px",
     opacity: 0.9,
