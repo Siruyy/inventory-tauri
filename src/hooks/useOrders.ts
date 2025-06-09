@@ -47,15 +47,29 @@ export interface CreateOrderRequest {
   items: NewOrderItem[];
 }
 
-// Helper function to wrap Tauri invocations with better error handling
-async function safeTauriInvoke<T>(command: string, args?: any): Promise<T> {
-  console.log(`Calling Tauri command: ${command}`, args);
+export interface OrderHistoryRequest {
+  start_date?: string;
+  end_date?: string;
+  status?: string;
+  limit?: number;
+}
+
+export interface OrderStatistics {
+  order_count: number;
+  total_revenue: number;
+  avg_order_value: number;
+  unique_cashiers: number;
+}
+
+// Safely invoke a Tauri command, returning empty result on error
+async function safeTauriInvoke<T>(
+  cmd: string,
+  args?: Record<string, unknown>
+): Promise<T> {
   try {
-    const result = await invoke<T>(command, args);
-    console.log(`Command ${command} succeeded:`, result);
-    return result;
+    return await invoke<T>(cmd, args);
   } catch (error) {
-    console.error(`Command ${command} failed:`, error);
+    console.error(`Error invoking ${cmd}:`, error);
     throw error;
   }
 }
@@ -82,6 +96,51 @@ export function useOrders() {
     },
     refetchOnWindowFocus: false,
   });
+
+  // Get order history with filters
+  const getOrderHistory = (request: OrderHistoryRequest) => {
+    return useQuery<Order[]>({
+      queryKey: ["order_history", request],
+      queryFn: async () => {
+        try {
+          return await safeTauriInvoke<Order[]>("get_order_history", {
+            request,
+          });
+        } catch (error) {
+          console.error("Failed to fetch order history:", error);
+          return [];
+        }
+      },
+      refetchOnWindowFocus: false,
+    });
+  };
+
+  // Get order statistics
+  const getOrderStatistics = (startDate?: string, endDate?: string) => {
+    return useQuery<OrderStatistics>({
+      queryKey: ["order_statistics", startDate, endDate],
+      queryFn: async () => {
+        try {
+          return await safeTauriInvoke<OrderStatistics>(
+            "get_order_statistics",
+            {
+              start_date: startDate,
+              end_date: endDate,
+            }
+          );
+        } catch (error) {
+          console.error("Failed to fetch order statistics:", error);
+          return {
+            order_count: 0,
+            total_revenue: 0,
+            avg_order_value: 0,
+            unique_cashiers: 0,
+          };
+        }
+      },
+      refetchOnWindowFocus: false,
+    });
+  };
 
   // Get order with items
   const getOrderWithItems = async (
@@ -114,5 +173,7 @@ export function useOrders() {
     getOrderWithItems,
     createOrder,
     refetchOrders,
+    getOrderHistory,
+    getOrderStatistics,
   };
 }

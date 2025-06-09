@@ -63,6 +63,36 @@ fn initialize_database(conn: &Connection) -> Result<(), String> {
         [],
     ).map_err(|e| format!("Failed to create products table: {}", e))?;
 
+    // Create orders table if it doesn't exist
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id TEXT NOT NULL,
+            cashier TEXT NOT NULL,
+            subtotal REAL NOT NULL,
+            tax REAL NOT NULL,
+            total REAL NOT NULL,
+            status TEXT NOT NULL DEFAULT 'completed',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    ).map_err(|e| format!("Failed to create orders table: {}", e))?;
+
+    // Create order_items table if it doesn't exist
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS order_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER NOT NULL,
+            product_id INTEGER NOT NULL,
+            quantity INTEGER NOT NULL,
+            price REAL NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+            FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT
+        )",
+        [],
+    ).map_err(|e| format!("Failed to create order_items table: {}", e))?;
+
     // Check if admin user exists
     let mut stmt = conn.prepare("SELECT COUNT(*) FROM users WHERE username = 'admin'")
         .map_err(|e| format!("Failed to prepare statement: {}", e))?;
@@ -262,6 +292,8 @@ fn main() {
             get_order_items,
             get_order_with_items,
             get_recent_orders,
+            get_order_history,
+            get_order_statistics,
             
             // Misc
             greet

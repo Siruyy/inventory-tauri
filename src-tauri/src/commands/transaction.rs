@@ -9,6 +9,14 @@ pub struct CreateOrderRequest {
     pub items: Vec<NewOrderItem>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct OrderHistoryRequest {
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
+    pub status: Option<String>,
+    pub limit: Option<i32>,
+}
+
 #[tauri::command]
 pub fn create_order(state: tauri::State<DbState>, request: CreateOrderRequest) -> Result<Order, String> {
     println!("Backend: Creating new order: {}", request.order.order_id);
@@ -167,4 +175,129 @@ pub fn get_recent_orders(state: tauri::State<DbState>, limit: Option<i32>) -> Re
         .map_err(|e| format!("Failed to collect orders: {}", e))?;
     
     Ok(result)
+}
+
+#[tauri::command]
+pub fn get_order_history(state: tauri::State<DbState>, request: OrderHistoryRequest) -> Result<Vec<Order>, String> {
+    println!("Backend: Getting order history with filters");
+    
+    let limit = request.limit.unwrap_or(100);
+    let conn = state.pool.get()
+        .map_err(|e| format!("Failed to get connection from pool: {}", e))?;
+    
+    // Build query based on filters
+    let mut query = String::from(
+        "SELECT id, order_id, cashier, subtotal, tax, total, status, created_at
+         FROM orders WHERE 1=1"
+    );
+    
+    let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+    
+    // Add date range filters if provided
+    if let Some(start_date) = &request.start_date {
+        query.push_str(" AND created_at >= ?");
+        query_params.push(Box::new(start_date.clone()));
+    }
+    
+    if let Some(end_date) = &request.end_date {
+        query.push_str(" AND created_at <= ?");
+        query_params.push(Box::new(end_date.clone()));
+    }
+    
+    // Add status filter if provided
+    if let Some(status) = &request.status {
+        query.push_str(" AND status = ?");
+        query_params.push(Box::new(status.clone()));
+    }
+    
+    // Add order by and limit
+    query.push_str(" ORDER BY created_at DESC LIMIT ?");
+    query_params.push(Box::new(limit));
+    
+    // Prepare and execute the query
+    let mut stmt = conn.prepare(&query)
+        .map_err(|e| format!("Failed to prepare statement: {}", e))?;
+    
+    // Convert query_params to a slice of ToSql traits
+    let params_slice: Vec<&dyn rusqlite::ToSql> = query_params
+        .iter()
+        .map(|p| p.as_ref() as &dyn rusqlite::ToSql)
+        .collect();
+    
+    let orders = stmt.query_map(params_slice.as_slice(), |row| {
+        Ok(Order {
+            id: row.get(0)?,
+            order_id: row.get(1)?,
+            cashier: row.get(2)?,
+            subtotal: row.get(3)?,
+            tax: row.get(4)?,
+            total: row.get(5)?,
+            status: row.get(6)?,
+            created_at: row.get(7)?,
+        })
+    }).map_err(|e| format!("Failed to query orders: {}", e))?;
+    
+    let result = orders.collect::<Result<Vec<_>>>()
+        .map_err(|e| format!("Failed to collect orders: {}", e))?;
+    
+    Ok(result)
+}
+
+#[tauri::command]
+pub fn get_order_statistics(state: tauri::State<DbState>, start_date: Option<String>, end_date: Option<String>) -> Result<OrderStatistics, String> {
+    println!("Backend: Getting order statistics");
+    
+    let conn = state.pool.get()
+        .map_err(|e| format!("Failed to get connection from pool: {}", e))?;
+    
+    // Build base query
+    let mut query = String::from(
+        "SELECT COUNT(*) as order_count, 
+                SUM(total) as total_revenue,
+                AVG(total) as avg_order_value,
+                COUNT(DISTINCT cashier) as unique_cashiers
+         FROM orders WHERE 1=1"
+    );
+    
+    let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+    
+    // Add date range filters if provided
+    if let Some(start_date) = &start_date {
+        query.push_str(" AND created_at >= ?");
+        query_params.push(Box::new(start_date.clone()));
+    }
+    
+    if let Some(end_date) = &end_date {
+        query.push_str(" AND created_at <= ?");
+        query_params.push(Box::new(end_date.clone()));
+    }
+    
+    // Prepare and execute the query
+    let mut stmt = conn.prepare(&query)
+        .map_err(|e| format!("Failed to prepare statement: {}", e))?;
+    
+    // Convert query_params to a slice of ToSql traits
+    let params_slice: Vec<&dyn rusqlite::ToSql> = query_params
+        .iter()
+        .map(|p| p.as_ref() as &dyn rusqlite::ToSql)
+        .collect();
+    
+    let stats = stmt.query_row(params_slice.as_slice(), |row| {
+        Ok(OrderStatistics {
+            order_count: row.get(0)?,
+            total_revenue: row.get(1)?,
+            avg_order_value: row.get(2)?,
+            unique_cashiers: row.get(3)?,
+        })
+    }).map_err(|e| format!("Failed to get order statistics: {}", e))?;
+    
+    Ok(stats)
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct OrderStatistics {
+    pub order_count: i64,
+    pub total_revenue: f64,
+    pub avg_order_value: f64,
+    pub unique_cashiers: i64,
 }
