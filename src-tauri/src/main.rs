@@ -294,6 +294,9 @@ fn main() {
             get_recent_orders,
             get_order_history,
             get_order_statistics,
+            get_sales_report_data,
+            debug_order_dates,
+            update_order_dates_to_today,
             
             // Misc
             greet

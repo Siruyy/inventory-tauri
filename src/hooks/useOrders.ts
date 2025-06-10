@@ -61,6 +61,57 @@ export interface OrderStatistics {
   unique_cashiers: number;
 }
 
+// Sales Report Data Types
+export interface SalesReportData {
+  sales_summary: SalesSummary;
+  sales_by_period: PeriodSales[];
+  sales_by_category: CategorySales[];
+  top_products: ProductSales[];
+  detailed_sales: DetailedSale[];
+}
+
+export interface SalesSummary {
+  total_sales: number;
+  total_revenue: number;
+  total_profit: number;
+  items_sold: number;
+  transactions: number;
+  sales_growth: number;
+  revenue_growth: number;
+  profit_growth: number;
+  items_growth: number;
+  transactions_growth: number;
+}
+
+export interface PeriodSales {
+  period: string;
+  sales: number;
+  revenue: number;
+  profit: number;
+}
+
+export interface CategorySales {
+  category: string;
+  value: number;
+  percentage: number;
+}
+
+export interface ProductSales {
+  name: string;
+  sales: number;
+}
+
+export interface DetailedSale {
+  id: number;
+  product: string;
+  category: string;
+  date: string;
+  price: number;
+  profit: number;
+  margin: string;
+  revenue: number;
+}
+
 // Safely invoke a Tauri command, returning empty result on error
 async function safeTauriInvoke<T>(
   cmd: string,
@@ -167,6 +218,33 @@ export function useOrders() {
     },
   });
 
+  // Get sales report data
+  const getSalesReportData = (
+    startDate?: string,
+    endDate?: string,
+    period: "day" | "week" | "month" | "year" = "month"
+  ) => {
+    return useQuery<SalesReportData>({
+      queryKey: ["sales_report_data", startDate, endDate, period],
+      queryFn: async () => {
+        try {
+          // Build args object, only include dates if defined
+          const args: Record<string, unknown> = { period };
+          if (startDate !== undefined) args.start_date = startDate;
+          if (endDate !== undefined) args.end_date = endDate;
+          return await safeTauriInvoke<SalesReportData>(
+            "get_sales_report_data",
+            args
+          );
+        } catch (error) {
+          console.error("Failed to fetch sales report data:", error);
+          throw error;
+        }
+      },
+      refetchOnWindowFocus: false,
+    });
+  };
+
   return {
     recentOrders: recentOrders || [],
     isLoadingOrders,
@@ -175,5 +253,6 @@ export function useOrders() {
     refetchOrders,
     getOrderHistory,
     getOrderStatistics,
+    getSalesReportData,
   };
 }
