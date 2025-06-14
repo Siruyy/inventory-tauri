@@ -1,73 +1,29 @@
 // src/pages/StaffProfile.tsx
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, NavLink } from "react-router-dom";
 
 //
-// Re‐import the very same initialStaffData that you used in Staff.tsx
-// so that we can look up a staff member by ID. In a real‐world scenario,
-// you'd probably fetch this from your backend or share via context/Redux.
-// But for now, we just copy‐paste the same array here.
+// Instead of hard-coding the staff data, we'll get it from localStorage
+// where it's being stored by the Staff.tsx component
 //
-const initialStaffData = [
-  {
-    id: "#101",
-    name: "Watson Joyce",
-    role: "Manager",
-    email: "watsonjoyce11@gmail.com",
-    phone: "+1 (123) 123 4654",
-    age: 45,
-    salary: "$2200.00",
-    timings: "9am to 6pm",
-    avatar: "https://i.pravatar.cc/300?img=47",
-    dob: "1983-01-01",
-    address: "House #114 Street 123 USA, Chicago",
-    additional: "",
-  },
-  {
-    id: "#102",
-    name: "Arielle Santos",
-    role: "Cashier",
-    email: "arielle.santos@example.com",
-    phone: "+1 (123) 987 6543",
-    age: 28,
-    salary: "$1200.00",
-    timings: "10am to 7pm",
-    avatar: "https://i.pravatar.cc/300?img=5",
-    dob: "1996-05-15",
-    address: "123 Baker Street, New York",
-    additional: "",
-  },
-  {
-    id: "#103",
-    name: "Miguel Reyes",
-    role: "Cook",
-    email: "miguel.reyes@example.com",
-    phone: "+1 (123) 555 3322",
-    age: 32,
-    salary: "$1500.00",
-    timings: "8am to 5pm",
-    avatar: "https://i.pravatar.cc/300?img=12",
-    dob: "1991-11-20",
-    address: "456 Elm Street, Los Angeles",
-    additional: "",
-  },
-  {
-    id: "#104",
-    name: "Lea Bautista",
-    role: "Barista",
-    email: "lea.bautista@example.com",
-    phone: "+1 (123) 444 7788",
-    age: 25,
-    salary: "$1100.00",
-    timings: "11am to 8pm",
-    avatar: "https://i.pravatar.cc/300?img=20",
-    dob: "1998-08-30",
-    address: "789 Pine Street, Seattle",
-    additional: "",
-  },
-];
 
 export default function StaffProfile(): JSX.Element {
+  // State to hold staff data
+  const [staffData, setStaffData] = useState<any[]>([]);
+
+  // Load staff data from localStorage on component mount
+  useEffect(() => {
+    const savedStaff = localStorage.getItem("staffList");
+    if (savedStaff) {
+      try {
+        const parsedData = JSON.parse(savedStaff);
+        setStaffData(parsedData);
+      } catch (error) {
+        console.error("Failed to parse staff data from localStorage:", error);
+      }
+    }
+  }, []);
+
   // Grab the ":id" param from the URL (we expect something like "/staff/101")
   const params = useParams<{ id: string }>();
   const rawId = params.id; // e.g. "101"
@@ -76,9 +32,9 @@ export default function StaffProfile(): JSX.Element {
   const lookupId = rawId ? `#${rawId}` : "";
 
   // Find the matching staff object (or undefined if not found)
-  const staff = initialStaffData.find((s) => s.id === lookupId);
+  const staff = staffData.find((s) => s.id === lookupId);
 
-  // If no such staff, render a simple “Not Found” message
+  // If no such staff, render a simple "Not Found" message
   if (!staff) {
     return (
       <div style={styles.pageContainer}>
@@ -123,9 +79,9 @@ export default function StaffProfile(): JSX.Element {
               <div style={styles.detailLabel}>Full Name</div>
               <div style={styles.detailValue}>{staff.name}</div>
 
-              {/* Email */}
-              <div style={styles.detailLabel}>Email</div>
-              <div style={styles.detailValue}>{staff.email}</div>
+              {/* Department */}
+              <div style={styles.detailLabel}>Department</div>
+              <div style={styles.detailValue}>{staff.department}</div>
 
               {/* Phone number */}
               <div style={styles.detailLabel}>Phone number</div>
@@ -135,13 +91,17 @@ export default function StaffProfile(): JSX.Element {
               <div style={styles.detailLabel}>Date of birth</div>
               <div style={styles.detailValue}>{staff.dob}</div>
 
-              {/* Address (spans two columns) */}
-              <div style={{ ...styles.detailLabel, gridColumn: "span 2" }}>
-                Address
-              </div>
-              <div style={{ ...styles.detailValue, gridColumn: "span 2" }}>
-                {staff.address}
-              </div>
+              {/* Address */}
+              <div style={styles.detailLabel}>Address</div>
+              <div style={styles.detailValue}>{staff.address}</div>
+
+              {/* Username */}
+              <div style={styles.detailLabel}>Username</div>
+              <div style={styles.detailValue}>{staff.username}</div>
+
+              {/* Password */}
+              <div style={styles.detailLabel}>Password</div>
+              <div style={styles.detailValue}>{staff.password}</div>
             </div>
           </div>
 
@@ -152,10 +112,6 @@ export default function StaffProfile(): JSX.Element {
               {/* Role */}
               <div style={styles.detailLabel}>Role</div>
               <div style={styles.detailValue}>{staff.role}</div>
-
-              {/* Salary */}
-              <div style={styles.detailLabel}>Salary</div>
-              <div style={styles.detailValue}>{staff.salary}</div>
 
               {/* Shift start timing */}
               <div style={styles.detailLabel}>Shift start timing</div>
@@ -168,6 +124,18 @@ export default function StaffProfile(): JSX.Element {
               <div style={styles.detailValue}>
                 {staff.timings.split(" to ")[1]}
               </div>
+
+              {/* Additional information */}
+              {staff.additional && (
+                <>
+                  <div style={{ ...styles.detailLabel, gridColumn: "span 2" }}>
+                    Additional Information
+                  </div>
+                  <div style={{ ...styles.detailValue, gridColumn: "span 2" }}>
+                    {staff.additional}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -247,35 +215,35 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: 24,
   },
 
-  /* Each “box” has a subtle background, rounded corners */
+  /* Each "box" has a subtle background, rounded corners */
   box: {
     backgroundColor: "#2A2A2A",
     borderRadius: 8,
-    padding: "16px",
+    padding: 24,
+    boxShadow: "0 2px 8px rgba(0,0,0,0.5)",
   },
   boxTitle: {
-    fontSize: "1.125rem",
-    fontWeight: 500,
-    marginBottom: 12,
+    fontSize: "1.1rem",
+    fontWeight: 600,
+    marginTop: 0,
+    marginBottom: 16,
     color: "#FFFFFF",
   },
 
-  /* Grid for the detail rows (two columns) */
+  /* Grid for details (label/value pairs) */
   detailsGrid: {
     display: "grid",
-    gridTemplateColumns: "1fr 2fr",
-    rowGap: 12,
-    columnGap: 16,
+    gridTemplateColumns: "120px 1fr",
+    gap: "8px",
     alignItems: "center",
   },
   detailLabel: {
+    color: "#AAAAAA",
     fontSize: "0.875rem",
-    fontWeight: 500,
-    color: "#CCCCCC",
   },
   detailValue: {
-    fontSize: "0.875rem",
-    fontWeight: 300,
     color: "#FFFFFF",
+    fontSize: "0.875rem",
+    fontWeight: 500,
   },
 };

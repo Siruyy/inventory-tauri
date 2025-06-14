@@ -260,7 +260,7 @@ export function useProducts(categoryId?: number) {
         refetchProducts();
       }, 200);
     },
-    onError: (error, newProduct, context) => {
+    onError: (error, _newProduct, context) => {
       console.error("Failed to add product:", error);
 
       // Show error toast notification
@@ -272,7 +272,7 @@ export function useProducts(categoryId?: number) {
       // Revert back to the previous state if available
       if (context?.previousProducts) {
         queryClient.setQueryData<Product[]>(
-          ["products", categoryId],
+          ["products"],
           context.previousProducts
         );
       }
@@ -318,20 +318,27 @@ export function useProducts(categoryId?: number) {
         refetchProducts();
       }, 200);
     },
-    onError: (error, id, context) => {
+    onError: (error, _id, context) => {
       console.error("Failed to delete product:", error);
 
-      // Show error toast notification
+      // Extract the error message from the error object
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+          ? error
+          : "There was an error deleting the product. Please try again.";
+
+      // Show error toast notification with the specific error message
       toast.error("Failed to delete product", {
-        description:
-          "There was an error deleting the product. Please try again.",
-        duration: 5000,
+        description: errorMessage,
+        duration: 8000,
       });
 
       // Revert back to the previous state if available
       if (context?.previousProducts) {
         queryClient.setQueryData<Product[]>(
-          ["products", categoryId],
+          ["products"],
           context.previousProducts
         );
       }
@@ -340,8 +347,6 @@ export function useProducts(categoryId?: number) {
 
   const updateStock = useMutation({
     mutationFn: async ({ id, newStock }: { id: number; newStock: number }) => {
-      // Delay execution slightly to allow UI to settle
-      await new Promise((resolve) => setTimeout(resolve, 50));
       return safeTauriInvoke<void>("update_product_stock", {
         id,
         new_stock: newStock,
@@ -349,56 +354,51 @@ export function useProducts(categoryId?: number) {
     },
     onMutate: async ({ id, newStock }) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["products", categoryId] });
+      await queryClient.cancelQueries({ queryKey: ["products"] });
 
-      // Snapshot the previous values
+      // Snapshot the previous value
       const previousProducts = queryClient.getQueryData<Product[]>([
         "products",
-        categoryId,
       ]);
 
-      // Optimistically update
+      // Optimistically update to the new value
       if (previousProducts) {
-        queryClient.setQueryData<Product[]>(["products", categoryId], (old) =>
-          (old || []).map((product) => {
-            if (product.id === id) {
-              return { ...product, current_stock: newStock };
-            }
-            return product;
-          })
+        queryClient.setQueryData<Product[]>(["products"], (old) =>
+          (old || []).map((product) =>
+            product.id === id
+              ? { ...product, current_stock: newStock }
+              : product
+          )
         );
       }
 
       return { previousProducts };
     },
-    onSuccess: (_, { id, newStock }) => {
-      console.log("Product stock updated successfully");
+    onSuccess: (_, { newStock }) => {
+      console.log(`Stock updated successfully to ${newStock}`);
 
       // Show success toast notification
       toast.success("Stock updated successfully", {
-        description: `Product stock has been updated to ${newStock} units.`,
+        description: `The stock has been updated to ${newStock}.`,
         duration: 5000,
       });
 
-      // Wait a bit before refetching to allow the UI to stabilize
-      setTimeout(() => {
-        refetchProducts();
-      }, 200);
+      // Refetch products to update the UI
+      refetchProducts();
     },
-    onError: (error, variables, context) => {
-      console.error("Failed to update product stock:", error);
+    onError: (error, _variables, context) => {
+      console.error("Failed to update stock:", error);
 
       // Show error toast notification
       toast.error("Failed to update stock", {
-        description:
-          "There was an error updating the product stock. Please try again.",
+        description: "There was an error updating the stock. Please try again.",
         duration: 5000,
       });
 
       // Revert back to the previous state if available
       if (context?.previousProducts) {
         queryClient.setQueryData<Product[]>(
-          ["products", categoryId],
+          ["products"],
           context.previousProducts
         );
       }
@@ -455,7 +455,7 @@ export function useProducts(categoryId?: number) {
         refetchProducts();
       }, 200);
     },
-    onError: (error, updatedProduct, context) => {
+    onError: (error, _updatedProduct, context) => {
       console.error("Failed to update product:", error);
 
       // Show error toast notification
@@ -468,7 +468,7 @@ export function useProducts(categoryId?: number) {
       // Revert back to the previous state if available
       if (context?.previousProducts) {
         queryClient.setQueryData<Product[]>(
-          ["products", categoryId],
+          ["products"],
           context.previousProducts
         );
       }

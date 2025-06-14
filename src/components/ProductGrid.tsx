@@ -65,7 +65,6 @@ export function ProductGrid({ selectedCategoryId }: ProductGridProps) {
               product={product}
               onEdit={handleEditProduct}
               onDelete={deleteProduct}
-              onUpdateStock={handleUpdateStock}
             />
           ))}
         </div>

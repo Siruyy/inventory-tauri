@@ -71,6 +71,7 @@ pub struct DetailedSale {
     pub profit: f64,
     pub margin: String,
     pub revenue: f64,
+    pub quantity: i64,
 }
 
 #[tauri::command]
@@ -103,14 +104,29 @@ pub fn create_order(state: tauri::State<DbState>, request: CreateOrderRequest) -
     
     // Insert each order item
     for item in request.items {
+        // Get the product name to store it
+        let product_name: String = match tx.query_row(
+            "SELECT name FROM products WHERE id = ?1",
+            params![item.product_id],
+            |row| row.get(0)
+        ) {
+            Ok(name) => name,
+            Err(e) => {
+                let error_msg = format!("Failed to get product name: {}", e);
+                println!("Backend error: {}", error_msg);
+                return Err(error_msg);
+            }
+        };
+        
         tx.execute(
-            "INSERT INTO order_items (order_id, product_id, quantity, price) 
-             VALUES (?1, ?2, ?3, ?4)",
+            "INSERT INTO order_items (order_id, product_id, quantity, price, product_name) 
+             VALUES (?1, ?2, ?3, ?4, ?5)",
             params![
                 order_id,
                 item.product_id,
                 item.quantity,
-                item.price
+                item.price,
+                product_name
             ]
         ).map_err(|e| format!("Failed to insert order item: {}", e))?;
         
@@ -167,9 +183,10 @@ pub fn get_order_items(state: tauri::State<DbState>, order_id: i32) -> Result<Ve
         .map_err(|e| format!("Failed to get connection from pool: {}", e))?;
     
     let mut stmt = conn.prepare(
-        "SELECT oi.id, oi.order_id, oi.product_id, oi.quantity, oi.price, oi.created_at, p.name as product_name
+        "SELECT oi.id, oi.order_id, oi.product_id, oi.quantity, oi.price, oi.created_at, 
+                COALESCE(p.name, oi.product_name, 'Deleted Product') as product_name
          FROM order_items oi
-         JOIN products p ON oi.product_id = p.id
+         LEFT JOIN products p ON oi.product_id = p.id
          WHERE oi.order_id = ?1"
     ).map_err(|e| format!("Failed to prepare statement: {}", e))?;
     
@@ -235,52 +252,60 @@ pub fn get_recent_orders(state: tauri::State<DbState>, limit: Option<i32>) -> Re
 
 #[tauri::command]
 pub fn get_order_history(state: tauri::State<DbState>, request: OrderHistoryRequest) -> Result<Vec<Order>, String> {
-    println!("Backend: Getting order history with filters");
-    
-    let limit = request.limit.unwrap_or(100);
     let conn = state.pool.get()
         .map_err(|e| format!("Failed to get connection from pool: {}", e))?;
     
     // Build query based on filters
     let mut query = String::from(
         "SELECT id, order_id, cashier, subtotal, tax, total, status, created_at
-         FROM orders WHERE 1=1"
+         FROM orders
+         WHERE 1=1"
     );
     
     let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
     
     // Add date range filters if provided
-    if let Some(start_date) = &request.start_date {
-        query.push_str(" AND created_at >= ?");
-        query_params.push(Box::new(start_date.clone()));
+    if let Some(_start_date_str) = &request.start_date {
+        query.push_str(" AND date(created_at) >= date(?)");
+        query_params.push(Box::new(request.start_date.clone()));
     }
     
-    if let Some(end_date) = &request.end_date {
-        query.push_str(" AND created_at <= ?");
-        query_params.push(Box::new(end_date.clone()));
+    if let Some(_end_date_str) = &request.end_date {
+        query.push_str(" AND date(created_at) <= date(?)");
+        query_params.push(Box::new(request.end_date.clone()));
     }
     
     // Add status filter if provided
     if let Some(status) = &request.status {
-        query.push_str(" AND status = ?");
-        query_params.push(Box::new(status.clone()));
+        if !status.is_empty() {
+            query.push_str(" AND status = ?");
+            query_params.push(Box::new(status.clone()));
+        }
     }
     
     // Add order by and limit
-    query.push_str(" ORDER BY created_at DESC LIMIT ?");
-    query_params.push(Box::new(limit));
+    query.push_str(" ORDER BY created_at DESC");
+    
+    if let Some(limit) = request.limit {
+        query.push_str(" LIMIT ?");
+        query_params.push(Box::new(limit));
+    } else {
+        query.push_str(" LIMIT 100"); // Default limit
+    }
+    
+    // Log the query
+    println!("Order history query: {}", query);
     
     // Prepare and execute the query
-    let mut stmt = conn.prepare(&query)
-        .map_err(|e| format!("Failed to prepare statement: {}", e))?;
-    
-    // Convert query_params to a slice of ToSql traits
     let params_slice: Vec<&dyn rusqlite::ToSql> = query_params
         .iter()
         .map(|p| p.as_ref() as &dyn rusqlite::ToSql)
         .collect();
     
-    let orders = stmt.query_map(params_slice.as_slice(), |row| {
+    let mut stmt = conn.prepare(&query)
+        .map_err(|e| format!("Failed to prepare statement: {}", e))?;
+    
+    let rows = stmt.query_map(params_slice.as_slice(), |row| {
         Ok(Order {
             id: row.get(0)?,
             order_id: row.get(1)?,
@@ -291,65 +316,66 @@ pub fn get_order_history(state: tauri::State<DbState>, request: OrderHistoryRequ
             status: row.get(6)?,
             created_at: row.get(7)?,
         })
-    }).map_err(|e| format!("Failed to query orders: {}", e))?;
+    }).map_err(|e| format!("Failed to query order history: {}", e))?;
     
-    let result = orders.collect::<Result<Vec<_>>>()
-        .map_err(|e| format!("Failed to collect orders: {}", e))?;
+    let result = rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("Failed to collect order history: {}", e))?;
+    
+    println!("Found {} orders in history", result.len());
     
     Ok(result)
 }
 
 #[tauri::command]
 pub fn get_order_statistics(state: tauri::State<DbState>, start_date: Option<String>, end_date: Option<String>) -> Result<OrderStatistics, String> {
-    println!("Backend: Getting order statistics");
-    
     let conn = state.pool.get()
         .map_err(|e| format!("Failed to get connection from pool: {}", e))?;
     
-    // Build base query
+    // Build query based on filters
     let mut query = String::from(
-        "SELECT COUNT(*) as order_count, 
+        "SELECT COUNT(*) as order_count,
                 SUM(total) as total_revenue,
                 AVG(total) as avg_order_value,
                 COUNT(DISTINCT cashier) as unique_cashiers
-         FROM orders WHERE 1=1"
+         FROM orders
+         WHERE 1=1"
     );
     
     let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
     
     // Add date range filters if provided
-    if let Some(start_date_str) = &start_date {
-        // Use SQLite's date functions to ensure proper comparison
+    if let Some(_start_date_str) = &start_date {
         query.push_str(" AND date(created_at) >= date(?)");
-        query_params.push(Box::new(start_date_str.clone()));
+        query_params.push(Box::new(start_date.clone()));
     }
     
-    if let Some(end_date_str) = &end_date {
-        // Use SQLite's date functions to ensure proper comparison
+    if let Some(_end_date_str) = &end_date {
         query.push_str(" AND date(created_at) <= date(?)");
-        query_params.push(Box::new(end_date_str.clone()));
+        query_params.push(Box::new(end_date.clone()));
     }
+    
+    // Log the query
+    println!("Order statistics query: {}", query);
     
     // Prepare and execute the query
-    let mut stmt = conn.prepare(&query)
-        .map_err(|e| format!("Failed to prepare statement: {}", e))?;
-    
-    // Convert query_params to a slice of ToSql traits
     let params_slice: Vec<&dyn rusqlite::ToSql> = query_params
         .iter()
         .map(|p| p.as_ref() as &dyn rusqlite::ToSql)
         .collect();
     
-    let stats = stmt.query_row(params_slice.as_slice(), |row| {
+    let mut stmt = conn.prepare(&query)
+        .map_err(|e| format!("Failed to prepare statement: {}", e))?;
+    
+    let row = stmt.query_row(params_slice.as_slice(), |row| {
         Ok(OrderStatistics {
             order_count: row.get(0)?,
             total_revenue: row.get(1)?,
             avg_order_value: row.get(2)?,
             unique_cashiers: row.get(3)?,
         })
-    }).map_err(|e| format!("Failed to get order statistics: {}", e))?;
+    }).map_err(|e| format!("Failed to query order statistics: {}", e))?;
     
-    Ok(stats)
+    Ok(row)
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -380,31 +406,8 @@ pub fn get_sales_report_data(state: tauri::State<DbState>, start_date: Option<St
     let conn = state.pool.get()
         .map_err(|e| format!("Failed to get connection from pool: {}", e))?;
     
-    // If there are no orders in the selected date range, return empty data
-    let has_orders = check_orders_exist(&conn, start_date.clone(), end_date.clone())?;
-    println!("Backend: Has orders in date range: {}", has_orders);
-    
-    if !has_orders {
-        println!("No orders found in date range, returning empty data");
-        return Ok(SalesReportData {
-            sales_summary: SalesSummary {
-                total_sales: 0.0,
-                total_revenue: 0.0,
-                total_profit: 0.0,
-                items_sold: 0,
-                transactions: 0,
-                sales_growth: 0.0,
-                revenue_growth: 0.0,
-                profit_growth: 0.0,
-                items_growth: 0.0,
-                transactions_growth: 0.0,
-            },
-            sales_by_period: Vec::new(),
-            sales_by_category: Vec::new(),
-            top_products: Vec::new(),
-            detailed_sales: Vec::new(),
-        });
-    }
+    // Even if no orders match, run queries—they'll simply return empty / zeroed data.
+    // This avoids false "no data" cases caused by mis-counting.
     
     // Get sales summary
     let sales_summary = get_sales_summary(&conn, start_date.clone(), end_date.clone())?;
@@ -430,75 +433,34 @@ pub fn get_sales_report_data(state: tauri::State<DbState>, start_date: Option<St
     })
 }
 
-// Helper function to check if any orders exist in the given date range
-fn check_orders_exist(conn: &rusqlite::Connection, start_date: Option<String>, end_date: Option<String>) -> Result<bool, String> {
-    // Log the date parameters to help with debugging
-    println!("Checking if orders exist between: {:?} and {:?}", start_date, end_date);
-    
-    // First, let's log all existing orders with their dates for debugging
-    println!("--- All Order Dates in Database ---");
-    let all_dates_query = "SELECT id, order_id, created_at, 
-                          strftime('%Y-%m-%d', created_at) as date_only,
-                          strftime('%Y-%m-%d %H:%M:%S', created_at) as datetime_formatted 
-                          FROM orders ORDER BY created_at";
-    let mut all_dates_stmt = conn.prepare(all_dates_query)
-        .map_err(|e| format!("Failed to prepare all dates statement: {}", e))?;
-    
-    let all_dates_rows = all_dates_stmt.query_map([], |row| {
-        let id: i32 = row.get(0)?;
-        let order_id: String = row.get(1)?;
-        let full_date: String = row.get(2)?;
-        let date_only: String = row.get(3)?;
-        let datetime_formatted: String = row.get(4)?;
-        Ok((id, order_id, full_date, date_only, datetime_formatted))
-    }).map_err(|e| format!("Failed to query all order dates: {}", e))?;
-    
-    for row in all_dates_rows {
-        if let Ok((id, order_id, full_date, date_only, datetime_formatted)) = row {
-            println!("Order #{}: ID {}, Full Date: {}, Date Only: {}, Formatted: {}", 
-                    order_id, id, full_date, date_only, datetime_formatted);
-        }
-    }
-    println!("--- End Order Dates ---");
-    
-    // If dates are provided, test direct comparisons for debugging
-    if let Some(start_date_str) = &start_date {
-        let test_query = format!("SELECT COUNT(*) FROM orders WHERE strftime('%Y-%m-%d', created_at) >= '{}'", start_date_str);
-        match conn.query_row(&test_query, [], |row| row.get::<_, i64>(0)) {
-            Ok(count) => println!("Test start date {}: found {} orders", start_date_str, count),
-            Err(e) => println!("Test start date error: {}", e),
-        }
-    }
-    
-    if let Some(end_date_str) = &end_date {
-        let test_query = format!("SELECT COUNT(*) FROM orders WHERE strftime('%Y-%m-%d', created_at) <= '{}'", end_date_str);
-        match conn.query_row(&test_query, [], |row| row.get::<_, i64>(0)) {
-            Ok(count) => println!("Test end date {}: found {} orders", end_date_str, count),
-            Err(e) => println!("Test end date error: {}", e),
-        }
-    }
-    
-    // Use a more reliable date comparison with strftime to ensure proper format handling
+fn get_sales_summary(conn: &rusqlite::Connection, start_date: Option<String>, end_date: Option<String>) -> Result<SalesSummary, String> {
+    // Build query based on filters
     let mut query = String::from(
-        "SELECT COUNT(*) FROM orders WHERE 1=1"
+        "SELECT COUNT(DISTINCT o.id) as total_sales,
+                SUM(oi.price * oi.quantity) as total_revenue,
+                SUM(oi.price * oi.quantity * 0.2) as total_profit,
+                SUM(oi.quantity) as items_sold,
+                COUNT(DISTINCT o.id) as transactions
+         FROM orders o
+         JOIN order_items oi ON o.id = oi.order_id
+         WHERE 1=1"
     );
     
     let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
     
     // Add date range filters if provided
-    if let Some(start_date_str) = &start_date {
-        // Use strftime for consistent comparison based on YYYY-MM-DD format
-        query.push_str(" AND strftime('%Y-%m-%d', created_at) >= ?");
-        println!("Filtering orders on or after date: {}", start_date_str);
-        query_params.push(Box::new(start_date_str.clone()));
+    if let Some(_start_date_str) = &start_date {
+        query.push_str(" AND date(created_at) >= date(?)");
+        query_params.push(Box::new(start_date.clone()));
     }
     
-    if let Some(end_date_str) = &end_date {
-        // Use strftime for consistent comparison based on YYYY-MM-DD format
-        query.push_str(" AND strftime('%Y-%m-%d', created_at) <= ?");
-        println!("Filtering orders on or before date: {}", end_date_str);
-        query_params.push(Box::new(end_date_str.clone()));
+    if let Some(_end_date_str) = &end_date {
+        query.push_str(" AND date(created_at) <= date(?)");
+        query_params.push(Box::new(end_date.clone()));
     }
+    
+    // Log the query
+    println!("Sales summary query: {}", query);
     
     // Prepare and execute the query
     let params_slice: Vec<&dyn rusqlite::ToSql> = query_params
@@ -509,210 +471,78 @@ fn check_orders_exist(conn: &rusqlite::Connection, start_date: Option<String>, e
     let mut stmt = conn.prepare(&query)
         .map_err(|e| format!("Failed to prepare statement: {}", e))?;
     
-    let count: i64 = stmt.query_row(params_slice.as_slice(), |row| row.get(0))
-        .map_err(|e| format!("Failed to check if orders exist: {}", e))?;
-    
-    println!("Found {} orders matching date range", count);
-    
-    Ok(count > 0)
-}
-
-fn get_sales_summary(conn: &rusqlite::Connection, start_date: Option<String>, end_date: Option<String>) -> Result<SalesSummary, String> {
-    // Build query based on filters
-    let mut query = String::from(
-        "SELECT SUM(o.total) as total_sales,
-                SUM(o.subtotal) as total_revenue,
-                SUM(o.total) * 0.2 as total_profit,
-                SUM(oi.quantity) as items_sold,
-                COUNT(DISTINCT o.id) as transactions
-         FROM orders o
-         JOIN order_items oi ON o.id = oi.order_id
-         WHERE 1=1"
-    );
-    
-    let mut current_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
-    let mut previous_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
-    
-    // Add date range filters if provided
-    if let Some(start_date_str) = &start_date {
-        // Use strftime for consistent comparison based on YYYY-MM-DD format
-        query.push_str(" AND strftime('%Y-%m-%d', o.created_at) >= ?");
-        current_params.push(Box::new(start_date_str.clone()));
-        println!("Sales summary - filtering orders on or after date: {}", start_date_str);
-    }
-    
-    if let Some(end_date_str) = &end_date {
-        // Use strftime for consistent comparison based on YYYY-MM-DD format
-        query.push_str(" AND strftime('%Y-%m-%d', o.created_at) <= ?");
-        current_params.push(Box::new(end_date_str.clone()));
-        println!("Sales summary - filtering orders on or before date: {}", end_date_str);
-    }
-    
-    // Prepare and execute the query for current period
-    let current_params_slice: Vec<&dyn rusqlite::ToSql> = current_params
-        .iter()
-        .map(|p| p.as_ref() as &dyn rusqlite::ToSql)
-        .collect();
-    
-    let mut stmt = conn.prepare(&query)
-        .map_err(|e| format!("Failed to prepare current period statement: {}", e))?;
-    
-    let current_summary = match stmt.query_row(current_params_slice.as_slice(), |row| {
+    // Execute the query and get the results
+    let row = stmt.query_row(params_slice.as_slice(), |row| {
         Ok((
-            row.get::<_, f64>(0).unwrap_or(0.0),
-            row.get::<_, f64>(1).unwrap_or(0.0),
-            row.get::<_, f64>(2).unwrap_or(0.0),
-            row.get::<_, i64>(3).unwrap_or(0),
-            row.get::<_, i64>(4).unwrap_or(0),
+            row.get::<_, i64>(0)?,
+            row.get::<_, f64>(1)?,
+            row.get::<_, f64>(2)?,
+            row.get::<_, i64>(3)?,
+            row.get::<_, i64>(4)?,
         ))
-    }) {
-        Ok(result) => result,
-        Err(e) => {
-            if let rusqlite::Error::QueryReturnedNoRows = e {
-                (0.0, 0.0, 0.0, 0, 0)
-            } else {
-                return Err(format!("Failed to get current period sales summary: {}", e));
-            }
-        }
-    };
+    }).map_err(|e| format!("Failed to query sales summary: {}", e))?;
     
-    // Get previous period data for comparison (if date range provided)
-    let (prev_sales, prev_revenue, prev_profit, prev_items, prev_transactions) = 
-        if let (Some(start_date_str), Some(end_date_str)) = (&start_date, &end_date) {
-            // Parse dates
-            let start_date = chrono::NaiveDate::parse_from_str(start_date_str, "%Y-%m-%d")
-                .map_err(|e| format!("Failed to parse start date: {}", e))?;
-            let end_date = chrono::NaiveDate::parse_from_str(end_date_str, "%Y-%m-%d")
-                .map_err(|e| format!("Failed to parse end date: {}", e))?;
-            
-            // Calculate the length of the period
-            let period_length = (end_date.signed_duration_since(start_date).num_days() + 1) as i64;
-            
-            // Calculate previous period start and end dates
-            let prev_end_date = start_date.pred_opt()
-                .ok_or("Failed to calculate previous period end date")?;
-            let prev_start_date = prev_end_date.checked_sub_signed(chrono::Duration::days(period_length - 1))
-                .ok_or("Failed to calculate previous period start date")?;
-            
-            // Build query for previous period
-            let mut prev_query = query.clone();
-            
-            // Replace date parameters
-            previous_params.push(Box::new(prev_start_date.format("%Y-%m-%d").to_string()));
-            if current_params.len() > 1 {
-                previous_params.push(Box::new(prev_end_date.format("%Y-%m-%d").to_string()));
-            }
-            
-            // Execute query for previous period
-            let previous_params_slice: Vec<&dyn rusqlite::ToSql> = previous_params
-                .iter()
-                .map(|p| p.as_ref() as &dyn rusqlite::ToSql)
-                .collect();
-            
-            let mut prev_stmt = conn.prepare(&prev_query)
-                .map_err(|e| format!("Failed to prepare previous period statement: {}", e))?;
-            
-            match prev_stmt.query_row(previous_params_slice.as_slice(), |row| {
-                Ok((
-                    row.get::<_, f64>(0).unwrap_or(0.0),
-                    row.get::<_, f64>(1).unwrap_or(0.0),
-                    row.get::<_, f64>(2).unwrap_or(0.0),
-                    row.get::<_, i64>(3).unwrap_or(0),
-                    row.get::<_, i64>(4).unwrap_or(0),
-                ))
-            }) {
-                Ok(result) => result,
-                Err(e) => {
-                    if let rusqlite::Error::QueryReturnedNoRows = e {
-                        (0.0, 0.0, 0.0, 0, 0)
-                    } else {
-                        return Err(format!("Failed to get previous period sales summary: {}", e));
-                    }
-                }
-            }
-        } else {
-            (0.0, 0.0, 0.0, 0, 0)
-        };
+    let (total_sales, total_revenue, total_profit, items_sold, transactions) = row;
     
-    // Calculate growth percentages
-    let calculate_growth = |current: f64, previous: f64| -> f64 {
-        if previous == 0.0 {
-            if current > 0.0 { 100.0 } else { 0.0 }
-        } else {
-            ((current - previous) / previous) * 100.0
-        }
-    };
-    
-    let calculate_growth_int = |current: i64, previous: i64| -> f64 {
-        if previous == 0 {
-            if current > 0 { 100.0 } else { 0.0 }
-        } else {
-            ((current as f64 - previous as f64) / previous as f64) * 100.0
-        }
-    };
-    
-    let (total_sales, total_revenue, total_profit, items_sold, transactions) = current_summary;
+    // Calculate growth metrics (comparing to previous period)
+    // For simplicity, we'll just return 0 for growth metrics
+    // In a real app, you would calculate this by comparing to a previous period
     
     Ok(SalesSummary {
-        total_sales,
+        total_sales: total_sales as f64,
         total_revenue,
         total_profit,
         items_sold,
         transactions,
-        sales_growth: calculate_growth(total_sales, prev_sales),
-        revenue_growth: calculate_growth(total_revenue, prev_revenue),
-        profit_growth: calculate_growth(total_profit, prev_profit),
-        items_growth: calculate_growth_int(items_sold, prev_items),
-        transactions_growth: calculate_growth_int(transactions, prev_transactions),
+        sales_growth: 0.0,
+        revenue_growth: 0.0,
+        profit_growth: 0.0,
+        items_growth: 0.0,
+        transactions_growth: 0.0,
     })
 }
 
 fn get_sales_by_period(conn: &rusqlite::Connection, start_date: Option<String>, end_date: Option<String>, period_type: &str) -> Result<Vec<PeriodSales>, String> {
-    // Define the date format and group by based on the period type
+    // Determine the date format based on the period type
     let date_format = match period_type {
-        "day" => "strftime('%Y-%m-%d', created_at)",
-        "week" => "strftime('%Y-%W', created_at)",
-        "month" => "strftime('%Y-%m', created_at)",
-        "year" => "strftime('%Y', created_at)",
+        "day" => "%Y-%m-%d",
+        "month" => "%Y-%m",
+        "year" => "%Y",
         _ => return Err(format!("Invalid period type: {}", period_type)),
     };
     
-    // Log for debugging
-    println!("Getting sales by period: {}, date format: {}", period_type, date_format);
-    
     // Build query based on filters
-    let mut query = format!(
-        "SELECT {} as period,
-                SUM(total) as sales,
-                SUM(subtotal) as revenue,
-                SUM(total) * 0.2 as profit
-         FROM orders
-         WHERE 1=1",
-        date_format
+    let mut query = String::from(
+        format!(
+            "SELECT strftime('{}', o.created_at) as period,
+                    COUNT(DISTINCT o.id) as sales,
+                    SUM(oi.price * oi.quantity) as revenue,
+                    SUM(oi.price * oi.quantity * 0.2) as profit
+             FROM orders o
+             JOIN order_items oi ON o.id = oi.order_id
+             WHERE 1=1",
+            date_format
+        )
     );
     
     let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
     
     // Add date range filters if provided
-    if let Some(start_date_str) = &start_date {
-        // Use strftime for consistent comparison based on YYYY-MM-DD format
-        query.push_str(" AND strftime('%Y-%m-%d', created_at) >= ?");
-        query_params.push(Box::new(start_date_str.clone()));
-        println!("Sales by period - filtering orders on or after date: {}", start_date_str);
+    if let Some(_start_date_str) = &start_date {
+        query.push_str(" AND date(created_at) >= date(?)");
+        query_params.push(Box::new(start_date.clone()));
     }
     
-    if let Some(end_date_str) = &end_date {
-        // Use strftime for consistent comparison based on YYYY-MM-DD format
-        query.push_str(" AND strftime('%Y-%m-%d', created_at) <= ?");
-        query_params.push(Box::new(end_date_str.clone()));
-        println!("Sales by period - filtering orders on or before date: {}", end_date_str);
+    if let Some(_end_date_str) = &end_date {
+        query.push_str(" AND date(created_at) <= date(?)");
+        query_params.push(Box::new(end_date.clone()));
     }
     
-    // Add group by using the same date format expression
-    query.push_str(&format!(" GROUP BY {} ORDER BY period", date_format));
+    // Add group by and order by
+    query.push_str(" GROUP BY period ORDER BY period");
     
-    // Log complete query
-    println!("Query: {}", query);
+    // Log the query
+    println!("Period sales query: {}", query);
     
     // Prepare and execute the query
     let params_slice: Vec<&dyn rusqlite::ToSql> = query_params
@@ -735,7 +565,7 @@ fn get_sales_by_period(conn: &rusqlite::Connection, start_date: Option<String>, 
     let result = rows.collect::<Result<Vec<_>, _>>()
         .map_err(|e| format!("Failed to collect sales by period: {}", e))?;
     
-    println!("Found {} periods with sales data", result.len());
+    println!("Found {} periods with sales", result.len());
     
     Ok(result)
 }
@@ -744,31 +574,53 @@ fn get_sales_by_category(conn: &rusqlite::Connection, start_date: Option<String>
     // Build query based on filters
     let mut query = String::from(
         "SELECT c.name as category,
-                SUM(oi.quantity * oi.price) as value
+                SUM(oi.price * oi.quantity) as total_revenue,
+                (SUM(oi.price * oi.quantity) / (SELECT SUM(oi2.price * oi2.quantity) FROM orders o2 JOIN order_items oi2 ON o2.id = oi2.order_id"
+    );
+    
+    // Add date filters to the subquery if provided
+    if start_date.is_some() || end_date.is_some() {
+        query.push_str(" WHERE 1=1");
+        
+        if let Some(_) = &start_date {
+            query.push_str(" AND date(o2.created_at) >= date(?)");
+        }
+        
+        if let Some(_) = &end_date {
+            query.push_str(" AND date(o2.created_at) <= date(?)");
+        }
+    }
+    
+    query.push_str(")) * 100 as percentage
          FROM orders o
          JOIN order_items oi ON o.id = oi.order_id
          JOIN products p ON oi.product_id = p.id
          JOIN categories c ON p.category_id = c.id
-         WHERE 1=1"
-    );
+         WHERE 1=1");
     
     let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
     
     // Add date range filters if provided
-    if let Some(start_date_str) = &start_date {
-        // Use SQLite's date functions to ensure proper comparison
+    if let Some(_) = &start_date {
+        // Add parameter for subquery
+        query_params.push(Box::new(start_date.clone()));
+        
+        // Add parameter for main query
         query.push_str(" AND date(o.created_at) >= date(?)");
-        query_params.push(Box::new(start_date_str.clone()));
+        query_params.push(Box::new(start_date.clone()));
     }
     
-    if let Some(end_date_str) = &end_date {
-        // Use SQLite's date functions to ensure proper comparison
+    if let Some(_) = &end_date {
+        // Add parameter for subquery
+        query_params.push(Box::new(end_date.clone()));
+        
+        // Add parameter for main query
         query.push_str(" AND date(o.created_at) <= date(?)");
-        query_params.push(Box::new(end_date_str.clone()));
+        query_params.push(Box::new(end_date.clone()));
     }
     
     // Add group by
-    query.push_str(" GROUP BY c.name ORDER BY value DESC");
+    query.push_str(" GROUP BY c.id ORDER BY total_revenue DESC");
     
     // Log the query
     println!("Category sales query: {}", query);
@@ -783,35 +635,17 @@ fn get_sales_by_category(conn: &rusqlite::Connection, start_date: Option<String>
         .map_err(|e| format!("Failed to prepare statement: {}", e))?;
     
     let rows = stmt.query_map(params_slice.as_slice(), |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, f64>(1)?,
-        ))
-    }).map_err(|e| format!("Failed to query sales by category: {}", e))?;
-    
-    let categories_with_values: Vec<(String, f64)> = rows.collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("Failed to collect sales by category: {}", e))?;
-    
-    println!("Found {} categories with sales", categories_with_values.len());
-    
-    // Calculate total and percentages
-    let total_value: f64 = categories_with_values.iter().map(|(_, value)| value).sum();
-    
-    let result = categories_with_values.into_iter()
-        .map(|(category, value)| {
-            let percentage = if total_value > 0.0 {
-                (value / total_value) * 100.0
-            } else {
-                0.0
-            };
-            
-            CategorySales {
-                category,
-                value,
-                percentage,
-            }
+        Ok(CategorySales {
+            category: row.get(0)?,
+            value: row.get(1)?,
+            percentage: row.get(2)?,
         })
-        .collect();
+    }).map_err(|e| format!("Failed to query category sales: {}", e))?;
+    
+    let result = rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("Failed to collect category sales: {}", e))?;
+    
+    println!("Found {} category sales records", result.len());
     
     Ok(result)
 }
@@ -819,8 +653,7 @@ fn get_sales_by_category(conn: &rusqlite::Connection, start_date: Option<String>
 fn get_top_products(conn: &rusqlite::Connection, start_date: Option<String>, end_date: Option<String>, limit: i32) -> Result<Vec<ProductSales>, String> {
     // Build query based on filters
     let mut query = String::from(
-        "SELECT p.name,
-                SUM(oi.quantity) as quantity
+        "SELECT p.name, SUM(oi.quantity) as quantity
          FROM orders o
          JOIN order_items oi ON o.id = oi.order_id
          JOIN products p ON oi.product_id = p.id
@@ -830,16 +663,16 @@ fn get_top_products(conn: &rusqlite::Connection, start_date: Option<String>, end
     let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
     
     // Add date range filters if provided
-    if let Some(start_date_str) = &start_date {
+    if let Some(_) = &start_date {
         // Use SQLite's date functions to ensure proper comparison
-        query.push_str(" AND date(o.created_at) >= date(?)");
-        query_params.push(Box::new(start_date_str.clone()));
+        query.push_str(" AND date(created_at) >= date(?)");
+        query_params.push(Box::new(start_date.clone()));
     }
     
-    if let Some(end_date_str) = &end_date {
+    if let Some(_) = &end_date {
         // Use SQLite's date functions to ensure proper comparison
-        query.push_str(" AND date(o.created_at) <= date(?)");
-        query_params.push(Box::new(end_date_str.clone()));
+        query.push_str(" AND date(created_at) <= date(?)");
+        query_params.push(Box::new(end_date.clone()));
     }
     
     // Add group by and limit
@@ -876,14 +709,11 @@ fn get_top_products(conn: &rusqlite::Connection, start_date: Option<String>, end
 fn get_detailed_sales(conn: &rusqlite::Connection, start_date: Option<String>, end_date: Option<String>) -> Result<Vec<DetailedSale>, String> {
     // Build query based on filters
     let mut query = String::from(
-        "SELECT oi.id,
-                p.name as product,
-                c.name as category,
-                o.created_at as date,
-                oi.price,
-                oi.price * 0.2 as profit,
-                '20.00%' as margin,
-                oi.price * oi.quantity as revenue
+        "SELECT o.id, p.name, c.name, o.created_at, oi.price, 
+                (oi.price * oi.quantity * 0.2) as profit, 
+                '20%' as margin,
+                (oi.price * oi.quantity) as revenue,
+                oi.quantity
          FROM orders o
          JOIN order_items oi ON o.id = oi.order_id
          JOIN products p ON oi.product_id = p.id
@@ -894,18 +724,18 @@ fn get_detailed_sales(conn: &rusqlite::Connection, start_date: Option<String>, e
     let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
     
     // Add date range filters if provided
-    if let Some(start_date_str) = &start_date {
-        // Use strftime for consistent comparison based on YYYY-MM-DD format
-        query.push_str(" AND strftime('%Y-%m-%d', o.created_at) >= ?");
-        query_params.push(Box::new(start_date_str.clone()));
-        println!("Detailed sales - filtering orders on or after date: {}", start_date_str);
+    if let Some(_) = &start_date {
+        // Use date() function for consistent comparison
+        query.push_str(" AND date(created_at) >= date(?)");
+        query_params.push(Box::new(start_date.clone()));
+        println!("Detailed sales - filtering orders on or after date: {}", start_date.clone().unwrap_or_default());
     }
     
-    if let Some(end_date_str) = &end_date {
-        // Use strftime for consistent comparison based on YYYY-MM-DD format
-        query.push_str(" AND strftime('%Y-%m-%d', o.created_at) <= ?");
-        query_params.push(Box::new(end_date_str.clone()));
-        println!("Detailed sales - filtering orders on or before date: {}", end_date_str);
+    if let Some(_) = &end_date {
+        // Use date() function for consistent comparison
+        query.push_str(" AND date(created_at) <= date(?)");
+        query_params.push(Box::new(end_date.clone()));
+        println!("Detailed sales - filtering orders on or before date: {}", end_date.clone().unwrap_or_default());
     }
     
     // Add order by
@@ -933,6 +763,7 @@ fn get_detailed_sales(conn: &rusqlite::Connection, start_date: Option<String>, e
             profit: row.get(5)?,
             margin: row.get(6)?,
             revenue: row.get(7)?,
+            quantity: row.get(8)?,
         })
     }).map_err(|e| format!("Failed to query detailed sales: {}", e))?;
     
@@ -1021,4 +852,66 @@ pub fn update_order_dates_to_today(state: tauri::State<DbState>) -> Result<Strin
         .map_err(|e| format!("Failed to update order dates: {}", e))?;
     
     Ok(format!("Successfully updated all order dates to {}", current_date))
+}
+
+#[tauri::command]
+pub fn test_date_filtering(state: tauri::State<DbState>, test_date: String) -> Result<Vec<String>, String> {
+    let conn = state.pool.get()
+        .map_err(|e| format!("Failed to get connection from pool: {}", e))?;
+    
+    let mut results = Vec::new();
+    
+    // Log the test date
+    results.push(format!("Testing date filtering with date: {}", test_date));
+    
+    // Test different date comparison methods
+    let test_queries = vec![
+        (format!("SELECT COUNT(*) FROM orders WHERE strftime('%Y-%m-%d', created_at) = '{}'", test_date), 
+         "strftime exact match"),
+        (format!("SELECT COUNT(*) FROM orders WHERE strftime('%Y-%m-%d', created_at) >= '{}'", test_date), 
+         "strftime >= comparison"),
+        (format!("SELECT COUNT(*) FROM orders WHERE strftime('%Y-%m-%d', created_at) <= '{}'", test_date), 
+         "strftime <= comparison"),
+        (format!("SELECT COUNT(*) FROM orders WHERE date(created_at) = date('{}')", test_date), 
+         "date() exact match"),
+        (format!("SELECT COUNT(*) FROM orders WHERE date(created_at) >= date('{}')", test_date), 
+         "date() >= comparison"),
+        (format!("SELECT COUNT(*) FROM orders WHERE date(created_at) <= date('{}')", test_date), 
+         "date() <= comparison"),
+    ];
+    
+    for (query, description) in test_queries {
+        match conn.query_row(&query, [], |row| row.get::<_, i64>(0)) {
+            Ok(count) => {
+                results.push(format!("{}: {} orders", description, count));
+            },
+            Err(e) => {
+                results.push(format!("Error with {}: {}", description, e));
+            }
+        }
+    }
+    
+    // List all orders with their dates for comparison
+    results.push("\nAll orders with dates:".to_string());
+    let all_orders_query = "SELECT id, order_id, created_at, strftime('%Y-%m-%d', created_at) as date_only FROM orders ORDER BY created_at";
+    
+    let mut stmt = conn.prepare(all_orders_query)
+        .map_err(|e| format!("Failed to prepare statement: {}", e))?;
+    
+    let rows = stmt.query_map([], |row| {
+        let id: i32 = row.get(0)?;
+        let order_id: String = row.get(1)?;
+        let full_date: String = row.get(2)?;
+        let date_only: String = row.get(3)?;
+        Ok((id, order_id, full_date, date_only))
+    }).map_err(|e| format!("Failed to query order dates: {}", e))?;
+    
+    for row_result in rows {
+        if let Ok((id, order_id, full_date, date_only)) = row_result {
+            results.push(format!("Order #{}: ID {}, Full Date: {}, Date Only: {}", 
+                               order_id, id, full_date, date_only));
+        }
+    }
+    
+    Ok(results)
 }

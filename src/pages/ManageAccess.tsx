@@ -4,6 +4,7 @@ import TrashIcon from "/icons/trash.svg";
 
 // Shared state type
 interface User {
+  id: number;
   name: string;
   email: string;
   role: string;
@@ -20,6 +21,7 @@ interface User {
 export function UsersList(): JSX.Element {
   const [users] = useState<User[]>([
     {
+      id: 1,
       name: "Abubakar Sherazi",
       email: "abubakarsherazi@gmail.com",
       role: "Admin",
@@ -30,9 +32,10 @@ export function UsersList(): JSX.Element {
         orders: true,
         customers: true,
         settings: true,
-      }
+      },
     },
     {
+      id: 2,
       name: "Anees Ansari",
       email: "aneesansari@gmail.com",
       role: "Cashier",
@@ -43,8 +46,8 @@ export function UsersList(): JSX.Element {
         orders: true,
         customers: true,
         settings: true,
-      }
-    }
+      },
+    },
   ]);
 
   return (
@@ -72,16 +75,34 @@ export function UsersList(): JSX.Element {
               </div>
             </div>
             <div style={styles.permissionsGrid}>
-              {Object.entries(user.permissions).map(([key, value]) => (
-                <div key={key} style={styles.permissionItem}>
-                  <div style={styles.toggleContainer}>
-                    <div style={styles.toggleBackground}>
-                      <div style={styles.toggleCircle} />
-                    </div>
+              {Object.entries(user.permissions).map(([key, _value]) => (
+                <div
+                  key={key}
+                  className="flex items-center justify-between py-2 border-b border-gray-700"
+                >
+                  <span className="text-white">{key}</span>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => togglePermission(user.id, key, true)}
+                      className={`px-3 py-1 rounded text-sm ${
+                        user.permissions[key]
+                          ? "bg-green-600 text-white"
+                          : "bg-gray-700 text-gray-300"
+                      }`}
+                    >
+                      Allow
+                    </button>
+                    <button
+                      onClick={() => togglePermission(user.id, key, false)}
+                      className={`px-3 py-1 rounded text-sm ${
+                        !user.permissions[key]
+                          ? "bg-red-600 text-white"
+                          : "bg-gray-700 text-gray-300"
+                      }`}
+                    >
+                      Deny
+                    </button>
                   </div>
-                  <span style={styles.permissionName}>
-                    {key.charAt(0).toUpperCase() + key.slice(1)}
-                  </span>
                 </div>
               ))}
             </div>
@@ -169,10 +190,7 @@ export function AddNewUserForm(): JSX.Element {
             placeholder="Password"
           />
         </div>
-        <button
-          onClick={handleAddUser}
-          style={styles.addButton}
-        >
+        <button onClick={handleAddUser} style={styles.addButton}>
           Add
         </button>
       </div>
@@ -331,4 +349,16 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: "pointer",
     width: "100%",
   },
-}; 
+};
+
+// Add the togglePermission function
+const togglePermission = (
+  userId: number,
+  permission: string,
+  value: boolean
+) => {
+  console.log(
+    `Toggling permission ${permission} to ${value} for user ${userId}`
+  );
+  // This would be implemented with a backend call in a real application
+};

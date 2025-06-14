@@ -7,120 +7,32 @@ import Header from "../components/Header";
 import EyeIcon from "/icons/eye.svg";
 import PenIcon from "/icons/pen.svg";
 
-//
-// Re‐use the same initialStaffData array that StaffProfile also needs.
-// In a real app you'd fetch this from your backend or share via context.
-// For now, we hard‐code it here so that both Staff.tsx and StaffProfile.tsx
-// refer to the exact same data.
-//
-const initialStaffData = [
-  {
-    id: "#101",
-    name: "Watson Joyce",
-    role: "Manager",
-    email: "watsonjoyce11@gmail.com",
-    phone: "+1 (123) 123 4654",
-    age: 45,
-    salary: "$2200.00",
-    timings: "9am to 6pm",
-    avatar: "https://i.pravatar.cc/60?img=47",
-    dob: "1983-01-01",
-    address: "House #114 Street 123 USA, Chicago",
-    additional: "",
-  },
-  {
-    id: "#102",
-    name: "Arielle Santos",
-    role: "Cashier",
-    email: "arielle.santos@example.com",
-    phone: "+1 (123) 987 6543",
-    age: 28,
-    salary: "$1200.00",
-    timings: "10am to 7pm",
-    avatar: "https://i.pravatar.cc/60?img=5",
-    dob: "1996-05-15",
-    address: "123 Baker Street, New York",
-    additional: "",
-  },
-  {
-    id: "#103",
-    name: "Miguel Reyes",
-    role: "Cook",
-    email: "miguel.reyes@example.com",
-    phone: "+1 (123) 555 3322",
-    age: 32,
-    salary: "$1500.00",
-    timings: "8am to 5pm",
-    avatar: "https://i.pravatar.cc/60?img=12",
-    dob: "1991-11-20",
-    address: "456 Elm Street, Los Angeles",
-    additional: "",
-  },
-  {
-    id: "#104",
-    name: "Lea Bautista",
-    role: "Barista",
-    email: "lea.bautista@example.com",
-    phone: "+1 (123) 444 7788",
-    age: 25,
-    salary: "$1100.00",
-    timings: "11am to 8pm",
-    avatar: "https://i.pravatar.cc/60?img=20",
-    dob: "1998-08-30",
-    address: "789 Pine Street, Seattle",
-    additional: "",
-  },
-];
+// Fallback empty data if no localStorage data is found
+const initialStaffData = [];
 
-const attendanceData = [
-  {
-    id: "#101",
-    name: "Watson Joyce",
-    role: "Manager",
-    date: "16-Apr-2024",
-    timings: "9am to 6pm",
-    status: "Present",
-    avatar: "https://i.pravatar.cc/60?img=47",
-  },
-  {
-    id: "#102",
-    name: "Arielle Santos",
-    role: "Cashier",
-    date: "16-Apr-2024",
-    timings: "10am to 7pm",
-    status: "Absent",
-    avatar: "https://i.pravatar.cc/60?img=5",
-  },
-  {
-    id: "#103",
-    name: "Miguel Reyes",
-    role: "Cook",
-    date: "16-Apr-2024",
-    timings: "8am to 5pm",
-    status: "Half Shift",
-    avatar: "https://i.pravatar.cc/60?img=12",
-  },
-  {
-    id: "#104",
-    name: "Lea Bautista",
-    role: "Barista",
-    date: "16-Apr-2024",
-    timings: "11am to 8pm",
-    status: "Leave",
-    avatar: "https://i.pravatar.cc/60?img=20",
-  },
-];
-
-const roleOptions = ["Manager", "Cashier", "Cook", "Barista", "Driver"];
+const roleOptions = ["Sub-admin", "Inventory", "Cashier"];
 
 export default function Staff(): JSX.Element {
-  // Which tab is active: "manage" or "attendance"
-  const [activeTab, setActiveTab] = useState<"manage" | "attendance">("manage");
+  // Build staffList with data from localStorage if available
+  const [staffList, setStaffList] = useState(() => {
+    try {
+      // Try to get staff data from localStorage
+      const savedData = localStorage.getItem("staffList");
+      if (savedData) {
+        const parsedData = JSON.parse(savedData);
+        return Array.isArray(parsedData) ? parsedData : initialStaffData;
+      }
+    } catch (error) {
+      console.error("Error loading staff data from localStorage:", error);
+    }
+    // Fall back to empty array if localStorage is empty or invalid
+    return initialStaffData;
+  });
 
-  // Build staffList with an additional isAvailable boolean
-  const [staffList, setStaffList] = useState(
-    initialStaffData.map((staff) => ({ ...staff, isAvailable: true }))
-  );
+  // Save to localStorage whenever staffList changes
+  useEffect(() => {
+    localStorage.setItem("staffList", JSON.stringify(staffList));
+  }, [staffList]);
 
   // Sorting field
   const [sortField, setSortField] = useState<"name" | "role" | "age">("name");
@@ -136,14 +48,20 @@ export default function Staff(): JSX.Element {
     avatar: "",
     fullName: "",
     role: "",
-    email: "",
+    department: "",
     phone: "",
-    salary: "",
     dob: "",
     shiftStart: "",
     shiftEnd: "",
     address: "",
     additional: "",
+  });
+
+  // Show credentials after adding a staff member
+  const [showCredentials, setShowCredentials] = useState(false);
+  const [newCredentials, setNewCredentials] = useState({
+    username: "",
+    password: "",
   });
 
   // Whenever sortField changes, re-sort staffList in place
@@ -161,7 +79,9 @@ export default function Staff(): JSX.Element {
   // Toggle availability (greys out row)
   const toggleAvailability = (index: number) => {
     setStaffList((prev) =>
-      prev.map((s, i) => (i === index ? { ...s, isAvailable: !s.isAvailable } : s))
+      prev.map((s, i) =>
+        i === index ? { ...s, isAvailable: !s.isAvailable } : s
+      )
     );
   };
 
@@ -172,9 +92,8 @@ export default function Staff(): JSX.Element {
       avatar: staffToEdit.avatar,
       fullName: staffToEdit.name,
       role: staffToEdit.role,
-      email: staffToEdit.email,
+      department: staffToEdit.department,
       phone: staffToEdit.phone,
-      salary: staffToEdit.salary,
       dob: staffToEdit.dob || "",
       shiftStart: staffToEdit.timings.split(" to ")[0] || "",
       shiftEnd: staffToEdit.timings.split(" to ")[1] || "",
@@ -191,9 +110,8 @@ export default function Staff(): JSX.Element {
       avatar: "",
       fullName: "",
       role: "",
-      email: "",
+      department: "",
       phone: "",
-      salary: "",
       dob: "",
       shiftStart: "",
       shiftEnd: "",
@@ -209,31 +127,96 @@ export default function Staff(): JSX.Element {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  // Handle profile image selection
+  const handleProfileImageChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const fileList = event.target.files;
+    if (!fileList || fileList.length === 0) return;
+
+    const file = fileList[0];
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      setFormData((prev) => ({
+        ...prev,
+        avatar: result,
+      }));
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  // Generate a username based on full name
+  const generateUsername = (fullName: string) => {
+    // Create username from first initial and last name
+    const nameParts = fullName.trim().split(" ");
+    if (nameParts.length < 2) return fullName.toLowerCase();
+
+    const firstName = nameParts[0];
+    const lastName = nameParts[nameParts.length - 1];
+
+    let username = firstName[0].toLowerCase() + lastName.toLowerCase();
+
+    // Check if username already exists in staff list
+    const exists = staffList.some((staff) => staff.username === username);
+    if (exists) {
+      // If exists, append a number
+      const similarUsernames = staffList
+        .filter((staff) => staff.username.startsWith(username))
+        .map((staff) => staff.username);
+
+      if (similarUsernames.length > 0) {
+        username = username + (similarUsernames.length + 1);
+      }
+    }
+
+    return username;
+  };
+
+  // Generate a random password
+  const generatePassword = () => {
+    // Generate a 4-digit numeric password
+    return Math.floor(1000 + Math.random() * 9000).toString();
+  };
+
   // Confirm (either add or edit)
   const handleConfirm = () => {
     if (editIndex === null) {
       // Add new staff
       const newIdNumber = staffList.length + 101; // Example logic
+
+      // Generate username and password for new staff
+      const username = generateUsername(formData.fullName);
+      const password = generatePassword();
+
       const newStaffObj = {
         id: "#" + newIdNumber,
         name: formData.fullName,
         role: formData.role,
-        email: formData.email,
+        department: formData.department,
         phone: formData.phone,
         age: formData.dob
           ? Math.floor(
               new Date().getFullYear() - new Date(formData.dob).getFullYear()
             )
           : 0,
-        salary: formData.salary,
         timings: `${formData.shiftStart} to ${formData.shiftEnd}`,
         avatar: formData.avatar || "https://i.pravatar.cc/60?img=1",
         dob: formData.dob,
         address: formData.address,
         additional: formData.additional,
         isAvailable: true,
+        username,
+        password,
       };
+
       setStaffList((prev) => [...prev, newStaffObj]);
+
+      // Set credentials to show in popup
+      setNewCredentials({ username, password });
+      setShowCredentials(true);
     } else {
       // Update existing
       setStaffList((prev) =>
@@ -243,14 +226,14 @@ export default function Staff(): JSX.Element {
               ...s,
               name: formData.fullName,
               role: formData.role,
-              email: formData.email,
+              department: formData.department,
               phone: formData.phone,
               age: formData.dob
                 ? Math.floor(
-                    new Date().getFullYear() - new Date(formData.dob).getFullYear()
+                    new Date().getFullYear() -
+                      new Date(formData.dob).getFullYear()
                   )
                 : s.age,
-              salary: formData.salary,
               timings: `${formData.shiftStart} to ${formData.shiftEnd}`,
               avatar: formData.avatar || s.avatar,
               dob: formData.dob,
@@ -261,9 +244,34 @@ export default function Staff(): JSX.Element {
           return s;
         })
       );
+
+      // Close drawer
+      setShowDrawer(false);
     }
 
-    // Close drawer
+    if (!showCredentials) {
+      // Only clear form and close drawer if not showing credentials
+      setEditIndex(null);
+
+      // Clear form
+      setFormData({
+        avatar: "",
+        fullName: "",
+        role: "",
+        department: "",
+        phone: "",
+        dob: "",
+        shiftStart: "",
+        shiftEnd: "",
+        address: "",
+        additional: "",
+      });
+    }
+  };
+
+  // Close the credentials popup and complete the staff addition
+  const handleCredentialsDone = () => {
+    setShowCredentials(false);
     setShowDrawer(false);
     setEditIndex(null);
 
@@ -272,15 +280,19 @@ export default function Staff(): JSX.Element {
       avatar: "",
       fullName: "",
       role: "",
-      email: "",
+      department: "",
       phone: "",
-      salary: "",
       dob: "",
       shiftStart: "",
       shiftEnd: "",
       address: "",
       additional: "",
     });
+  };
+
+  // Copy credentials to clipboard
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
   };
 
   // Cancel: close drawer
@@ -320,477 +332,293 @@ export default function Staff(): JSX.Element {
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Staff Management Title */}
         <div style={styles.tabsContainer}>
-          <button
-            style={{
-              ...styles.tabButton,
-              ...(activeTab === "manage" ? styles.tabActive : {}),
-            }}
-            onClick={() => setActiveTab("manage")}
-          >
-            Staff Management
-          </button>
-          <button
-            style={{
-              ...styles.tabButton,
-              ...(activeTab === "attendance" ? styles.tabActive : {}),
-            }}
-            onClick={() => setActiveTab("attendance")}
-          >
-            Attendance
-          </button>
+          <div style={styles.tabButton}>Staff Management</div>
         </div>
         <div style={styles.tabDivider} />
 
         {/* Staff Management Table */}
-        {activeTab === "manage" && (
-          <div style={styles.tableContainer}>
-            {/* Header Row */}
-            <div style={styles.tableHeader}>
-              <div
-                style={{
-                  ...styles.headerCell,
-                  flex: 0.5,
-                  justifyContent: "center",
-                }}
-              >
-                <input type="checkbox" />
-              </div>
-              <div
-                style={{
-                  ...styles.headerCell,
-                  flex: 1,
-                  justifyContent: "flex-start",
-                }}
-              >
-                ID
-              </div>
-              <div
-                style={{
-                  ...styles.headerCell,
-                  flex: 2,
-                  justifyContent: "flex-start",
-                }}
-              >
-                Name
-              </div>
-              <div
-                style={{
-                  ...styles.headerCell,
-                  flex: 2,
-                  justifyContent: "flex-start",
-                }}
-              >
-                Email
-              </div>
-              <div
-                style={{
-                  ...styles.headerCell,
-                  flex: 1.5,
-                  justifyContent: "flex-start",
-                }}
-              >
-                Phone
-              </div>
-              <div
-                style={{
-                  ...styles.headerCell,
-                  flex: 1,
-                  justifyContent: "center",
-                }}
-              >
-                Age
-              </div>
-              <div
-                style={{
-                  ...styles.headerCell,
-                  flex: 1.5,
-                  justifyContent: "flex-start",
-                }}
-              >
-                Salary
-              </div>
-              <div
-                style={{
-                  ...styles.headerCell,
-                  flex: 2,
-                  justifyContent: "flex-start",
-                }}
-              >
-                Timings
-              </div>
-              <div
-                style={{
-                  ...styles.headerCell,
-                  flex: 2,
-                  justifyContent: "center",
-                }}
-              >
-                Available / Edit
-              </div>
+        <div style={styles.tableContainer}>
+          {/* Header Row */}
+          <div style={styles.tableHeader}>
+            <div
+              style={{
+                ...styles.headerCell,
+                flex: 0.5,
+                justifyContent: "center",
+              }}
+            >
+              <input type="checkbox" />
             </div>
-
-            {/* Rows */}
-            {staffList.map((staff, idx) => (
-              <div
-                key={staff.id + idx}
-                style={{
-                  ...styles.tableRow,
-                  backgroundColor: idx % 2 === 0 ? "#2A2A2A" : "#343434",
-                  opacity: staff.isAvailable ? 1 : 0.5,
-                }}
-              >
-                {/* Checkbox */}
-                <div
-                  style={{
-                    ...styles.rowCell,
-                    flex: 0.5,
-                    justifyContent: "center",
-                  }}
-                >
-                  <input type="checkbox" />
-                </div>
-
-                {/* ID */}
-                <div
-                  style={{
-                    ...styles.rowCell,
-                    flex: 1,
-                    justifyContent: "flex-start",
-                  }}
-                >
-                  <span style={styles.staffId}>{staff.id}</span>
-                </div>
-
-                {/* Name + Avatar (wrapped in NavLink) */}
-                <div
-                  style={{
-                    ...styles.rowCell,
-                    flex: 2,
-                    justifyContent: "flex-start",
-                    gap: 12,
-                  }}
-                >
-                  <NavLink
-                    to={`/staff/${staff.id.replace("#", "")}`}
-                    style={{ textDecoration: "none" }}
-                  >
-                    <img
-                      src={staff.avatar}
-                      alt={staff.name}
-                      style={styles.avatarImage}
-                    />
-                  </NavLink>
-
-                  <NavLink
-                    to={`/staff/${staff.id.replace("#", "")}`}
-                    style={{ textDecoration: "none" }}
-                  >
-                    <div>
-                      <div style={styles.staffName}>{staff.name}</div>
-                      <div style={styles.staffRole}>{staff.role}</div>
-                    </div>
-                  </NavLink>
-                </div>
-
-                {/* Email */}
-                <div
-                  style={{
-                    ...styles.rowCell,
-                    flex: 2,
-                    justifyContent: "flex-start",
-                  }}
-                >
-                  <span style={styles.staffText}>{staff.email}</span>
-                </div>
-
-                {/* Phone */}
-                <div
-                  style={{
-                    ...styles.rowCell,
-                    flex: 1.5,
-                    justifyContent: "flex-start",
-                  }}
-                >
-                  <span style={styles.staffText}>{staff.phone}</span>
-                </div>
-
-                {/* Age */}
-                <div
-                  style={{
-                    ...styles.rowCell,
-                    flex: 1,
-                    justifyContent: "center",
-                  }}
-                >
-                  <span style={styles.staffText}>{staff.age} yr</span>
-                </div>
-
-                {/* Salary */}
-                <div
-                  style={{
-                    ...styles.rowCell,
-                    flex: 1.5,
-                    justifyContent: "flex-start",
-                  }}
-                >
-                  <span style={styles.staffText}>{staff.salary}</span>
-                </div>
-
-                {/* Timings */}
-                <div
-                  style={{
-                    ...styles.rowCell,
-                    flex: 2,
-                    justifyContent: "flex-start",
-                  }}
-                >
-                  <span style={styles.staffText}>{staff.timings}</span>
-                </div>
-
-                {/* Available / Edit Icons */}
-                <div
-                  style={{
-                    ...styles.rowCell,
-                    flex: 2,
-                    justifyContent: "center",
-                    gap: 12,
-                  }}
-                >
-                  {/* Eye icon toggles availability */}
-                  <button
-                    style={styles.iconButton}
-                    onClick={() => toggleAvailability(idx)}
-                    title={
-                      staff.isAvailable
-                        ? "Set as unavailable"
-                        : "Set as available"
-                    }
-                  >
-                    <img
-                      src={EyeIcon}
-                      alt="Toggle Availability"
-                      style={styles.eyeIcon}
-                    />
-                  </button>
-
-                  {/* Pen icon to edit */}
-                  <button
-                    style={styles.iconButton}
-                    onClick={() => handleEditClick(idx)}
-                    title="Edit Staff"
-                  >
-                    <img
-                      src={PenIcon}
-                      alt="Edit Staff"
-                      style={styles.penIcon}
-                    />
-                  </button>
-                </div>
-              </div>
-            ))}
+            <div
+              style={{
+                ...styles.headerCell,
+                flex: 1,
+                justifyContent: "flex-start",
+              }}
+            >
+              ID
+            </div>
+            <div
+              style={{
+                ...styles.headerCell,
+                flex: 2,
+                justifyContent: "flex-start",
+              }}
+            >
+              Name
+            </div>
+            <div
+              style={{
+                ...styles.headerCell,
+                flex: 2,
+                justifyContent: "flex-start",
+              }}
+            >
+              Department
+            </div>
+            <div
+              style={{
+                ...styles.headerCell,
+                flex: 1.5,
+                justifyContent: "flex-start",
+              }}
+            >
+              Phone
+            </div>
+            <div
+              style={{
+                ...styles.headerCell,
+                flex: 1,
+                justifyContent: "center",
+              }}
+            >
+              Age
+            </div>
+            <div
+              style={{
+                ...styles.headerCell,
+                flex: 2,
+                justifyContent: "flex-start",
+              }}
+            >
+              Timings
+            </div>
+            <div
+              style={{
+                ...styles.headerCell,
+                flex: 2,
+                justifyContent: "center",
+              }}
+            >
+              Available / Edit
+            </div>
           </div>
-        )}
 
-        {/* Attendance Table */}
-        {activeTab === "attendance" && (
-          <div style={styles.tableContainer}>
-            {/* Header Row */}
-            <div style={styles.tableHeader}>
+          {/* Rows */}
+          {staffList.map((staff, idx) => (
+            <div
+              key={staff.id + idx}
+              style={{
+                ...styles.tableRow,
+                backgroundColor: idx % 2 === 0 ? "#2A2A2A" : "#343434",
+                opacity: staff.isAvailable ? 1 : 0.5,
+              }}
+            >
+              {/* Checkbox */}
               <div
                 style={{
-                  ...styles.headerCell,
+                  ...styles.rowCell,
                   flex: 0.5,
                   justifyContent: "center",
                 }}
               >
                 <input type="checkbox" />
               </div>
+
+              {/* ID */}
               <div
                 style={{
-                  ...styles.headerCell,
+                  ...styles.rowCell,
                   flex: 1,
                   justifyContent: "flex-start",
                 }}
               >
-                ID
+                <span style={styles.staffId}>{staff.id}</span>
               </div>
+
+              {/* Name + Avatar (wrapped in NavLink) */}
               <div
                 style={{
-                  ...styles.headerCell,
+                  ...styles.rowCell,
                   flex: 2,
                   justifyContent: "flex-start",
+                  gap: 12,
                 }}
               >
-                Name
-              </div>
-              <div
-                style={{
-                  ...styles.headerCell,
-                  flex: 1.5,
-                  justifyContent: "flex-start",
-                }}
-              >
-                Date
-              </div>
-              <div
-                style={{
-                  ...styles.headerCell,
-                  flex: 1.5,
-                  justifyContent: "flex-start",
-                }}
-              >
-                Timings
-              </div>
-              <div
-                style={{
-                  ...styles.headerCell,
-                  flex: 3,
-                  justifyContent: "flex-start",
-                }}
-              >
-                Status
-              </div>
-              <div
-                style={{
-                  ...styles.headerCell,
-                  flex: 1,
-                  justifyContent: "center",
-                }}
-              >
-                Action
-              </div>
-            </div>
-
-            {/* Rows */}
-            {attendanceData.map((att, idx) => (
-              <div
-                key={att.id + idx}
-                style={{
-                  ...styles.tableRow,
-                  backgroundColor: idx % 2 === 0 ? "#2A2A2A" : "#343434",
-                }}
-              >
-                {/* Checkbox */}
-                <div
-                  style={{
-                    ...styles.rowCell,
-                    flex: 0.5,
-                    justifyContent: "center",
-                  }}
-                >
-                  <input type="checkbox" />
-                </div>
-
-                {/* ID */}
-                <div
-                  style={{
-                    ...styles.rowCell,
-                    flex: 1,
-                    justifyContent: "flex-start",
-                  }}
-                >
-                  <span style={styles.staffId}>{att.id}</span>
-                </div>
-
-                {/* Name + Avatar */}
-                <div
-                  style={{
-                    ...styles.rowCell,
-                    flex: 2,
-                    justifyContent: "flex-start",
-                    gap: 12,
-                  }}
+                <NavLink
+                  to={`/staff/${staff.id.replace("#", "")}`}
+                  style={{ textDecoration: "none" }}
                 >
                   <img
-                    src={att.avatar}
-                    alt={att.name}
+                    src={staff.avatar}
+                    alt={staff.name}
                     style={styles.avatarImage}
                   />
+                </NavLink>
+
+                <NavLink
+                  to={`/staff/${staff.id.replace("#", "")}`}
+                  style={{ textDecoration: "none" }}
+                >
                   <div>
-                    <div style={styles.staffName}>{att.name}</div>
-                    <div style={styles.staffRole}>{att.role}</div>
+                    <div style={styles.staffName}>{staff.name}</div>
+                    <div style={styles.staffRole}>{staff.role}</div>
                   </div>
-                </div>
-
-                {/* Date */}
-                <div
-                  style={{
-                    ...styles.rowCell,
-                    flex: 1.5,
-                    justifyContent: "flex-start",
-                  }}
-                >
-                  <span style={styles.staffText}>{att.date}</span>
-                </div>
-
-                {/* Timings */}
-                <div
-                  style={{
-                    ...styles.rowCell,
-                    flex: 1.5,
-                    justifyContent: "flex-start",
-                  }}
-                >
-                  <span style={styles.staffText}>{att.timings}</span>
-                </div>
-
-                {/* Status Buttons */}
-                <div
-                  style={{
-                    ...styles.rowCell,
-                    flex: 3,
-                    justifyContent: "flex-start",
-                    gap: 8,
-                  }}
-                >
-                  <button
-                    style={{ ...styles.statusButton, ...styles.statusPresent }}
-                  >
-                    Present
-                  </button>
-                  <button
-                    style={{ ...styles.statusButton, ...styles.statusAbsent }}
-                  >
-                    Absent
-                  </button>
-                  <button
-                    style={{ ...styles.statusButton, ...styles.statusHalf }}
-                  >
-                    Half Shift
-                  </button>
-                  <button
-                    style={{ ...styles.statusButton, ...styles.statusLeave }}
-                  >
-                    Leave
-                  </button>
-                </div>
-
-                {/* Action: current status text */}
-                <div
-                  style={{
-                    ...styles.rowCell,
-                    flex: 1,
-                    justifyContent: "center",
-                  }}
-                >
-                  <span style={styles.editStatusText}>{att.status}</span>
-                </div>
+                </NavLink>
               </div>
-            ))}
-          </div>
-        )}
+
+              {/* Department */}
+              <div
+                style={{
+                  ...styles.rowCell,
+                  flex: 2,
+                  justifyContent: "flex-start",
+                }}
+              >
+                <span style={styles.staffText}>{staff.department}</span>
+              </div>
+
+              {/* Phone */}
+              <div
+                style={{
+                  ...styles.rowCell,
+                  flex: 1.5,
+                  justifyContent: "flex-start",
+                }}
+              >
+                <span style={styles.staffText}>{staff.phone}</span>
+              </div>
+
+              {/* Age */}
+              <div
+                style={{
+                  ...styles.rowCell,
+                  flex: 1,
+                  justifyContent: "center",
+                }}
+              >
+                <span style={styles.staffText}>{staff.age} yr</span>
+              </div>
+
+              {/* Timings */}
+              <div
+                style={{
+                  ...styles.rowCell,
+                  flex: 2,
+                  justifyContent: "flex-start",
+                }}
+              >
+                <span style={styles.staffText}>{staff.timings}</span>
+              </div>
+
+              {/* Available / Edit Icons */}
+              <div
+                style={{
+                  ...styles.rowCell,
+                  flex: 2,
+                  justifyContent: "center",
+                  gap: 12,
+                }}
+              >
+                {/* Eye icon toggles availability */}
+                <button
+                  style={styles.iconButton}
+                  onClick={() => toggleAvailability(idx)}
+                  title={
+                    staff.isAvailable
+                      ? "Set as unavailable"
+                      : "Set as available"
+                  }
+                >
+                  <img
+                    src={EyeIcon}
+                    alt="Toggle Availability"
+                    style={styles.eyeIcon}
+                  />
+                </button>
+
+                {/* Pen icon to edit */}
+                <button
+                  style={styles.iconButton}
+                  onClick={() => handleEditClick(idx)}
+                  title="Edit Staff"
+                >
+                  <img src={PenIcon} alt="Edit Staff" style={styles.penIcon} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ==================== OVERLAY & SLIDING DRAWER ==================== */}
 
-      {showDrawer && (
+      {(showDrawer || showCredentials) && (
         <div
           style={styles.overlay}
-          onClick={handleCancel}
+          onClick={showCredentials ? undefined : handleCancel}
           aria-hidden="true"
         />
+      )}
+
+      {/* Credentials Popup */}
+      {showCredentials && (
+        <div style={styles.credentialsContainer}>
+          <div style={styles.credentialsHeader}>
+            <h3 style={styles.drawerTitle}>Staff Credentials</h3>
+          </div>
+          <div style={styles.credentialsBody}>
+            <p style={styles.credentialsText}>
+              Please save these credentials for the new staff member:
+            </p>
+            <div style={styles.credentialItem}>
+              <div style={styles.credentialLabel}>Username:</div>
+              <div style={styles.credentialValue}>
+                {newCredentials.username}
+              </div>
+              <button
+                style={styles.copyButton}
+                onClick={() => copyToClipboard(newCredentials.username)}
+                aria-label="Copy username"
+              >
+                📋
+              </button>
+            </div>
+            <div style={styles.credentialItem}>
+              <div style={styles.credentialLabel}>Password:</div>
+              <div style={styles.credentialValue}>
+                {newCredentials.password}
+              </div>
+              <button
+                style={styles.copyButton}
+                onClick={() => copyToClipboard(newCredentials.password)}
+                aria-label="Copy password"
+              >
+                📋
+              </button>
+            </div>
+          </div>
+          <div style={styles.drawerFooter}>
+            <button
+              style={styles.confirmButton}
+              onClick={handleCredentialsDone}
+            >
+              Done
+            </button>
+          </div>
+        </div>
       )}
 
       <div
@@ -832,9 +660,15 @@ export default function Staff(): JSX.Element {
                 <span style={styles.profilePicIcon}>🖼️</span>
               )}
             </div>
-            <button style={styles.changePicButton}>
-              Change Profile Picture
-            </button>
+            <label style={styles.changePicButton}>
+              Add Profile
+              <input
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={handleProfileImageChange}
+              />
+            </label>
           </div>
 
           <div style={styles.formGrid}>
@@ -845,22 +679,20 @@ export default function Staff(): JSX.Element {
                 type="text"
                 placeholder="Enter full name"
                 value={formData.fullName}
-                onChange={(e) =>
-                  handleFieldChange("fullName", e.target.value)
-                }
+                onChange={(e) => handleFieldChange("fullName", e.target.value)}
                 style={styles.formInput}
               />
             </div>
 
-            {/* Email */}
+            {/* Department */}
             <div style={styles.formGroup}>
-              <label style={styles.formLabel}>Email</label>
+              <label style={styles.formLabel}>Department</label>
               <input
-                type="email"
-                placeholder="Enter email address"
-                value={formData.email}
+                type="text"
+                placeholder="Enter department"
+                value={formData.department}
                 onChange={(e) =>
-                  handleFieldChange("email", e.target.value)
+                  handleFieldChange("department", e.target.value)
                 }
                 style={styles.formInput}
               />
@@ -890,23 +722,7 @@ export default function Staff(): JSX.Element {
                 type="tel"
                 placeholder="Enter phone number"
                 value={formData.phone}
-                onChange={(e) =>
-                  handleFieldChange("phone", e.target.value)
-                }
-                style={styles.formInput}
-              />
-            </div>
-
-            {/* Salary */}
-            <div style={styles.formGroup}>
-              <label style={styles.formLabel}>Salary</label>
-              <input
-                type="text"
-                placeholder="Enter salary"
-                value={formData.salary}
-                onChange={(e) =>
-                  handleFieldChange("salary", e.target.value)
-                }
+                onChange={(e) => handleFieldChange("phone", e.target.value)}
                 style={styles.formInput}
               />
             </div>
@@ -941,9 +757,7 @@ export default function Staff(): JSX.Element {
               <input
                 type="time"
                 value={formData.shiftEnd}
-                onChange={(e) =>
-                  handleFieldChange("shiftEnd", e.target.value)
-                }
+                onChange={(e) => handleFieldChange("shiftEnd", e.target.value)}
                 style={styles.formInput}
               />
             </div>
@@ -955,9 +769,7 @@ export default function Staff(): JSX.Element {
                 type="text"
                 placeholder="Enter address"
                 value={formData.address}
-                onChange={(e) =>
-                  handleFieldChange("address", e.target.value)
-                }
+                onChange={(e) => handleFieldChange("address", e.target.value)}
                 style={styles.formInput}
               />
             </div>
@@ -1167,35 +979,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     transition: "opacity 0.2s",
   },
 
-  /* Attendance Status Buttons */
-  statusButton: {
-    fontWeight: 500,
-    fontSize: "0.75rem",
-    color: "#FFFFFF",
-    border: "none",
-    borderRadius: 4,
-    padding: "4px 8px",
-    cursor: "pointer",
-    transition: "opacity 0.2s",
-  },
-  statusPresent: {
-    backgroundColor: "#fac1d9",
-  },
-  statusAbsent: {
-    backgroundColor: "#F0C419",
-  },
-  statusHalf: {
-    backgroundColor: "#19C4F0",
-  },
-  statusLeave: {
-    backgroundColor: "#F44336",
-  },
-  editStatusText: {
-    fontWeight: 300,
-    fontSize: "0.875rem",
-    color: "#DDDDDD",
-  },
-
   /* ==================== OVERLAY & DRAWER ==================== */
   overlay: {
     position: "fixed",
@@ -1349,5 +1132,62 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: "8px 16px",
     cursor: "pointer",
     transition: "background-color 0.2s",
+  },
+
+  // Credential popup styles
+  credentialsContainer: {
+    position: "fixed",
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
+    zIndex: 1001,
+    backgroundColor: "#2A2A2A",
+    borderRadius: 8,
+    width: 400,
+    maxWidth: "90%",
+    boxShadow: "0 4px 20px rgba(0, 0, 0, 0.5)",
+  },
+  credentialsHeader: {
+    padding: "16px 24px",
+    borderBottom: "1px solid #444444",
+  },
+  credentialsBody: {
+    padding: "24px",
+  },
+  credentialsText: {
+    fontSize: "0.9rem",
+    color: "#FFFFFF",
+    marginBottom: 16,
+  },
+  credentialItem: {
+    display: "flex",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  credentialLabel: {
+    width: 100,
+    fontSize: "0.9rem",
+    color: "#CCCCCC",
+  },
+  credentialValue: {
+    flex: 1,
+    fontSize: "0.9rem",
+    color: "#FFFFFF",
+    fontWeight: 600,
+    backgroundColor: "#1F1F1F",
+    padding: "8px",
+    borderRadius: 4,
+  },
+  copyButton: {
+    backgroundColor: "#444444",
+    border: "none",
+    borderRadius: 4,
+    width: 32,
+    height: 32,
+    marginLeft: 8,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
 };

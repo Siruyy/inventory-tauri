@@ -7,15 +7,9 @@ interface ProductCardProps {
   product: Product;
   onEdit: (product: Product) => void;
   onDelete: (id: number) => void;
-  onUpdateStock: (product: Product, newStock: number) => void;
 }
 
-export function ProductCard({
-  product,
-  onEdit,
-  onDelete,
-  onUpdateStock,
-}: ProductCardProps) {
+export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
   const stockStatus =
     product.current_stock <= product.minimum_stock ? "low" : "normal";
 

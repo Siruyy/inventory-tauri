@@ -92,6 +92,9 @@ fn initialize_database(conn: &Connection) -> Result<(), String> {
         )",
         [],
     ).map_err(|e| format!("Failed to create order_items table: {}", e))?;
+    
+    // Update the order_items table schema if needed
+    update_order_items_schema(conn)?;
 
     // Check if admin user exists
     let mut stmt = conn.prepare("SELECT COUNT(*) FROM users WHERE username = 'admin'")
@@ -241,6 +244,118 @@ fn initialize_database(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
+// Function to update the order_items table to allow product deletion
+fn update_order_items_schema(conn: &Connection) -> Result<(), String> {
+    println!("Checking if order_items table needs to be updated...");
+    
+    // Check if product_name column exists in order_items table
+    let has_product_name = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('order_items') WHERE name = 'product_name'",
+        [],
+        |row| row.get::<_, i64>(0)
+    ).map_err(|e| format!("Failed to check schema: {}", e))? > 0;
+    
+    // Check if product_id is nullable
+    let product_id_nullable = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('order_items') WHERE name = 'product_id' AND [notnull] = 0",
+        [],
+        |row| row.get::<_, i64>(0)
+    ).map_err(|e| format!("Failed to check schema: {}", e))? > 0;
+    
+    if !has_product_name || !product_id_nullable {
+        println!("Updating order_items table schema...");
+        
+        // Create a temporary table with the new schema
+        conn.execute(
+            "CREATE TABLE temp_order_items AS SELECT * FROM order_items",
+            [],
+        ).map_err(|e| format!("Failed to create temporary table: {}", e))?;
+        
+        // Drop the existing table
+        conn.execute(
+            "DROP TABLE order_items",
+            [],
+        ).map_err(|e| format!("Failed to drop order_items table: {}", e))?;
+        
+        // Create the table with the updated schema
+        conn.execute(
+            "CREATE TABLE order_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                order_id INTEGER NOT NULL,
+                product_id INTEGER,
+                quantity INTEGER NOT NULL,
+                price REAL NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                product_name TEXT,
+                FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+                FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
+            )",
+            [],
+        ).map_err(|e| format!("Failed to recreate order_items table: {}", e))?;
+        
+        // Get product names for existing order items
+        let mut stmt = conn.prepare(
+            "SELECT oi.id, p.name 
+             FROM temp_order_items oi
+             JOIN products p ON oi.product_id = p.id"
+        ).map_err(|e| format!("Failed to prepare statement: {}", e))?;
+        
+        let product_names = stmt.query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        }).map_err(|e| format!("Failed to query product names: {}", e))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("Failed to collect product names: {}", e))?;
+        
+        // Create a map of order item IDs to product names
+        let mut product_name_map = std::collections::HashMap::<i64, String>::new();
+        for (id, name) in product_names {
+            product_name_map.insert(id, name);
+        }
+        
+        // Copy data from temporary table to the new table
+        let mut stmt = conn.prepare(
+            "SELECT id, order_id, product_id, quantity, price, created_at
+             FROM temp_order_items"
+        ).map_err(|e| format!("Failed to prepare statement: {}", e))?;
+        
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, i64>(0)?, // id
+                row.get::<_, i64>(1)?, // order_id
+                row.get::<_, i64>(2)?, // product_id
+                row.get::<_, i64>(3)?, // quantity
+                row.get::<_, f64>(4)?, // price
+                row.get::<_, String>(5)?, // created_at
+            ))
+        }).map_err(|e| format!("Failed to query order items: {}", e))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("Failed to collect order items: {}", e))?;
+        
+        // Insert data into the new table
+        for (id, order_id, product_id, quantity, price, created_at) in rows {
+            let product_name = product_name_map.get(&id).cloned().unwrap_or_else(|| "Unknown Product".to_string());
+            
+            conn.execute(
+                "INSERT INTO order_items (id, order_id, product_id, quantity, price, created_at, product_name)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)",
+                rusqlite::params![id, order_id, product_id, quantity, price, created_at, product_name],
+            ).map_err(|e| format!("Failed to insert order item: {}", e))?;
+        }
+        
+        // Drop the temporary table
+        conn.execute(
+            "DROP TABLE temp_order_items",
+            [],
+        ).map_err(|e| format!("Failed to drop temporary table: {}", e))?;
+        
+        println!("Order_items table schema updated successfully!");
+    } else {
+        println!("Order_items table schema is already up to date.");
+    }
+    
+    Ok(())
+}
+
 fn main() {
     let db_path = "inventory.db";
     let manager = SqliteConnectionManager::file(db_path)
@@ -249,20 +364,26 @@ fn main() {
             conn.execute_batch("PRAGMA foreign_keys = ON;")?;
             Ok(())
         });
-    let pool = r2d2::Pool::new(manager).expect("Failed to create pool.");
+    
+    // Create connection pool
+    let pool = r2d2::Pool::new(manager)
+        .expect("Failed to create connection pool");
     
     // The initialize_database function needs a connection.
-    // I can get one from the pool.
+    // We get one from the pool.
     let conn = pool.get().expect("Failed to get conn for init");
     
     // Initialize database with default admin user
     if let Err(e) = initialize_database(&conn) {
         eprintln!("Error initializing database: {}", e);
     }
-
+    
+    println!("Database initialized successfully. Products can now be deleted even if they're referenced in orders.");
+    
+    // Build the Tauri application
     tauri::Builder::default()
         .manage(DbState {
-            pool: pool,
+            pool,
         })
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_fs::init())
@@ -297,6 +418,7 @@ fn main() {
             get_sales_report_data,
             debug_order_dates,
             update_order_dates_to_today,
+            test_date_filtering,
             
             // Misc
             greet

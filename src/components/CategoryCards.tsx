@@ -3,6 +3,7 @@ import PenIcon from "/icons/pen.svg";
 import TrashIcon from "/icons/trash.svg";
 import { useCategories, type Category } from "../hooks/useCategories";
 import { useProducts } from "../hooks/useProducts";
+import { toast } from "sonner";
 
 interface CategoryCardsProps {
   selectedCategoryId?: number;
@@ -55,8 +56,22 @@ export function CategoryCards({
         // Explicitly refetch after deletion to ensure UI is up to date
         refetchCategories();
         refetchProducts();
+
+        // Show success toast
+        toast.success("Category deleted successfully");
       } catch (error) {
         console.error("Error deleting category:", error);
+
+        // Show error toast with the specific error message from the backend
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Failed to delete category. Please try again.";
+
+        toast.error("Failed to delete category", {
+          description: errorMessage,
+          duration: 5000,
+        });
       } finally {
         setDeletingCategoryId(null);
         setIsProcessing(false);

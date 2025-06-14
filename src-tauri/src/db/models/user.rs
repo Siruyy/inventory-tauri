@@ -1,4 +1,3 @@
-use bcrypt::{hash, verify, DEFAULT_COST};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

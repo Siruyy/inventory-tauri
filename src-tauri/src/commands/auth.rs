@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use tauri::State;
 
 use crate::db::models::user::{LoginCredentials, NewUser, User};
 use crate::db::DbState;
@@ -7,7 +6,6 @@ use crate::db::DbState;
 use bcrypt::{hash, verify, DEFAULT_COST};
 use jsonwebtoken::{encode, EncodingKey, Header, decode, DecodingKey, Validation};
 use rusqlite::params;
-use thiserror::Error;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {

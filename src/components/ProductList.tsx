@@ -1,15 +1,8 @@
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "./ui/table";
+import React, { useState, useEffect, useMemo } from "react";
+import { formatCurrency } from "../utils/formatters";
+import { Product } from "../hooks/useProducts";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Product } from "../hooks/useProducts";
-import { useState, useMemo } from "react";
 import PenIcon from "/icons/pen.svg";
 import TrashIcon from "/icons/trash.svg";
 
@@ -221,7 +214,7 @@ export function ProductList({
                   {product.name}
                 </td>
                 <td style={tableStyles.cell}>{product.sku}</td>
-                <td style={tableStyles.cell}>{product.location || "—"}</td>
+                <td style={tableStyles.cell}>{product.supplier || "—"}</td>
                 <td style={tableStyles.cell}>{product.category_name}</td>
                 <td style={tableStyles.cell}>
                   {editingStock?.id === product.id ? (
@@ -236,7 +229,7 @@ export function ProductList({
                         type="number"
                         min="0"
                         className="w-20 bg-[#1F1F1F] border-[#323232] text-[#FFFFFF]"
-                        value={editingStock.value}
+                        value={editingStock?.value || 0}
                         onChange={(e) =>
                           setEditingStock({
                             id: product.id,

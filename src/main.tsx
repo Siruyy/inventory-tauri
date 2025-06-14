@@ -3,6 +3,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "sonner";
 
 // Configure the query client with more conservative settings
 const queryClient = new QueryClient({
@@ -19,14 +20,17 @@ const queryClient = new QueryClient({
   },
 });
 
+// Track if the app has been mounted to prevent multiple mounts
+let appMounted = false;
+
 // Add enhanced error handling
 console.log("Application starting...");
 
 // Create error handler
 window.addEventListener("error", (event) => {
   console.error("Global error caught:", event.error);
-  // Try to recover the app on errors
-  if (document.getElementById("root")) {
+  // Only attempt recovery if the app hasn't been mounted yet
+  if (document.getElementById("root") && !appMounted) {
     try {
       mountApp();
     } catch (e) {
@@ -43,6 +47,12 @@ window.addEventListener("unhandledrejection", (event) => {
 // Create a function to mount the app
 function mountApp() {
   try {
+    // Don't mount if already mounted
+    if (appMounted) {
+      console.log("App already mounted, skipping...");
+      return;
+    }
+
     console.log("Mounting React app...");
     const rootElement = document.getElementById("root");
 
@@ -54,9 +64,13 @@ function mountApp() {
         <React.StrictMode>
           <QueryClientProvider client={queryClient}>
             <App />
+            <Toaster position="top-right" richColors />
           </QueryClientProvider>
         </React.StrictMode>
       );
+
+      // Mark as mounted
+      appMounted = true;
       console.log("React app mounted successfully");
     }
   } catch (error) {

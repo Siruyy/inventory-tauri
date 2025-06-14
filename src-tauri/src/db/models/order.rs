@@ -16,11 +16,11 @@ pub struct Order {
 pub struct OrderItem {
     pub id: i32,
     pub order_id: i32,
-    pub product_id: i32,
+    pub product_id: Option<i32>,
     pub quantity: i32,
     pub price: f64,
     pub created_at: String,
-    // Optional joined fields
+    // This field can come either from a join or directly from the database
     pub product_name: Option<String>,
 }
 

@@ -19,10 +19,6 @@ export interface NewCategory {
   description: string | null;
 }
 
-// Global variable to track if we're currently processing a category operation
-// This helps prevent conflicts between operations
-let isProcessingCategory = false;
-
 // Mock categories for development - for reference only, not used anymore
 // We're keeping this commented out for reference in case we need to roll back
 /*
@@ -176,7 +172,7 @@ export function useCategories() {
         refetchCategories();
       }, 200);
     },
-    onError: (error, newCategory, context) => {
+    onError: (error, _newCategory, context) => {
       console.error("Failed to add category:", error);
 
       // Show error toast notification
@@ -237,7 +233,7 @@ export function useCategories() {
         queryClient.invalidateQueries({ queryKey: ["products"] });
       }, 200);
     },
-    onError: (error, id, context) => {
+    onError: (error, _id, context) => {
       console.error("Failed to delete category:", error);
 
       // Show error toast notification

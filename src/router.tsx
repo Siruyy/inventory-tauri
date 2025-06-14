@@ -39,59 +39,105 @@ export default function Router() {
         {/* Public route (no sidebar) */}
         <Route path="/login" element={<Login />} />
 
-        {/* All other authenticated routes use the Sidebar */}
+        {/* Redirect root "/" to "/dashboard" */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+        {/* Dashboard route */}
         <Route
-          path="/*"
+          path="/dashboard"
           element={
             <ProtectedRoute>
               <AuthenticatedLayout>
-                <Routes>
-                  {/* Redirect root "/" to "/dashboard" */}
-                  <Route
-                    path="/"
-                    element={<Navigate to="/dashboard" replace />}
-                  />
-
-                  {/* Main Application Pages */}
-                  <Route path="dashboard" element={<Dashboard />} />
-                  <Route path="inventory" element={<Inventory />} />
-                  <Route path="order" element={<Orders />} />
-
-                  {/* Staff routes - require admin role */}
-                  <Route
-                    path="staff"
-                    element={
-                      <ProtectedRoute requiredRole="admin">
-                        <Staff />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="staff/:id"
-                    element={
-                      <ProtectedRoute requiredRole="admin">
-                        <StaffProfile />
-                      </ProtectedRoute>
-                    }
-                  />
-
-                  <Route path="reports" element={<Reports />} />
-                  <Route
-                    path="reports/inventory"
-                    element={<InventoryReport />}
-                  />
-                  <Route path="profile" element={<Profile />} />
-
-                  {/* Catch-all: redirect any unknown paths back to /dashboard */}
-                  <Route
-                    path="*"
-                    element={<Navigate to="/dashboard" replace />}
-                  />
-                </Routes>
+                <Dashboard />
               </AuthenticatedLayout>
             </ProtectedRoute>
           }
         />
+
+        {/* Inventory route */}
+        <Route
+          path="/inventory"
+          element={
+            <ProtectedRoute>
+              <AuthenticatedLayout>
+                <Inventory />
+              </AuthenticatedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Order route */}
+        <Route
+          path="/order"
+          element={
+            <ProtectedRoute>
+              <AuthenticatedLayout>
+                <Orders />
+              </AuthenticatedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Staff routes */}
+        <Route
+          path="/staff"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <AuthenticatedLayout>
+                <Staff />
+              </AuthenticatedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/staff/:id"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <AuthenticatedLayout>
+                <StaffProfile />
+              </AuthenticatedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Reports routes */}
+        <Route
+          path="/reports"
+          element={
+            <ProtectedRoute>
+              <AuthenticatedLayout>
+                <Reports />
+              </AuthenticatedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/reports/inventory"
+          element={
+            <ProtectedRoute>
+              <AuthenticatedLayout>
+                <InventoryReport />
+              </AuthenticatedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Profile route */}
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <AuthenticatedLayout>
+                <Profile />
+              </AuthenticatedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Catch-all: redirect any unknown paths back to /dashboard */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
   );

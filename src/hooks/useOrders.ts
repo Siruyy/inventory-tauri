@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+// Temporarily disable toast notifications
+import { toast } from "sonner";
 
 export interface OrderItem {
   id: number;
@@ -110,6 +112,7 @@ export interface DetailedSale {
   profit: number;
   margin: string;
   revenue: number;
+  quantity: number;
 }
 
 // Safely invoke a Tauri command, returning empty result on error
@@ -126,7 +129,8 @@ async function safeTauriInvoke<T>(
 }
 
 export function useOrders() {
-  const queryClient = useQueryClient();
+  // Remove the unused queryClient variable
+  // const queryClient = useQueryClient();
 
   // Get recent orders
   const {

@@ -473,6 +473,7 @@ export default function Inventory() {
         isOpen={isDrawerOpen}
         onClose={handleCloseDrawer}
         onSave={handleSaveProduct}
+        categories={categories}
       />
 
       {/* Category Form Drawer */}

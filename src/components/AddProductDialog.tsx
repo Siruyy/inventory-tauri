@@ -31,7 +31,7 @@ export function AddProductDialog() {
     unit_price: 0,
     current_stock: 0,
     minimum_stock: 0,
-    location: "",
+    supplier: "",
   });
 
   const { addProduct } = useProducts();
@@ -40,10 +40,14 @@ export function AddProductDialog() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const newProduct: NewProduct = {
-      ...formData,
+      name: formData.name,
+      description: formData.description || "",
+      sku: formData.sku,
       category_id: parseInt(formData.category_id),
-      description: formData.description || null,
-      location: formData.location || null,
+      unit_price: formData.unit_price,
+      current_stock: formData.current_stock,
+      minimum_stock: formData.minimum_stock,
+      supplier: formData.supplier || "",
     };
     addProduct(newProduct, {
       onSuccess: () => {
@@ -56,7 +60,7 @@ export function AddProductDialog() {
           unit_price: 0,
           current_stock: 0,
           minimum_stock: 0,
-          location: "",
+          supplier: "",
         });
       },
     });
@@ -148,7 +152,7 @@ export function AddProductDialog() {
             <Textarea
               id="description"
               name="description"
-              value={formData.description}
+              value={formData.description || ""}
               onChange={handleChange}
               rows={2}
               className="bg-[#1F1F1F] border-[#323232] text-[#FFFFFF]"
@@ -186,15 +190,15 @@ export function AddProductDialog() {
             </div>
             <div className="space-y-2">
               <label
-                htmlFor="location"
+                htmlFor="supplier"
                 className="text-sm font-medium text-[#DDDDDD]"
               >
-                Location
+                Supplier
               </label>
               <Input
-                id="location"
-                name="location"
-                value={formData.location}
+                id="supplier"
+                name="supplier"
+                value={formData.supplier || ""}
                 onChange={handleChange}
                 className="bg-[#1F1F1F] border-[#323232] text-[#FFFFFF]"
               />

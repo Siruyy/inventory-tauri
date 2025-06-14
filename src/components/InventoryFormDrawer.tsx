@@ -15,11 +15,10 @@ interface Product {
 }
 
 interface InventoryFormDrawerProps {
-  product: Product | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (updated: Product) => void;
-  onScanBarcode?: () => void;
+  onSave: (product: any) => void;
+  product?: any;
 }
 
 export default function InventoryFormDrawer({
@@ -27,7 +26,6 @@ export default function InventoryFormDrawer({
   isOpen,
   onClose,
   onSave,
-  onScanBarcode,
 }: InventoryFormDrawerProps) {
   // Get categories from the hook
   const { categories } = useCategories();
@@ -71,7 +69,7 @@ export default function InventoryFormDrawer({
         perishable: false,
       });
     }
-  }, [product, isOpen, categories]);
+  }, [product, isOpen, categories.length]);
 
   // If the drawer is closed, render nothing
   if (!isOpen) {
