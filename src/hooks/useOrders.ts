@@ -78,11 +78,6 @@ export interface SalesSummary {
   total_profit: number;
   items_sold: number;
   transactions: number;
-  sales_growth: number;
-  revenue_growth: number;
-  profit_growth: number;
-  items_growth: number;
-  transactions_growth: number;
 }
 
 export interface PeriodSales {
@@ -94,13 +89,16 @@ export interface PeriodSales {
 
 export interface CategorySales {
   category: string;
-  value: number;
+  revenue: number;
+  profit: number;
   percentage: number;
 }
 
 export interface ProductSales {
-  name: string;
-  sales: number;
+  product: string;
+  quantity: number;
+  revenue: number;
+  profit: number;
 }
 
 export interface DetailedSale {
@@ -228,24 +226,38 @@ export function useOrders() {
     endDate?: string,
     period: "day" | "week" | "month" | "year" = "month"
   ) => {
+    // React Query key changes whenever startDate, endDate, or period change
     return useQuery<SalesReportData>({
-      queryKey: ["sales_report_data", startDate, endDate, period],
+      queryKey: ["sales_report", startDate, endDate, period],
       queryFn: async () => {
         try {
+          console.log("Fetching sales report data with params:", {
+            startDate,
+            endDate,
+            period,
+          });
+
           // Build args object, only include dates if defined
           const args: Record<string, unknown> = { period };
           if (startDate !== undefined) args.start_date = startDate;
           if (endDate !== undefined) args.end_date = endDate;
-          return await safeTauriInvoke<SalesReportData>(
+
+          console.log("Invoking get_sales_report_data with args:", args);
+
+          const result = await safeTauriInvoke<SalesReportData>(
             "get_sales_report_data",
             args
           );
+
+          console.log("Received sales report data:", result);
+          return result;
         } catch (error) {
           console.error("Failed to fetch sales report data:", error);
           throw error;
         }
       },
       refetchOnWindowFocus: false,
+      // staleTime and cacheTime left default so query updates when key changes
     });
   };
 

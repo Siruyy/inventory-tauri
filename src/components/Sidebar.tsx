@@ -1,6 +1,7 @@
 // src/components/Sidebar.tsx
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 // Import your SVG icons
 import DashboardSvg from "/icons/dashboard.svg";
@@ -14,31 +15,121 @@ interface SidebarProps {
   onLogout: () => void;
 }
 
+interface UserPermissions {
+  staff: boolean;
+  inventory: boolean;
+  reports: boolean;
+  order: boolean;
+  "role-access": boolean;
+}
+
 export default function Sidebar({ onLogout }: SidebarProps) {
+  const { user } = useAuth();
+  const [permissions, setPermissions] = useState<UserPermissions>({
+    staff: true,
+    inventory: true,
+    reports: true,
+    order: true,
+    "role-access": true,
+  });
+
+  // Load user permissions from localStorage
+  useEffect(() => {
+    if (user) {
+      try {
+        const savedStaffData = localStorage.getItem("staffList");
+        if (savedStaffData) {
+          const staffList = JSON.parse(savedStaffData);
+          const currentUser = staffList.find(
+            (staff: any) =>
+              staff.username === user.username || staff.email === user.email
+          );
+
+          // Special case: If user is admin, grant all permissions
+          if (
+            user.role === "admin" ||
+            (currentUser &&
+              (currentUser.role === "Admin" || currentUser.role === "admin"))
+          ) {
+            console.log("Admin user detected - granting all permissions");
+            setPermissions({
+              staff: true,
+              inventory: true,
+              reports: true,
+              order: true,
+              "role-access": true,
+            });
+
+            // Update the staff record if needed
+            if (
+              currentUser &&
+              (!currentUser.permissions ||
+                !currentUser.permissions.staff ||
+                !currentUser.permissions.inventory ||
+                !currentUser.permissions.reports ||
+                !currentUser.permissions.order)
+            ) {
+              console.log("Updating admin permissions in localStorage");
+              currentUser.permissions = {
+                staff: true,
+                inventory: true,
+                reports: true,
+                order: true,
+                "role-access": true,
+              };
+
+              localStorage.setItem("staffList", JSON.stringify(staffList));
+            }
+          }
+          // Regular user - use stored permissions
+          else if (currentUser && currentUser.permissions) {
+            setPermissions(currentUser.permissions);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading permissions:", error);
+      }
+    }
+  }, [user]);
+
   interface NavItemProps {
     to: string;
     label: string;
     Icon: string; // path to SVG
     first?: boolean;
+    permissionKey?: keyof UserPermissions;
   }
 
   // Render exactly one separator *before* each item except the very first
-  const NavItem: React.FC<NavItemProps> = ({ to, label, Icon, first }) => (
-    <React.Fragment>
-      {!first && <div style={styles.separator} />}
-      <NavLink
-        to={to}
-        style={({ isActive }) =>
-          isActive
-            ? { ...styles.navButton, ...styles.navButtonActive }
-            : styles.navButton
-        }
-      >
-        <img src={Icon} alt={label} style={styles.navIcon} />
-        <span style={styles.navLabel}>{label}</span>
-      </NavLink>
-    </React.Fragment>
-  );
+  const NavItem: React.FC<NavItemProps> = ({
+    to,
+    label,
+    Icon,
+    first,
+    permissionKey,
+  }) => {
+    // If this item requires a permission and user doesn't have it, don't render
+    if (permissionKey && !permissions[permissionKey]) {
+      return null;
+    }
+
+    return (
+      <React.Fragment>
+        {!first && <div style={styles.separator} />}
+        <NavLink
+          to={to}
+          style={({ isActive }) =>
+            isActive
+              ? { ...styles.navButton, ...styles.navButtonActive }
+              : styles.navButton
+          }
+        >
+          <img src={Icon} alt={label} style={styles.navIcon} />
+          <span style={styles.navLabel}>{label}</span>
+        </NavLink>
+      </React.Fragment>
+    );
+  };
 
   return (
     <aside style={styles.container}>
@@ -50,10 +141,18 @@ export default function Sidebar({ onLogout }: SidebarProps) {
       {/* Main navigation */}
       <nav style={styles.navContainer}>
         <NavItem to="/dashboard" label="Dashboard" Icon={DashboardSvg} first />
-        <NavItem to="/staff" label="Staff" Icon={StaffSvg} />
-        <NavItem to="/inventory" label="Inventory" Icon={InventorySvg} />
-        <NavItem to="/reports" label="Reports" Icon={ReportsSvg} />
-        <NavItem to="/order" label="Order" Icon={OrderSvg} />
+        {permissions.staff && (
+          <NavItem to="/staff" label="Staff" Icon={StaffSvg} />
+        )}
+        {permissions.inventory && (
+          <NavItem to="/inventory" label="Inventory" Icon={InventorySvg} />
+        )}
+        {permissions.reports && (
+          <NavItem to="/reports" label="Reports" Icon={ReportsSvg} />
+        )}
+        {permissions.order && (
+          <NavItem to="/order" label="Order" Icon={OrderSvg} />
+        )}
       </nav>
 
       {/* Spacer so Logout sits at bottom; no separator above Logout */}

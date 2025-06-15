@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { styled } from "@mui/material/styles";
 import {
   Tabs,
@@ -13,7 +13,15 @@ import {
   TableHead,
   TableRow,
   CircularProgress,
+  TextField,
+  Button,
+  Stack,
+  Alert,
+  Grid,
 } from "@mui/material";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
+import { format, subMonths, differenceInDays } from "date-fns";
 import Header from "../components/Header";
 import {
   LineChart,
@@ -33,7 +41,9 @@ import {
   Bar,
   LabelList,
 } from "recharts";
-import { useOrders, SalesReportData } from "../hooks/useOrders";
+import type { SalesReportData } from "../hooks/useOrders";
+import { invoke } from "@tauri-apps/api/core";
+import { useOrders } from "../hooks/useOrders";
 
 // Colors for the pie chart
 const COLORS = [
@@ -277,12 +287,108 @@ const formatCurrency = (value: number) => {
   })}`;
 };
 
+// Debug function to check date filtering
+const debugDateFiltering = async (date: string) => {
+  try {
+    return await invoke("debug_date_filtering", {
+      date_str: date,
+      dateStr: date,
+    });
+  } catch (error) {
+    console.error("Error debugging date filtering:", error);
+    return null;
+  }
+};
+
+// Add new styled components for date filter
+const FilterContainer = styled(Box)({
+  display: "flex",
+  gap: "16px",
+  marginBottom: "24px",
+  alignItems: "center",
+  flexWrap: "wrap",
+});
+
+const DatePickerContainer = styled(Box)({
+  display: "flex",
+  gap: "16px",
+  alignItems: "center",
+});
+
+const StyledDatePicker = styled(DatePicker)({
+  "& .MuiInputBase-root": {
+    color: "#FFFFFF",
+    backgroundColor: "#2A2A2A",
+    borderRadius: "8px",
+    "& .MuiOutlinedInput-notchedOutline": {
+      borderColor: "#444444",
+    },
+    "&:hover .MuiOutlinedInput-notchedOutline": {
+      borderColor: "#666666",
+    },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+      borderColor: "#fac1d9",
+    },
+  },
+  "& .MuiIconButton-root": {
+    color: "#AAAAAA",
+  },
+});
+
+const StyledButton = styled(Button)({
+  backgroundColor: "#fac1d9",
+  color: "#1F1F1F",
+  "&:hover": {
+    backgroundColor: "#f7a8c9",
+  },
+  padding: "8px 16px",
+  borderRadius: "8px",
+});
+
+const ResetButton = styled(Button)({
+  color: "#AAAAAA",
+  borderColor: "#444444",
+  "&:hover": {
+    borderColor: "#AAAAAA",
+  },
+});
+
+// Add new styled component for filter status
+const FilterStatus = styled(Typography)({
+  fontSize: "14px",
+  color: "#AAAAAA",
+  marginTop: "8px",
+  fontStyle: "italic",
+});
+
+// Add a component to display the filtered date range
+const FilteredDateInfo = styled(Typography)({
+  fontSize: "14px",
+  color: "#fac1d9",
+  marginTop: "8px",
+  fontWeight: "bold",
+});
+
 export default function Reports() {
   const [tabValue, setTabValue] = useState(0);
+  const [startDate, setStartDate] = useState<Date | null>(
+    subMonths(new Date(), 1)
+  );
+  const [endDate, setEndDate] = useState<Date | null>(new Date());
+  const [appliedStartDate, setAppliedStartDate] = useState<string | undefined>(
+    format(subMonths(new Date(), 1), "yyyy-MM-dd")
+  );
+  const [appliedEndDate, setAppliedEndDate] = useState<string | undefined>(
+    format(new Date(), "yyyy-MM-dd")
+  );
+  const [filterApplied, setFilterApplied] = useState(false);
 
-  // Get sales report data
-  const { data: salesReportData, isLoading: isLoadingSalesReport } =
-    useOrders().getSalesReportData(undefined, undefined, "month");
+  // Get filtered sales report from React Query
+  const {
+    data: salesReportData,
+    isLoading: isLoadingSalesReport,
+    refetch: refetchSalesReport,
+  } = useOrders().getSalesReportData(appliedStartDate, appliedEndDate, "day");
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -294,11 +400,11 @@ export default function Reports() {
 
     return data.top_products
       .slice(0, 5) // Take only top 5
-      .map((product) => ({
-        name: product.name,
-        quantity: product.sales,
-        revenue: product.sales * 75, // Using average price since we don't have direct revenue in the model
-        formattedRevenue: formatCurrency(product.sales * 75),
+      .map((product: any) => ({
+        name: product.product,
+        quantity: product.quantity,
+        revenue: product.revenue,
+        formattedRevenue: formatCurrency(product.revenue),
       }))
       .sort((a, b) => b.revenue - a.revenue);
   };
@@ -307,9 +413,9 @@ export default function Reports() {
   const formatRevenueDistribution = (data?: SalesReportData) => {
     if (!data?.sales_by_category) return [];
 
-    return data.sales_by_category.map((category) => ({
+    return data.sales_by_category.map((category: any) => ({
       name: category.category,
-      value: category.value,
+      value: category.revenue,
     }));
   };
 
@@ -317,7 +423,7 @@ export default function Reports() {
   const formatSalesTrend = (data?: SalesReportData) => {
     if (!data?.sales_by_period) return [];
 
-    return data.sales_by_period.map((period) => ({
+    return data.sales_by_period.map((period: any) => ({
       name: period.period,
       sales: period.revenue,
       profit: period.profit,
@@ -346,6 +452,32 @@ export default function Reports() {
   const salesTrendData = formatSalesTrend(salesReportData);
   const salesHistory = formatDetailedSales(salesReportData);
 
+  // Apply date filters
+  const handleApplyFilter = async () => {
+    const formattedStartDate = startDate
+      ? format(startDate, "yyyy-MM-dd")
+      : undefined;
+    const formattedEndDate = endDate
+      ? format(endDate, "yyyy-MM-dd")
+      : undefined;
+
+    setAppliedStartDate(formattedStartDate);
+    setAppliedEndDate(formattedEndDate);
+    setFilterApplied(true);
+  };
+
+  // Reset date filters
+  const handleResetFilter = () => {
+    const defaultStartDate = subMonths(new Date(), 1);
+    const defaultEndDate = new Date();
+
+    setStartDate(defaultStartDate);
+    setEndDate(defaultEndDate);
+    setAppliedStartDate(format(defaultStartDate, "yyyy-MM-dd"));
+    setAppliedEndDate(format(defaultEndDate, "yyyy-MM-dd"));
+    setFilterApplied(false);
+  };
+
   return (
     <Container>
       <Header title="Reports" />
@@ -363,7 +495,68 @@ export default function Reports() {
 
         {/* Sales & Revenue Tab */}
         {tabValue === 0 && (
-          <TabPanel>
+          <TabPanel
+            key={`${appliedStartDate || "none"}_${
+              appliedEndDate || "none"
+            }_${"day"}`}
+          >
+            {/* Date Range Filter */}
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+              <FilterContainer>
+                <Typography variant="body1" color="#AAAAAA">
+                  Filter by date range:
+                </Typography>
+                <DatePickerContainer>
+                  <StyledDatePicker
+                    label="Start Date"
+                    value={startDate}
+                    onChange={(newValue) => setStartDate(newValue)}
+                    slotProps={{
+                      textField: {
+                        size: "small",
+                        InputLabelProps: { style: { color: "#AAAAAA" } },
+                      },
+                    }}
+                    format="yyyy-MM-dd"
+                  />
+                  <Typography color="#AAAAAA">to</Typography>
+                  <StyledDatePicker
+                    label="End Date"
+                    value={endDate}
+                    onChange={(newValue) => setEndDate(newValue)}
+                    slotProps={{
+                      textField: {
+                        size: "small",
+                        InputLabelProps: { style: { color: "#AAAAAA" } },
+                      },
+                    }}
+                    format="yyyy-MM-dd"
+                  />
+                </DatePickerContainer>
+                <Stack direction="row" spacing={2}>
+                  <StyledButton variant="contained" onClick={handleApplyFilter}>
+                    Apply Filter
+                  </StyledButton>
+                  <ResetButton variant="outlined" onClick={handleResetFilter}>
+                    Reset
+                  </ResetButton>
+                </Stack>
+              </FilterContainer>
+
+              <FilterStatus>
+                {filterApplied
+                  ? `Filtered data from ${appliedStartDate} to ${appliedEndDate} (exact dates used in query)`
+                  : "Showing data from the last month"}
+              </FilterStatus>
+
+              {filterApplied && (
+                <FilteredDateInfo>
+                  Filtered data from {appliedStartDate} to {appliedEndDate}
+                </FilteredDateInfo>
+              )}
+            </LocalizationProvider>
+
+            {/* Display error if any */}
             {isLoadingSalesReport ? (
               <LoadingIndicator />
             ) : (

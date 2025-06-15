@@ -7,20 +7,128 @@ import Header from "../components/Header";
 import EyeIcon from "/icons/eye.svg";
 import PenIcon from "/icons/pen.svg";
 
-// Fallback empty data if no localStorage data is found
-const initialStaffData = [];
+// Define the staff member type
+interface StaffMember {
+  id: string;
+  name: string;
+  role: string;
+  department: string;
+  phone: string;
+  age: number;
+  timings: string;
+  avatar: string;
+  dob?: string;
+  address?: string;
+  additional?: string;
+  isAvailable: boolean;
+  username?: string;
+  password?: string;
+  rfid?: string;
+  email?: string;
+  permissions: {
+    staff: boolean;
+    inventory: boolean;
+    reports: boolean;
+    order: boolean;
+    "role-access": boolean;
+  };
+}
 
-const roleOptions = ["Sub-admin", "Inventory", "Cashier"];
+// Fallback empty data if no localStorage data is found
+const initialStaffData: StaffMember[] = [];
+
+const roleOptions = ["Admin", "Sub-admin", "Inventory", "Cashier"];
 
 export default function Staff(): JSX.Element {
+  // Function to remove duplicate staff entries
+  const removeDuplicateStaff = (staffArray: StaffMember[]): StaffMember[] => {
+    const uniqueIds = new Set();
+    const uniqueStaff: StaffMember[] = [];
+
+    // Keep only the first occurrence of each ID
+    for (const staff of staffArray) {
+      if (!uniqueIds.has(staff.id)) {
+        uniqueIds.add(staff.id);
+        uniqueStaff.push(staff);
+      } else {
+        console.log(
+          `Removed duplicate staff with ID: ${staff.id}, name: ${staff.name}`
+        );
+      }
+    }
+
+    return uniqueStaff;
+  };
+
+  // Generate a username based on staff name
+  const generateUsername = (
+    fullName: string,
+    existingStaff: StaffMember[] = []
+  ) => {
+    const nameParts = fullName.trim().split(" ");
+    const firstName = nameParts[0] || "";
+    const lastName =
+      nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
+
+    let username = firstName[0].toLowerCase() + lastName.toLowerCase();
+
+    // Check if username already exists in staff list
+    const exists = existingStaff.some((staff) => staff.username === username);
+    if (exists) {
+      // If exists, append a number
+      const similarUsernames = existingStaff
+        .filter(
+          (staff) => staff.username && staff.username.startsWith(username)
+        )
+        .map((staff) => staff.username as string);
+
+      if (similarUsernames.length > 0) {
+        username = username + (similarUsernames.length + 1);
+      }
+    }
+
+    return username;
+  };
+
+  // Generate a random password
+  const generatePassword = () => {
+    // Generate a 4-digit numeric password
+    return Math.floor(1000 + Math.random() * 9000).toString();
+  };
+
   // Build staffList with data from localStorage if available
-  const [staffList, setStaffList] = useState(() => {
+  const [staffList, setStaffList] = useState<StaffMember[]>(() => {
     try {
       // Try to get staff data from localStorage
       const savedData = localStorage.getItem("staffList");
       if (savedData) {
         const parsedData = JSON.parse(savedData);
-        return Array.isArray(parsedData) ? parsedData : initialStaffData;
+
+        // Remove duplicate entries based on ID
+        const uniqueStaff = removeDuplicateStaff(parsedData);
+
+        // Ensure all staff have username and password
+        const updatedData = uniqueStaff.map((staff: StaffMember) => {
+          if (!staff.username || !staff.password) {
+            // Generate username and password if missing
+            const username =
+              staff.username || generateUsername(staff.name, uniqueStaff);
+            const password = staff.password || generatePassword();
+            console.log(
+              `Added missing credentials for ${staff.name}: username=${username}`
+            );
+            return { ...staff, username, password };
+          }
+          return staff;
+        });
+
+        // Save back to localStorage if any updates were made
+        if (JSON.stringify(updatedData) !== savedData) {
+          localStorage.setItem("staffList", JSON.stringify(updatedData));
+          console.log("Updated staff list with missing credentials");
+        }
+
+        return Array.isArray(updatedData) ? updatedData : initialStaffData;
       }
     } catch (error) {
       console.error("Error loading staff data from localStorage:", error);
@@ -32,6 +140,48 @@ export default function Staff(): JSX.Element {
   // Save to localStorage whenever staffList changes
   useEffect(() => {
     localStorage.setItem("staffList", JSON.stringify(staffList));
+  }, [staffList]);
+
+  // Emergency function to restore admin user if missing
+  useEffect(() => {
+    // Check if we have any admin users
+    const hasAdmin = staffList.some(
+      (staff) => staff.role === "Admin" || staff.role === "admin"
+    );
+
+    // If no admin users exist, create one
+    if (!hasAdmin) {
+      console.log("No admin users found. Creating emergency admin user...");
+
+      const adminUser = {
+        id: "#admin-default",
+        name: "Administrator",
+        role: "Admin",
+        department: "Admin",
+        phone: "000-000-0000",
+        age: 0,
+        timings: "00:00 to 00:00",
+        avatar: "https://via.placeholder.com/60?text=Admin",
+        dob: "",
+        address: "",
+        additional: "",
+        isAvailable: true,
+        username: "admin",
+        password: "admin",
+        rfid: "",
+        email: "",
+        permissions: {
+          staff: true,
+          inventory: true,
+          reports: true,
+          order: true,
+          "role-access": true,
+        },
+      };
+
+      setStaffList((prev) => [...prev, adminUser]);
+      console.log("Emergency admin user created!");
+    }
   }, [staffList]);
 
   // Sorting field
@@ -48,6 +198,7 @@ export default function Staff(): JSX.Element {
     avatar: "",
     fullName: "",
     role: "",
+    rfid: "",
     department: "",
     phone: "",
     dob: "",
@@ -92,6 +243,7 @@ export default function Staff(): JSX.Element {
       avatar: staffToEdit.avatar,
       fullName: staffToEdit.name,
       role: staffToEdit.role,
+      rfid: staffToEdit.rfid || "",
       department: staffToEdit.department,
       phone: staffToEdit.phone,
       dob: staffToEdit.dob || "",
@@ -110,6 +262,7 @@ export default function Staff(): JSX.Element {
       avatar: "",
       fullName: "",
       role: "",
+      rfid: "",
       department: "",
       phone: "",
       dob: "",
@@ -148,53 +301,31 @@ export default function Staff(): JSX.Element {
     reader.readAsDataURL(file);
   };
 
-  // Generate a username based on full name
-  const generateUsername = (fullName: string) => {
-    // Create username from first initial and last name
-    const nameParts = fullName.trim().split(" ");
-    if (nameParts.length < 2) return fullName.toLowerCase();
-
-    const firstName = nameParts[0];
-    const lastName = nameParts[nameParts.length - 1];
-
-    let username = firstName[0].toLowerCase() + lastName.toLowerCase();
-
-    // Check if username already exists in staff list
-    const exists = staffList.some((staff) => staff.username === username);
-    if (exists) {
-      // If exists, append a number
-      const similarUsernames = staffList
-        .filter((staff) => staff.username.startsWith(username))
-        .map((staff) => staff.username);
-
-      if (similarUsernames.length > 0) {
-        username = username + (similarUsernames.length + 1);
-      }
-    }
-
-    return username;
-  };
-
-  // Generate a random password
-  const generatePassword = () => {
-    // Generate a 4-digit numeric password
-    return Math.floor(1000 + Math.random() * 9000).toString();
-  };
-
   // Confirm (either add or edit)
   const handleConfirm = () => {
     if (editIndex === null) {
       // Add new staff
-      const newIdNumber = staffList.length + 101; // Example logic
+      // Find the highest existing ID number and add 1
+      const highestId = staffList.reduce((max, staff) => {
+        // Extract the numeric part of the ID
+        const idNum = parseInt(staff.id.replace("#", ""));
+        return isNaN(idNum) ? max : Math.max(max, idNum);
+      }, 100); // Start at 100 if no valid IDs
+
+      const newIdNumber = highestId + 1;
 
       // Generate username and password for new staff
-      const username = generateUsername(formData.fullName);
+      const username = generateUsername(formData.fullName, staffList);
       const password = generatePassword();
+
+      // Set permissions based on role
+      const isAdmin = formData.role === "Admin";
 
       const newStaffObj = {
         id: "#" + newIdNumber,
         name: formData.fullName,
         role: formData.role,
+        rfid: formData.rfid,
         department: formData.department,
         phone: formData.phone,
         age: formData.dob
@@ -203,13 +334,24 @@ export default function Staff(): JSX.Element {
             )
           : 0,
         timings: `${formData.shiftStart} to ${formData.shiftEnd}`,
-        avatar: formData.avatar || "https://i.pravatar.cc/60?img=1",
+        avatar: formData.avatar || "https://i.pravatar.cc/60?text=Admin",
         dob: formData.dob,
         address: formData.address,
         additional: formData.additional,
         isAvailable: true,
         username,
         password,
+        permissions: {
+          staff: isAdmin ? true : formData.role === "Sub-admin",
+          inventory: isAdmin
+            ? true
+            : formData.role === "Inventory" || formData.role === "Sub-admin",
+          reports: isAdmin ? true : formData.role === "Sub-admin",
+          order: isAdmin
+            ? true
+            : formData.role === "Sub-admin" || formData.role === "Cashier",
+          "role-access": isAdmin, // Only admin can manage roles
+        },
       };
 
       setStaffList((prev) => [...prev, newStaffObj]);
@@ -222,10 +364,14 @@ export default function Staff(): JSX.Element {
       setStaffList((prev) =>
         prev.map((s, i) => {
           if (i === editIndex) {
+            // Set permissions based on role
+            const isAdmin = formData.role === "Admin";
+
             return {
               ...s,
               name: formData.fullName,
               role: formData.role,
+              rfid: formData.rfid,
               department: formData.department,
               phone: formData.phone,
               age: formData.dob
@@ -239,6 +385,19 @@ export default function Staff(): JSX.Element {
               dob: formData.dob,
               address: formData.address,
               additional: formData.additional,
+              permissions: {
+                staff: isAdmin ? true : formData.role === "Sub-admin",
+                inventory: isAdmin
+                  ? true
+                  : formData.role === "Inventory" ||
+                    formData.role === "Sub-admin",
+                reports: isAdmin ? true : formData.role === "Sub-admin",
+                order: isAdmin
+                  ? true
+                  : formData.role === "Sub-admin" ||
+                    formData.role === "Cashier",
+                "role-access": isAdmin, // Only admin can manage roles
+              },
             };
           }
           return s;
@@ -258,6 +417,7 @@ export default function Staff(): JSX.Element {
         avatar: "",
         fullName: "",
         role: "",
+        rfid: "",
         department: "",
         phone: "",
         dob: "",
@@ -280,6 +440,7 @@ export default function Staff(): JSX.Element {
       avatar: "",
       fullName: "",
       role: "",
+      rfid: "",
       department: "",
       phone: "",
       dob: "",
@@ -301,6 +462,26 @@ export default function Staff(): JSX.Element {
     setEditIndex(null);
   };
 
+  // Delete staff member
+  const deleteStaff = (index: number) => {
+    // Get the staff member to delete
+    const staffToDelete = staffList[index];
+
+    // Prevent deletion of any admin user with username "admin"
+    if (staffToDelete.username === "admin") {
+      alert("Cannot delete the default admin account!");
+      return;
+    }
+
+    // Confirm deletion
+    if (
+      window.confirm(`Are you sure you want to delete ${staffToDelete.name}?`)
+    ) {
+      // Remove the staff member from the list
+      setStaffList((prev) => prev.filter((_, idx) => idx !== index));
+    }
+  };
+
   return (
     <div style={styles.pageContainer}>
       <Header title="Staff Management" />
@@ -309,7 +490,10 @@ export default function Staff(): JSX.Element {
         {/* Top Bar */}
         <div style={styles.topBar}>
           <div style={styles.topLeft}>
-            <h2 style={styles.staffCount}>Staff ({staffList.length})</h2>
+            <h2 style={styles.staffCount}>
+              Staff (
+              {staffList.filter((staff) => staff.username !== "admin").length})
+            </h2>
           </div>
           <div style={styles.topRight}>
             <button style={styles.addStaffButton} onClick={handleAddClick}>
@@ -417,149 +601,155 @@ export default function Staff(): JSX.Element {
           </div>
 
           {/* Rows */}
-          {staffList.map((staff, idx) => (
-            <div
-              key={staff.id + idx}
-              style={{
-                ...styles.tableRow,
-                backgroundColor: idx % 2 === 0 ? "#2A2A2A" : "#343434",
-                opacity: staff.isAvailable ? 1 : 0.5,
-              }}
-            >
-              {/* Checkbox */}
+          {staffList
+            .filter((staff) => staff.username !== "admin") // Hide the default admin user
+            .map((staff, idx) => (
               <div
+                key={staff.id + idx}
                 style={{
-                  ...styles.rowCell,
-                  flex: 0.5,
-                  justifyContent: "center",
+                  ...styles.tableRow,
+                  backgroundColor: idx % 2 === 0 ? "#2A2A2A" : "#343434",
+                  opacity: staff.isAvailable ? 1 : 0.5,
                 }}
               >
-                <input type="checkbox" />
-              </div>
-
-              {/* ID */}
-              <div
-                style={{
-                  ...styles.rowCell,
-                  flex: 1,
-                  justifyContent: "flex-start",
-                }}
-              >
-                <span style={styles.staffId}>{staff.id}</span>
-              </div>
-
-              {/* Name + Avatar (wrapped in NavLink) */}
-              <div
-                style={{
-                  ...styles.rowCell,
-                  flex: 2,
-                  justifyContent: "flex-start",
-                  gap: 12,
-                }}
-              >
-                <NavLink
-                  to={`/staff/${staff.id.replace("#", "")}`}
-                  style={{ textDecoration: "none" }}
+                {/* Checkbox */}
+                <div
+                  style={{
+                    ...styles.rowCell,
+                    flex: 0.5,
+                    justifyContent: "center",
+                  }}
                 >
-                  <img
-                    src={staff.avatar}
-                    alt={staff.name}
-                    style={styles.avatarImage}
-                  />
-                </NavLink>
+                  <input type="checkbox" />
+                </div>
 
-                <NavLink
-                  to={`/staff/${staff.id.replace("#", "")}`}
-                  style={{ textDecoration: "none" }}
+                {/* ID */}
+                <div
+                  style={{
+                    ...styles.rowCell,
+                    flex: 1,
+                    justifyContent: "flex-start",
+                  }}
                 >
-                  <div>
-                    <div style={styles.staffName}>{staff.name}</div>
-                    <div style={styles.staffRole}>{staff.role}</div>
-                  </div>
-                </NavLink>
-              </div>
+                  <span style={styles.staffId}>{staff.id}</span>
+                </div>
 
-              {/* Department */}
-              <div
-                style={{
-                  ...styles.rowCell,
-                  flex: 2,
-                  justifyContent: "flex-start",
-                }}
-              >
-                <span style={styles.staffText}>{staff.department}</span>
-              </div>
-
-              {/* Phone */}
-              <div
-                style={{
-                  ...styles.rowCell,
-                  flex: 1.5,
-                  justifyContent: "flex-start",
-                }}
-              >
-                <span style={styles.staffText}>{staff.phone}</span>
-              </div>
-
-              {/* Age */}
-              <div
-                style={{
-                  ...styles.rowCell,
-                  flex: 1,
-                  justifyContent: "center",
-                }}
-              >
-                <span style={styles.staffText}>{staff.age} yr</span>
-              </div>
-
-              {/* Timings */}
-              <div
-                style={{
-                  ...styles.rowCell,
-                  flex: 2,
-                  justifyContent: "flex-start",
-                }}
-              >
-                <span style={styles.staffText}>{staff.timings}</span>
-              </div>
-
-              {/* Available / Edit Icons */}
-              <div
-                style={{
-                  ...styles.rowCell,
-                  flex: 2,
-                  justifyContent: "center",
-                  gap: 12,
-                }}
-              >
-                {/* Eye icon toggles availability */}
-                <button
-                  style={styles.iconButton}
-                  onClick={() => toggleAvailability(idx)}
-                  title={
-                    staff.isAvailable
-                      ? "Set as unavailable"
-                      : "Set as available"
-                  }
+                {/* Name + Avatar (wrapped in NavLink) */}
+                <div
+                  style={{
+                    ...styles.rowCell,
+                    flex: 2,
+                    justifyContent: "flex-start",
+                    gap: 12,
+                  }}
                 >
-                  <img
-                    src={EyeIcon}
-                    alt="Toggle Availability"
-                    style={styles.eyeIcon}
-                  />
-                </button>
+                  <NavLink
+                    to={`/staff/${staff.id.replace("#", "")}`}
+                    style={{ textDecoration: "none" }}
+                  >
+                    <img
+                      src={staff.avatar}
+                      alt={staff.name}
+                      style={styles.avatarImage}
+                    />
+                  </NavLink>
 
-                {/* Pen icon to edit */}
-                <button
-                  style={styles.iconButton}
-                  onClick={() => handleEditClick(idx)}
-                  title="Edit Staff"
+                  <NavLink
+                    to={`/staff/${staff.id.replace("#", "")}`}
+                    style={{ textDecoration: "none" }}
+                  >
+                    <div>
+                      <div style={styles.staffName}>{staff.name}</div>
+                      <div style={styles.staffRole}>{staff.role}</div>
+                    </div>
+                  </NavLink>
+                </div>
+
+                {/* Department */}
+                <div
+                  style={{
+                    ...styles.rowCell,
+                    flex: 2,
+                    justifyContent: "flex-start",
+                  }}
                 >
-                  <img src={PenIcon} alt="Edit Staff" style={styles.penIcon} />
-                </button>
+                  <span style={styles.staffText}>{staff.department}</span>
+                </div>
+
+                {/* Phone */}
+                <div
+                  style={{
+                    ...styles.rowCell,
+                    flex: 1.5,
+                    justifyContent: "flex-start",
+                  }}
+                >
+                  <span style={styles.staffText}>{staff.phone}</span>
+                </div>
+
+                {/* Age */}
+                <div
+                  style={{
+                    ...styles.rowCell,
+                    flex: 1,
+                    justifyContent: "center",
+                  }}
+                >
+                  <span style={styles.staffText}>{staff.age} yr</span>
+                </div>
+
+                {/* Timings */}
+                <div
+                  style={{
+                    ...styles.rowCell,
+                    flex: 2,
+                    justifyContent: "flex-start",
+                  }}
+                >
+                  <span style={styles.staffText}>{staff.timings}</span>
+                </div>
+
+                {/* Available / Edit Icons */}
+                <div
+                  style={{
+                    ...styles.rowCell,
+                    flex: 2,
+                    justifyContent: "center",
+                    gap: 12,
+                  }}
+                >
+                  {/* Eye icon toggles availability */}
+                  <button
+                    style={styles.iconButton}
+                    onClick={() => toggleAvailability(idx)}
+                    title={
+                      staff.isAvailable
+                        ? "Set as unavailable"
+                        : "Set as available"
+                    }
+                  >
+                    <img
+                      src={EyeIcon}
+                      alt="Toggle Availability"
+                      style={styles.eyeIcon}
+                    />
+                  </button>
+
+                  {/* Pen icon to edit */}
+                  <button
+                    style={styles.iconButton}
+                    onClick={() => handleEditClick(idx)}
+                    title="Edit Staff"
+                  >
+                    <img
+                      src={PenIcon}
+                      alt="Edit Staff"
+                      style={styles.penIcon}
+                    />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
         </div>
       </div>
 
@@ -715,6 +905,18 @@ export default function Staff(): JSX.Element {
               </select>
             </div>
 
+            {/* RFID */}
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>RFID</label>
+              <input
+                type="text"
+                placeholder="Enter RFID"
+                value={formData.rfid}
+                onChange={(e) => handleFieldChange("rfid", e.target.value)}
+                style={styles.formInput}
+              />
+            </div>
+
             {/* Phone number */}
             <div style={styles.formGroup}>
               <label style={styles.formLabel}>Phone number</label>
@@ -738,28 +940,33 @@ export default function Staff(): JSX.Element {
               />
             </div>
 
-            {/* Shift start timing */}
-            <div style={styles.formGroup}>
-              <label style={styles.formLabel}>Shift start timing</label>
-              <input
-                type="time"
-                value={formData.shiftStart}
-                onChange={(e) =>
-                  handleFieldChange("shiftStart", e.target.value)
-                }
-                style={styles.formInput}
-              />
-            </div>
-
-            {/* Shift end timing */}
-            <div style={styles.formGroup}>
-              <label style={styles.formLabel}>Shift end timing</label>
-              <input
-                type="time"
-                value={formData.shiftEnd}
-                onChange={(e) => handleFieldChange("shiftEnd", e.target.value)}
-                style={styles.formInput}
-              />
+            {/* Shift timings (start and end in one row) */}
+            <div style={{ ...styles.formGroup, gridColumn: "span 2" }}>
+              <label style={styles.formLabel}>Shift Timings</label>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <div style={{ flex: 1 }}>
+                  <input
+                    type="time"
+                    value={formData.shiftStart}
+                    onChange={(e) =>
+                      handleFieldChange("shiftStart", e.target.value)
+                    }
+                    style={{ ...styles.formInput, width: "100%" }}
+                    placeholder="Start"
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <input
+                    type="time"
+                    value={formData.shiftEnd}
+                    onChange={(e) =>
+                      handleFieldChange("shiftEnd", e.target.value)
+                    }
+                    style={{ ...styles.formInput, width: "100%" }}
+                    placeholder="End"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Address (full width) */}

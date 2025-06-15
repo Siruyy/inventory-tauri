@@ -58,7 +58,7 @@ export default function Router() {
         <Route
           path="/inventory"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredPermission="inventory">
               <AuthenticatedLayout>
                 <Inventory />
               </AuthenticatedLayout>
@@ -70,7 +70,7 @@ export default function Router() {
         <Route
           path="/order"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredPermission="order">
               <AuthenticatedLayout>
                 <Orders />
               </AuthenticatedLayout>
@@ -82,7 +82,7 @@ export default function Router() {
         <Route
           path="/staff"
           element={
-            <ProtectedRoute requiredRole="admin">
+            <ProtectedRoute requiredRole="admin" requiredPermission="staff">
               <AuthenticatedLayout>
                 <Staff />
               </AuthenticatedLayout>
@@ -93,7 +93,7 @@ export default function Router() {
         <Route
           path="/staff/:id"
           element={
-            <ProtectedRoute requiredRole="admin">
+            <ProtectedRoute requiredRole="admin" requiredPermission="staff">
               <AuthenticatedLayout>
                 <StaffProfile />
               </AuthenticatedLayout>
@@ -105,7 +105,7 @@ export default function Router() {
         <Route
           path="/reports"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredPermission="reports">
               <AuthenticatedLayout>
                 <Reports />
               </AuthenticatedLayout>
@@ -116,7 +116,7 @@ export default function Router() {
         <Route
           path="/reports/inventory"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredPermission="reports">
               <AuthenticatedLayout>
                 <InventoryReport />
               </AuthenticatedLayout>

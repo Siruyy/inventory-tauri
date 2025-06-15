@@ -1,6 +1,7 @@
 // src/components/Header.tsx
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 // Make sure these three SVG files live in the same folder as Header.tsx,
 // or adjust the import paths accordingly.
@@ -12,8 +13,50 @@ interface HeaderProps {
   title: string;
 }
 
+// Define the staff member type
+interface StaffMember {
+  id: string;
+  name: string;
+  role: string;
+  department: string;
+  phone: string;
+  age: number;
+  timings: string;
+  avatar: string;
+  username?: string;
+  password?: string;
+  rfid?: string;
+  email?: string;
+}
+
 export default function Header({ title }: HeaderProps): JSX.Element {
   const location = useLocation();
+  const { user } = useAuth();
+  const [userAvatar, setUserAvatar] = useState<string | null>(null);
+
+  // Find the user's avatar from staffList
+  useEffect(() => {
+    if (user) {
+      try {
+        const staffListJson = localStorage.getItem("staffList");
+        if (staffListJson) {
+          const staffList: StaffMember[] = JSON.parse(staffListJson);
+          const currentStaff = staffList.find(
+            (staff) =>
+              staff.username === user.username ||
+              staff.email === user.email ||
+              staff.name === user.full_name
+          );
+
+          if (currentStaff && currentStaff.avatar) {
+            setUserAvatar(currentStaff.avatar);
+          }
+        }
+      } catch (error) {
+        console.error("Error finding user avatar:", error);
+      }
+    }
+  }, [user]);
 
   return (
     <div style={styles.container}>
@@ -54,7 +97,11 @@ export default function Header({ title }: HeaderProps): JSX.Element {
           }
           title="Profile"
         >
-          <img src={ProfileIcon} alt="Profile" style={styles.iconImage} />
+          {userAvatar ? (
+            <img src={userAvatar} alt="Profile" style={styles.avatarImage} />
+          ) : (
+            <img src={ProfileIcon} alt="Profile" style={styles.iconImage} />
+          )}
         </NavLink>
       </div>
     </div>
@@ -69,7 +116,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: "24px 20px",
     backgroundColor: "#1F1F1F",
     boxSizing: "border-box",
-    height: "80px"
+    height: "80px",
   },
   left: {
     display: "flex",
@@ -103,8 +150,11 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   iconLink: {
     display: "inline-block",
-    width: 28,
-    height: 28,
+    width: 32,
+    height: 32,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
   iconActive: {
     opacity: 1,
@@ -116,5 +166,14 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: "pointer",
     opacity: 0.75,
     transition: "opacity 0.2s",
+  },
+  avatarImage: {
+    width: "32px",
+    height: "32px",
+    objectFit: "cover",
+    cursor: "pointer",
+    opacity: 1,
+    transition: "opacity 0.2s",
+    borderRadius: "50%",
   },
 };

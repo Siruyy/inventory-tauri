@@ -1,110 +1,161 @@
-import React, { useState } from "react";
-import PenIcon from "/icons/pen.svg";
-import TrashIcon from "/icons/trash.svg";
+import React, { useState, useEffect } from "react";
 
 // Shared state type
 interface User {
   id: number;
   name: string;
-  email: string;
   role: string;
   permissions: {
-    dashboard: boolean;
-    reports: boolean;
+    staff: boolean;
     inventory: boolean;
-    orders: boolean;
-    customers: boolean;
-    settings: boolean;
+    reports: boolean;
+    order: boolean;
+    "role-access": boolean;
   };
 }
 
 export function UsersList(): JSX.Element {
-  const [users] = useState<User[]>([
-    {
-      id: 1,
-      name: "Abubakar Sherazi",
-      email: "abubakarsherazi@gmail.com",
-      role: "Admin",
-      permissions: {
-        dashboard: true,
-        reports: true,
-        inventory: true,
-        orders: true,
-        customers: true,
-        settings: true,
-      },
-    },
-    {
-      id: 2,
-      name: "Anees Ansari",
-      email: "aneesansari@gmail.com",
-      role: "Cashier",
-      permissions: {
-        dashboard: true,
-        reports: true,
-        inventory: true,
-        orders: true,
-        customers: true,
-        settings: true,
-      },
-    },
-  ]);
+  // Get staff data from localStorage
+  const [users, setUsers] = useState<User[]>(() => {
+    try {
+      const savedStaffData = localStorage.getItem("staffList");
+      if (savedStaffData) {
+        const parsedData = JSON.parse(savedStaffData);
+        if (Array.isArray(parsedData)) {
+          // Transform staff data to match User interface
+          return parsedData.map((staff, index) => ({
+            id: index + 1,
+            name: staff.name,
+            role: staff.role,
+            permissions: {
+              staff: staff.permissions?.staff ?? true,
+              inventory: staff.permissions?.inventory ?? true,
+              reports: staff.permissions?.reports ?? true,
+              order: staff.permissions?.order ?? true,
+              "role-access":
+                staff.permissions?.["role-access"] ??
+                (staff.role === "Admin" || staff.role === "Sub-admin"),
+            },
+          }));
+        }
+      }
+      // Return default users if no staff data exists
+      return [
+        {
+          id: 1,
+          name: "Abubakar Sherazi",
+          role: "Admin",
+          permissions: {
+            staff: true,
+            inventory: true,
+            reports: true,
+            order: true,
+            "role-access": true,
+          },
+        },
+        {
+          id: 2,
+          name: "Anees Ansari",
+          role: "Cashier",
+          permissions: {
+            staff: true,
+            inventory: true,
+            reports: true,
+            order: true,
+            "role-access": false,
+          },
+        },
+      ];
+    } catch (error) {
+      console.error("Error loading staff data:", error);
+      return [];
+    }
+  });
+
+  // Save permissions to localStorage when they change
+  useEffect(() => {
+    try {
+      const savedStaffData = localStorage.getItem("staffList");
+      if (savedStaffData) {
+        const staffList = JSON.parse(savedStaffData);
+
+        // Update staff list with current permissions
+        const updatedStaffList = staffList.map((staff: any, index: number) => {
+          const currentUser = users.find((user) => user.name === staff.name);
+          if (currentUser) {
+            return {
+              ...staff,
+              permissions: currentUser.permissions,
+            };
+          }
+          return staff;
+        });
+
+        localStorage.setItem("staffList", JSON.stringify(updatedStaffList));
+      }
+    } catch (error) {
+      console.error("Error saving permissions:", error);
+    }
+  }, [users]);
+
+  // Toggle permission handler
+  const togglePermission = (userId: number, permission: string) => {
+    setUsers((prevUsers) =>
+      prevUsers.map((user) =>
+        user.id === userId
+          ? {
+              ...user,
+              permissions: {
+                ...user.permissions,
+                [permission]:
+                  !user.permissions[
+                    permission as keyof typeof user.permissions
+                  ],
+              },
+            }
+          : user
+      )
+    );
+  };
 
   return (
     <div style={styles.card}>
       {users.map((user, index) => (
         <React.Fragment key={index}>
           <div style={styles.userSection}>
-            <div style={styles.userInfo}>
-              <div style={styles.userDetails}>
-                <div>
-                  <h3 style={styles.userName}>{user.name}</h3>
-                  <span style={styles.userEmail}>{user.email}</span>
-                </div>
-                <div style={styles.roleTag}>
-                  <span>{user.role}</span>
-                </div>
-              </div>
-              <div style={styles.userActions}>
-                <button style={styles.iconButton}>
-                  <img src={PenIcon} alt="Edit" style={styles.actionIcon} />
-                </button>
-                <button style={styles.iconButton}>
-                  <img src={TrashIcon} alt="Delete" style={styles.actionIcon} />
-                </button>
-              </div>
-            </div>
-            <div style={styles.permissionsGrid}>
-              {Object.entries(user.permissions).map(([key, _value]) => (
-                <div
-                  key={key}
-                  className="flex items-center justify-between py-2 border-b border-gray-700"
-                >
-                  <span className="text-white">{key}</span>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => togglePermission(user.id, key, true)}
-                      className={`px-3 py-1 rounded text-sm ${
-                        user.permissions[key]
-                          ? "bg-green-600 text-white"
-                          : "bg-gray-700 text-gray-300"
-                      }`}
-                    >
-                      Allow
-                    </button>
-                    <button
-                      onClick={() => togglePermission(user.id, key, false)}
-                      className={`px-3 py-1 rounded text-sm ${
-                        !user.permissions[key]
-                          ? "bg-red-600 text-white"
-                          : "bg-gray-700 text-gray-300"
-                      }`}
-                    >
-                      Deny
-                    </button>
+            <div style={styles.userHeader}>
+              <div style={styles.userInfo}>
+                <div style={styles.userDetails}>
+                  <div>
+                    <h3 style={styles.userName}>{user.name}</h3>
+                  </div>
+                  <div style={styles.roleTag}>
+                    <span>{user.role}</span>
                   </div>
                 </div>
-              ))}
+              </div>
+            </div>
+            <div style={styles.permissionsContainer}>
+              <div style={styles.permissionsTitle}>Access Permissions</div>
+              <div style={styles.permissionsGrid}>
+                {Object.entries(user.permissions).map(([key, value]) => (
+                  <div key={key} style={styles.permissionItem}>
+                    <span style={styles.permissionName}>{key}</span>
+                    <div
+                      style={styles.toggleContainer}
+                      onClick={() => togglePermission(user.id, key)}
+                    >
+                      {value && <div style={styles.toggleBackground}></div>}
+                      <div
+                        style={{
+                          ...styles.toggleCircle,
+                          left: value ? "25.16px" : "3.68px",
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
           {index < users.length - 1 && <div style={styles.divider} />}
@@ -114,95 +165,11 @@ export function UsersList(): JSX.Element {
   );
 }
 
-export function AddNewUserForm(): JSX.Element {
-  const [newUserData, setNewUserData] = useState({
-    firstName: "",
-    email: "",
-    role: "",
-    password: "",
-  });
-
-  const handleNewUserInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setNewUserData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleAddUser = () => {
-    // TODO: Implement add user functionality
-    console.log("Adding new user:", newUserData);
-    // Reset form
-    setNewUserData({
-      firstName: "",
-      email: "",
-      role: "",
-      password: "",
-    });
-  };
-
-  return (
-    <div style={styles.card}>
-      <h2 style={styles.sectionTitle}>Add New User</h2>
-      <div style={styles.addUserForm}>
-        <div style={styles.formField}>
-          <label style={styles.label}>First Name</label>
-          <input
-            type="text"
-            name="firstName"
-            value={newUserData.firstName}
-            onChange={handleNewUserInputChange}
-            style={styles.input}
-            placeholder="First Name"
-          />
-        </div>
-        <div style={styles.formField}>
-          <label style={styles.label}>Email</label>
-          <input
-            type="email"
-            name="email"
-            value={newUserData.email}
-            onChange={handleNewUserInputChange}
-            style={styles.input}
-            placeholder="Email"
-          />
-        </div>
-        <div style={styles.formField}>
-          <label style={styles.label}>Role</label>
-          <input
-            type="text"
-            name="role"
-            value={newUserData.role}
-            onChange={handleNewUserInputChange}
-            style={styles.input}
-            placeholder="Role"
-          />
-        </div>
-        <div style={styles.formField}>
-          <label style={styles.label}>Password</label>
-          <input
-            type="password"
-            name="password"
-            value={newUserData.password}
-            onChange={handleNewUserInputChange}
-            style={styles.input}
-            placeholder="Password"
-          />
-        </div>
-        <button onClick={handleAddUser} style={styles.addButton}>
-          Add
-        </button>
-      </div>
-    </div>
-  );
-}
-
 const styles: { [key: string]: React.CSSProperties } = {
   card: {
     backgroundColor: "#292C2D",
     borderRadius: "10px",
-    padding: "40px 39px",
+    padding: "30px",
     width: "100%",
     boxSizing: "border-box",
   },
@@ -210,18 +177,23 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: "flex",
     flexDirection: "column",
     gap: "20px",
-    padding: "30px 0",
+    padding: "20px 0",
+  },
+  userHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "15px",
   },
   divider: {
     height: "1px",
     backgroundColor: "#5E5E5E",
-    margin: "10px 0",
+    margin: "15px 0",
   },
   userInfo: {
     display: "flex",
-    alignItems: "flex-start",
     justifyContent: "space-between",
-    gap: "10px",
+    width: "100%",
   },
   userDetails: {
     display: "flex",
@@ -247,15 +219,27 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: "#333333",
     height: "fit-content",
   },
+  permissionsContainer: {
+    backgroundColor: "#353839",
+    borderRadius: "8px",
+    padding: "20px",
+  },
+  permissionsTitle: {
+    fontSize: "16px",
+    fontWeight: 500,
+    marginBottom: "20px",
+    color: "#FFFFFF",
+  },
   permissionsGrid: {
-    display: "flex",
-    gap: "61px",
+    display: "grid",
+    gridTemplateColumns: "repeat(4, 1fr)",
+    gap: "30px",
   },
   permissionItem: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: "15px",
+    gap: "10px",
   },
   toggleContainer: {
     width: "48px",
@@ -263,6 +247,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     backgroundColor: "#3D4142",
     borderRadius: "100px",
     position: "relative",
+    cursor: "pointer",
   },
   toggleBackground: {
     width: "100%",
@@ -281,10 +266,12 @@ const styles: { [key: string]: React.CSSProperties } = {
     position: "absolute",
     top: "3.68px",
     left: "25.16px",
+    transition: "left 0.2s ease-in-out",
   },
   permissionName: {
     fontSize: "16px",
     fontWeight: 500,
+    textTransform: "capitalize",
   },
   userActions: {
     display: "flex",
@@ -349,16 +336,4 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: "pointer",
     width: "100%",
   },
-};
-
-// Add the togglePermission function
-const togglePermission = (
-  userId: number,
-  permission: string,
-  value: boolean
-) => {
-  console.log(
-    `Toggling permission ${permission} to ${value} for user ${userId}`
-  );
-  // This would be implemented with a backend call in a real application
 };

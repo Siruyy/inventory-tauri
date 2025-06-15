@@ -458,6 +458,7 @@ fn main() {
             debug_order_dates,
             update_order_dates_to_today,
             test_date_filtering,
+            debug_date_filtering,
             
             // Misc
             greet

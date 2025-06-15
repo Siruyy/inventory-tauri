@@ -1,5 +1,5 @@
 // src/pages/Login.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import mdiHide from "/icons/mdi-hide.svg";
@@ -7,20 +7,49 @@ import mdiHide from "/icons/mdi-hide.svg";
 export default function Login(): JSX.Element {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [rfid, setRfid] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  // Hidden RFID input that's active when no other input is focused
+  const hiddenRfidInputRef = useRef<HTMLInputElement>(null);
+
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { login, loginWithRfid } = useAuth();
 
+  // Focus the hidden RFID input when component mounts
   useEffect(() => {
     console.log("Login component rendered");
-  }, []);
+    if (hiddenRfidInputRef.current && !isInputFocused) {
+      hiddenRfidInputRef.current.focus();
+    }
+
+    // Set up a click event listener on the document to refocus the RFID input
+    // when clicking outside of input fields
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        !isInputFocused &&
+        target.tagName !== "INPUT" &&
+        hiddenRfidInputRef.current
+      ) {
+        hiddenRfidInputRef.current.focus();
+      }
+    };
+
+    document.addEventListener("click", handleClick);
+
+    // Clean up event listener on unmount
+    return () => {
+      document.removeEventListener("click", handleClick);
+    };
+  }, [isInputFocused]);
 
   const from = (location.state as any)?.from?.pathname || "/dashboard";
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleCredentialSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
@@ -32,6 +61,35 @@ export default function Login(): JSX.Element {
       setError((err as Error).message);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleRfidChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.trim();
+    setRfid(value);
+
+    // Auto-submit when RFID has enough digits (typically 10 digits)
+    if (value.length >= 8) {
+      console.log("Auto-submitting RFID:", value);
+
+      setError("");
+      setIsLoading(true);
+
+      try {
+        await loginWithRfid(value);
+        navigate(from, { replace: true });
+      } catch (err) {
+        console.error("RFID login failed:", err);
+        setError((err as Error).message);
+        setRfid("");
+        // Refocus the RFID input after error
+        if (hiddenRfidInputRef.current) {
+          hiddenRfidInputRef.current.value = "";
+          hiddenRfidInputRef.current.focus();
+        }
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -50,6 +108,21 @@ export default function Login(): JSX.Element {
         margin: 0,
       }}
     >
+      {/* Hidden RFID input that's only active when no other input is focused */}
+      <input
+        ref={hiddenRfidInputRef}
+        type="password"
+        value={rfid}
+        onChange={handleRfidChange}
+        style={{
+          position: "absolute",
+          opacity: 0,
+          pointerEvents: "none", // Doesn't block clicks on elements beneath it
+        }}
+        autoFocus={!isInputFocused}
+        tabIndex={isInputFocused ? -1 : 0} // Remove from tab order when other inputs are focused
+      />
+
       <div
         style={{
           backgroundColor: "#292c2d",
@@ -90,7 +163,8 @@ export default function Login(): JSX.Element {
               textAlign: "center",
             }}
           >
-            Please enter your credentials below to continue
+            Please enter your credentials below to continue or scan your RFID
+            card
           </p>
 
           {error && (
@@ -111,18 +185,20 @@ export default function Login(): JSX.Element {
 
         {/* FORM */}
         <form
-          onSubmit={handleSubmit}
+          onSubmit={handleCredentialSubmit}
           style={{
             display: "flex",
             flexDirection: "column",
             gap: "24px",
           }}
         >
-          {/* USERNAME FIELD */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {/* Username */}
+          <div>
             <label
               htmlFor="username"
               style={{
+                display: "block",
+                marginBottom: "8px",
                 fontFamily: "Poppins, Helvetica, sans-serif",
                 fontWeight: 500,
                 fontSize: "0.875rem",
@@ -131,47 +207,36 @@ export default function Login(): JSX.Element {
             >
               Username
             </label>
-            <div
+            <input
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter your username"
               style={{
-                position: "relative",
-                backgroundColor: "#3c4041",
-                borderRadius: 12,
-                height: 48,
-                display: "flex",
-                alignItems: "center",
-                paddingLeft: 16,
-                paddingRight: 48,
+                width: "100%",
+                padding: "12px 16px",
+                backgroundColor: "#1F1F1F",
+                border: "1px solid #333333",
+                borderRadius: "8px",
+                fontFamily: "Poppins, Helvetica, sans-serif",
+                fontSize: "0.875rem",
+                color: "#FFFFFF",
+                outline: "none",
               }}
-            >
-              <input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your username"
-                required
-                disabled={isLoading}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  backgroundColor: "transparent",
-                  border: "none",
-                  outline: "none",
-                  color: "#E5E7EB",
-                  fontFamily: "Poppins, Helvetica, sans-serif",
-                  fontWeight: 300,
-                  fontSize: "1rem",
-                  padding: 0,
-                }}
-              />
-            </div>
+              required
+              onFocus={() => setIsInputFocused(true)}
+              onBlur={() => setIsInputFocused(false)}
+            />
           </div>
 
-          {/* PASSWORD FIELD */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {/* Password */}
+          <div>
             <label
               htmlFor="password"
               style={{
+                display: "block",
+                marginBottom: "8px",
                 fontFamily: "Poppins, Helvetica, sans-serif",
                 fontWeight: 500,
                 fontSize: "0.875rem",
@@ -183,13 +248,6 @@ export default function Login(): JSX.Element {
             <div
               style={{
                 position: "relative",
-                backgroundColor: "#3c4041",
-                borderRadius: 12,
-                height: 48,
-                display: "flex",
-                alignItems: "center",
-                paddingLeft: 16,
-                paddingRight: 48,
               }}
             >
               <input
@@ -198,54 +256,71 @@ export default function Login(): JSX.Element {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
-                required
-                disabled={isLoading}
                 style={{
                   width: "100%",
-                  height: "100%",
-                  backgroundColor: "transparent",
-                  border: "none",
-                  outline: "none",
-                  color: "#E5E7EB",
+                  padding: "12px 16px",
+                  backgroundColor: "#1F1F1F",
+                  border: "1px solid #333333",
+                  borderRadius: "8px",
                   fontFamily: "Poppins, Helvetica, sans-serif",
-                  fontWeight: 300,
-                  fontSize: "1rem",
-                  padding: 0,
+                  fontSize: "0.875rem",
+                  color: "#FFFFFF",
+                  outline: "none",
                 }}
+                required
+                onFocus={() => setIsInputFocused(true)}
+                onBlur={() => setIsInputFocused(false)}
               />
-              <img
-                src={mdiHide}
-                alt="Toggle visibility"
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
                 style={{
                   position: "absolute",
-                  right: 16,
-                  width: 20,
-                  height: 20,
+                  right: "16px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
                   cursor: "pointer",
-                  opacity: 0.6,
+                  padding: 0,
                 }}
-                onClick={() => setShowPassword(!showPassword)}
-              />
+                onFocus={() => setIsInputFocused(true)}
+                onBlur={() => setIsInputFocused(false)}
+              >
+                <img
+                  src={mdiHide}
+                  alt={showPassword ? "Hide password" : "Show password"}
+                  style={{
+                    width: "20px",
+                    height: "20px",
+                    opacity: 0.7,
+                  }}
+                />
+              </button>
             </div>
           </div>
 
-          {/* LOGIN BUTTON */}
+          {/* Login Button */}
           <button
             type="submit"
             disabled={isLoading}
             style={{
-              marginTop: "16px",
               width: "100%",
-              height: 48,
-              backgroundColor: isLoading ? "#d1a1b6" : "#fac1d9",
+              padding: "12px",
+              backgroundColor: "#fac1d9",
               border: "none",
-              borderRadius: 12,
+              borderRadius: "8px",
               fontFamily: "Poppins, Helvetica, sans-serif",
               fontWeight: 500,
-              fontSize: "1rem",
-              color: "#333333",
+              fontSize: "0.875rem",
+              color: "#111315",
               cursor: isLoading ? "not-allowed" : "pointer",
+              opacity: isLoading ? 0.7 : 1,
+              transition: "opacity 0.2s",
+              marginTop: "8px",
             }}
+            onFocus={() => setIsInputFocused(true)}
+            onBlur={() => setIsInputFocused(false)}
           >
             {isLoading ? "Logging in..." : "Login"}
           </button>

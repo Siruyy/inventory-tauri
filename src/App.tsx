@@ -1,7 +1,7 @@
 // src/App.tsx
 import React, { Component, ErrorInfo } from "react";
 import Router from "./router";
-import { AuthProvider } from "./context/AuthContext";
+import AuthProvider from "./context/AuthContext";
 // Temporarily disable toast
 import { Toaster } from "sonner";
 
