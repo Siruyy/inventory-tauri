@@ -69,6 +69,7 @@ export default function Inventory() {
           description: "", // Not provided in the drawer form
           category_id: categoryObj.id,
           unit_price: product.retailPrice,
+          price_bought: product.priceBought,
           current_stock: product.stockCount,
         };
 
@@ -99,6 +100,7 @@ export default function Inventory() {
           sku: `SKU-${Date.now()}`, // Generate a temporary SKU
           category_id: categoryObj.id,
           unit_price: product.retailPrice,
+          price_bought: product.priceBought,
           current_stock: product.stockCount,
           minimum_stock: Math.max(1, Math.floor(product.stockCount * 0.2)), // Set minimum to 20% of current or at least 1
           supplier: null,
@@ -173,6 +175,7 @@ export default function Inventory() {
         status: product.current_stock > 0 ? "Active" : "Inactive",
         category: product.category_name,
         retailPrice: product.unit_price,
+        priceBought: product.price_bought || 0,
         perishable: false,
       };
 

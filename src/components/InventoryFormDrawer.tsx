@@ -11,6 +11,7 @@ interface Product {
   status: "Active" | "Inactive" | "Draft";
   category: string;
   retailPrice: number;
+  priceBought: number;
   perishable: boolean;
 }
 
@@ -39,6 +40,7 @@ export default function InventoryFormDrawer({
     status: "Active",
     category: "",
     retailPrice: 0,
+    priceBought: 0,
     perishable: false,
   });
 
@@ -53,6 +55,7 @@ export default function InventoryFormDrawer({
         status: product.status,
         category: product.category,
         retailPrice: product.retailPrice,
+        priceBought: product.priceBought || 0,
         perishable: product.perishable ?? false,
       });
     } else {
@@ -66,6 +69,7 @@ export default function InventoryFormDrawer({
         status: "Active",
         category: defaultCategory,
         retailPrice: 0,
+        priceBought: 0,
         perishable: false,
       });
     }
@@ -275,6 +279,22 @@ export default function InventoryFormDrawer({
                       handleChange("retailPrice", Number(e.target.value))
                     }
                     placeholder="Enter inventory price"
+                    style={styles.textInput}
+                  />
+                </div>
+              </div>
+
+              {/* PRICE BOUGHT */}
+              <div style={{ ...styles.formRow, gridColumn: "span 2" }}>
+                <label style={styles.label}>Price Bought</label>
+                <div style={styles.priceWrapper}>
+                  <input
+                    type="number"
+                    value={formValues.priceBought}
+                    onChange={(e) =>
+                      handleChange("priceBought", Number(e.target.value))
+                    }
+                    placeholder="Enter purchase price"
                     style={styles.textInput}
                   />
                 </div>

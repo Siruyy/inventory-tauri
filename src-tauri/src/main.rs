@@ -53,6 +53,7 @@ fn initialize_database(conn: &Connection) -> Result<(), String> {
             sku TEXT NOT NULL UNIQUE,
             category_id INTEGER NOT NULL,
             unit_price REAL NOT NULL,
+            price_bought REAL NOT NULL DEFAULT 0,
             current_stock INTEGER NOT NULL DEFAULT 0,
             minimum_stock INTEGER NOT NULL DEFAULT 0,
             supplier TEXT,
@@ -95,6 +96,9 @@ fn initialize_database(conn: &Connection) -> Result<(), String> {
     
     // Update the order_items table schema if needed
     update_order_items_schema(conn)?;
+    
+    // Add price_bought column if needed
+    add_price_bought_to_products(conn)?;
 
     // Check if admin user exists
     let mut stmt = conn.prepare("SELECT COUNT(*) FROM users WHERE username = 'admin'")
@@ -351,6 +355,41 @@ fn update_order_items_schema(conn: &Connection) -> Result<(), String> {
         println!("Order_items table schema updated successfully!");
     } else {
         println!("Order_items table schema is already up to date.");
+    }
+    
+    Ok(())
+}
+
+// Add a new function to run the price_bought migration
+fn add_price_bought_to_products(conn: &Connection) -> Result<(), String> {
+    // Check if price_bought column exists
+    let result = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('products') WHERE name='price_bought'",
+        [],
+        |row| row.get::<_, i64>(0)
+    );
+
+    // If column doesn't exist (count = 0), add it
+    if let Ok(0) = result {
+        println!("Adding price_bought column to products table...");
+        
+        // Add the column
+        conn.execute(
+            "ALTER TABLE products ADD COLUMN price_bought REAL NOT NULL DEFAULT 0",
+            [],
+        ).map_err(|e| format!("Failed to add price_bought column: {}", e))?;
+        
+        // Update values with a default (60% of unit_price)
+        conn.execute(
+            "UPDATE products SET price_bought = unit_price * 0.6 WHERE price_bought = 0",
+            [],
+        ).map_err(|e| format!("Failed to update price_bought values: {}", e))?;
+        
+        println!("Successfully added price_bought column!");
+    } else if let Err(e) = result {
+        return Err(format!("Failed to check for price_bought column: {}", e));
+    } else {
+        println!("price_bought column already exists, skipping migration");
     }
     
     Ok(())

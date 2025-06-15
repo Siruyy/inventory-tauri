@@ -9,6 +9,7 @@ pub struct UpdateProduct {
     pub description: Option<String>,
     pub category_id: i32,
     pub unit_price: f64,
+    pub price_bought: f64,
     pub current_stock: i32,
     pub minimum_stock: Option<i32>,
     pub supplier: Option<String>,
@@ -21,7 +22,7 @@ pub fn get_all_products(state: tauri::State<DbState>) -> Result<Vec<ProductWithC
     
     let mut stmt = conn.prepare(
         "SELECT p.id, p.name, p.description, p.sku, p.category_id, c.name as category_name, 
-         p.unit_price, p.current_stock, p.minimum_stock, p.supplier, p.created_at, p.updated_at
+         p.unit_price, p.price_bought, p.current_stock, p.minimum_stock, p.supplier, p.created_at, p.updated_at
          FROM products p
          JOIN categories c ON p.category_id = c.id
          ORDER BY p.name"
@@ -39,11 +40,12 @@ pub fn get_all_products(state: tauri::State<DbState>) -> Result<Vec<ProductWithC
             category_id: row.get(4)?,
             category_name: row.get(5)?,
             unit_price: row.get(6)?,
-            current_stock: row.get(7)?,
-            minimum_stock: row.get(8)?,
-            supplier: row.get(9)?,
-            created_at: row.get(10)?,
-            updated_at: row.get(11)?,
+            price_bought: row.get(7)?,
+            current_stock: row.get(8)?,
+            minimum_stock: row.get(9)?,
+            supplier: row.get(10)?,
+            created_at: row.get(11)?,
+            updated_at: row.get(12)?,
         })
     }).map_err(|e| {
         println!("Backend error querying all products: {}", e);
@@ -148,7 +150,7 @@ pub fn get_products_by_category(state: tauri::State<DbState>, category_id: Optio
     // Now do the actual filtered query
     let mut stmt = conn.prepare(
         "SELECT p.id, p.name, p.description, p.sku, p.category_id, c.name as category_name, 
-         p.unit_price, p.current_stock, p.minimum_stock, p.supplier, p.created_at, p.updated_at
+         p.unit_price, p.price_bought, p.current_stock, p.minimum_stock, p.supplier, p.created_at, p.updated_at
          FROM products p
          JOIN categories c ON p.category_id = c.id
          WHERE p.category_id = ?1
@@ -167,11 +169,12 @@ pub fn get_products_by_category(state: tauri::State<DbState>, category_id: Optio
             category_id: row.get(4)?,
             category_name: row.get(5)?,
             unit_price: row.get(6)?,
-            current_stock: row.get(7)?,
-            minimum_stock: row.get(8)?,
-            supplier: row.get(9)?,
-            created_at: row.get(10)?,
-            updated_at: row.get(11)?,
+            price_bought: row.get(7)?,
+            current_stock: row.get(8)?,
+            minimum_stock: row.get(9)?,
+            supplier: row.get(10)?,
+            created_at: row.get(11)?,
+            updated_at: row.get(12)?,
         })
     }).map_err(|e| {
         println!("Backend error querying products by category: {}", e);
@@ -217,14 +220,15 @@ pub fn add_product(state: tauri::State<DbState>, product: NewProduct) -> Result<
     
     // Insert the product
     match tx.execute(
-        "INSERT INTO products (name, description, sku, category_id, unit_price, current_stock, minimum_stock, supplier, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, datetime('now'), datetime('now'))",
+        "INSERT INTO products (name, description, sku, category_id, unit_price, price_bought, current_stock, minimum_stock, supplier, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, datetime('now'), datetime('now'))",
         params![
             product.name,
             product.description,
             product.sku,
             product.category_id,
             product.unit_price,
+            product.price_bought,
             product.current_stock,
             product.minimum_stock,
             product.supplier,
@@ -247,7 +251,7 @@ pub fn add_product(state: tauri::State<DbState>, product: NewProduct) -> Result<
     {
         // Retrieve the newly inserted product
         let mut stmt = match tx.prepare(
-            "SELECT id, name, description, sku, category_id, unit_price, current_stock, minimum_stock, supplier, created_at, updated_at FROM products WHERE id = ?1"
+            "SELECT id, name, description, sku, category_id, unit_price, price_bought, current_stock, minimum_stock, supplier, created_at, updated_at FROM products WHERE id = ?1"
         ) {
             Ok(stmt) => stmt,
             Err(e) => {
@@ -267,11 +271,12 @@ pub fn add_product(state: tauri::State<DbState>, product: NewProduct) -> Result<
                     sku: row.get(3)?,
                     category_id: row.get(4)?,
                     unit_price: row.get(5)?,
-                    current_stock: row.get(6)?,
-                    minimum_stock: row.get(7)?,
-                    supplier: row.get(8)?,
-                    created_at: row.get(9)?,
-                    updated_at: row.get(10)?,
+                    price_bought: row.get(6)?,
+                    current_stock: row.get(7)?,
+                    minimum_stock: row.get(8)?,
+                    supplier: row.get(9)?,
+                    created_at: row.get(10)?,
+                    updated_at: row.get(11)?,
                 })
             }
         ) {
@@ -397,16 +402,18 @@ pub fn update_product(state: tauri::State<DbState>, product: UpdateProduct) -> R
             description = ?2, 
             category_id = ?3, 
             unit_price = ?4, 
-            current_stock = ?5, 
-            minimum_stock = ?6, 
-            supplier = ?7, 
-            updated_at = datetime('now') 
-         WHERE id = ?8",
+            price_bought = ?5,
+            current_stock = ?6, 
+            minimum_stock = ?7, 
+            supplier = ?8,
+            updated_at = datetime('now')
+         WHERE id = ?9",
         params![
             product.name,
             product.description,
             product.category_id,
             product.unit_price,
+            product.price_bought,
             product.current_stock,
             minimum_stock,
             product.supplier,
@@ -428,7 +435,7 @@ pub fn update_product(state: tauri::State<DbState>, product: UpdateProduct) -> R
     
     // Retrieve the updated product with category information
     let updated_product = match tx.query_row(
-        "SELECT p.id, p.name, p.description, p.sku, p.category_id, c.name, p.unit_price, 
+        "SELECT p.id, p.name, p.description, p.sku, p.category_id, c.name, p.unit_price, p.price_bought, 
                 p.current_stock, p.minimum_stock, p.supplier, p.created_at, p.updated_at 
          FROM products p
          JOIN categories c ON p.category_id = c.id
@@ -443,11 +450,12 @@ pub fn update_product(state: tauri::State<DbState>, product: UpdateProduct) -> R
                 category_id: row.get(4)?,
                 category_name: row.get(5)?,
                 unit_price: row.get(6)?,
-                current_stock: row.get(7)?,
-                minimum_stock: row.get(8)?,
-                supplier: row.get(9)?,
-                created_at: row.get(10)?,
-                updated_at: row.get(11)?,
+                price_bought: row.get(7)?,
+                current_stock: row.get(8)?,
+                minimum_stock: row.get(9)?,
+                supplier: row.get(10)?,
+                created_at: row.get(11)?,
+                updated_at: row.get(12)?,
             })
         }
     ) {

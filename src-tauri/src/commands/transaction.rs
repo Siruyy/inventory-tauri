@@ -438,11 +438,12 @@ fn get_sales_summary(conn: &rusqlite::Connection, start_date: Option<String>, en
     let mut query = String::from(
         "SELECT COUNT(DISTINCT o.id) as total_sales,
                 SUM(oi.price * oi.quantity) as total_revenue,
-                SUM(oi.price * oi.quantity * 0.2) as total_profit,
+                SUM((oi.price - COALESCE(p.price_bought, oi.price * 0.6)) * oi.quantity) as total_profit,
                 SUM(oi.quantity) as items_sold,
                 COUNT(DISTINCT o.id) as transactions
          FROM orders o
          JOIN order_items oi ON o.id = oi.order_id
+         LEFT JOIN products p ON oi.product_id = p.id
          WHERE 1=1"
     );
     
@@ -517,9 +518,10 @@ fn get_sales_by_period(conn: &rusqlite::Connection, start_date: Option<String>, 
             "SELECT strftime('{}', o.created_at) as period,
                     COUNT(DISTINCT o.id) as sales,
                     SUM(oi.price * oi.quantity) as revenue,
-                    SUM(oi.price * oi.quantity * 0.2) as profit
+                    SUM((oi.price - COALESCE(p.price_bought, oi.price * 0.6)) * oi.quantity) as profit
              FROM orders o
              JOIN order_items oi ON o.id = oi.order_id
+             LEFT JOIN products p ON oi.product_id = p.id
              WHERE 1=1",
             date_format
         )
@@ -709,15 +711,22 @@ fn get_top_products(conn: &rusqlite::Connection, start_date: Option<String>, end
 fn get_detailed_sales(conn: &rusqlite::Connection, start_date: Option<String>, end_date: Option<String>) -> Result<Vec<DetailedSale>, String> {
     // Build query based on filters
     let mut query = String::from(
-        "SELECT o.id, p.name, c.name, o.created_at, oi.price, 
-                (oi.price * oi.quantity * 0.2) as profit, 
-                '20%' as margin,
+        "SELECT oi.id,
+                COALESCE(p.name, 'Unknown Product') as product_name,
+                COALESCE(c.name, 'Uncategorized') as category_name,
+                o.created_at as sale_date,
+                oi.price as unit_price,
+                (oi.price - COALESCE(p.price_bought, oi.price * 0.6)) as unit_profit,
+                CASE 
+                    WHEN oi.price > 0 THEN ROUND(((oi.price - COALESCE(p.price_bought, oi.price * 0.6)) / oi.price) * 100, 1) || '%'
+                    ELSE '0%'
+                END as profit_margin,
                 (oi.price * oi.quantity) as revenue,
                 oi.quantity
-         FROM orders o
-         JOIN order_items oi ON o.id = oi.order_id
-         JOIN products p ON oi.product_id = p.id
-         JOIN categories c ON p.category_id = c.id
+         FROM order_items oi
+         JOIN orders o ON oi.order_id = o.id
+         LEFT JOIN products p ON oi.product_id = p.id
+         LEFT JOIN categories c ON p.category_id = c.id
          WHERE 1=1"
     );
     

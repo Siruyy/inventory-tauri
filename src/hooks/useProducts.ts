@@ -11,8 +11,9 @@ export interface Product {
   description: string | null;
   sku: string;
   category_id: number;
-  category_name: string;
+  category_name?: string;
   unit_price: number;
+  price_bought: number;
   current_stock: number;
   minimum_stock: number;
   supplier: string | null;
