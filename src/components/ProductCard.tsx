@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Product } from "../hooks/useProducts";
 import PenIcon from "/icons/pen.svg";
 import TrashIcon from "/icons/trash.svg";
+import { formatFilePath } from "../utils/fileUtils";
 
 interface ProductCardProps {
   product: Product;
@@ -12,16 +13,47 @@ interface ProductCardProps {
 export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
   const stockStatus =
     product.current_stock <= product.minimum_stock ? "low" : "normal";
+  
+  const [imageUrl, setImageUrl] = useState<string>("https://via.placeholder.com/120");
+  const [isLoadingImage, setIsLoadingImage] = useState(false);
+
+  // Load product image
+  useEffect(() => {
+    const loadImage = async () => {
+      if (product.thumbnailUrl) {
+        setIsLoadingImage(true);
+        try {
+          const displayUrl = await formatFilePath(product.thumbnailUrl);
+          setImageUrl(displayUrl);
+        } catch (error) {
+          console.error("Error loading product image:", error);
+          setImageUrl("https://via.placeholder.com/120");
+        } finally {
+          setIsLoadingImage(false);
+        }
+      }
+    };
+
+    loadImage();
+  }, [product.thumbnailUrl]);
 
   return (
     <div style={styles.card}>
       {/* Product Image */}
       <div style={styles.imageContainer}>
-        <img
-          src="https://via.placeholder.com/120"
-          alt={product.name}
-          style={styles.productImage}
-        />
+        {isLoadingImage ? (
+          <div style={styles.loadingIndicator}>Loading...</div>
+        ) : (
+          <img
+            src={imageUrl}
+            alt={product.name}
+            style={styles.productImage}
+            onError={(e) => {
+              console.error("Error displaying image:", product.thumbnailUrl);
+              (e.target as HTMLImageElement).src = "https://via.placeholder.com/120";
+            }}
+          />
+        )}
       </div>
 
       {/* Product Details */}
@@ -103,6 +135,10 @@ const styles: { [key: string]: React.CSSProperties } = {
     width: "100%",
     height: "100%",
     objectFit: "cover",
+  },
+  loadingIndicator: {
+    color: "#FFFFFF",
+    fontSize: "16px",
   },
   detailsContainer: {
     padding: "16px",

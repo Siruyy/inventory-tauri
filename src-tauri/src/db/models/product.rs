@@ -14,6 +14,8 @@ pub struct Product {
     pub supplier: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+    pub thumbnailUrl: Option<String>,
+    pub barcode: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -31,6 +33,8 @@ pub struct ProductWithCategory {
     pub supplier: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+    pub thumbnailUrl: Option<String>,
+    pub barcode: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -44,4 +48,6 @@ pub struct NewProduct {
     pub current_stock: i32,
     pub minimum_stock: i32,
     pub supplier: Option<String>,
+    pub thumbnailUrl: Option<String>,
+    pub barcode: Option<String>,
 }

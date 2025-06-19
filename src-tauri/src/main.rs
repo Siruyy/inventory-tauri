@@ -469,8 +469,12 @@ fn main() {
             get_order_history,
             get_order_statistics,
             get_sales_report_data,
+            debug_order_dates_extended,
             debug_order_dates,
-            update_order_dates_to_today
+            update_order_dates_to_today,
+            test_date_filtering,
+            debug_date_filtering,
+            commands::file::read_image_to_base64
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

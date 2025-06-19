@@ -19,6 +19,8 @@ export interface Product {
   supplier: string | null;
   created_at: string;
   updated_at: string;
+  thumbnailUrl?: string;
+  barcode?: string;
 }
 
 export interface NewProduct {
@@ -30,6 +32,7 @@ export interface NewProduct {
   current_stock: number;
   minimum_stock: number;
   supplier: string | null;
+  barcode?: string;
 }
 
 export interface UpdateProduct {
@@ -41,6 +44,7 @@ export interface UpdateProduct {
   current_stock: number;
   minimum_stock?: number;
   supplier?: string | null;
+  barcode?: string;
 }
 
 // Mock products for development - for reference only, not used anymore

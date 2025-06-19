@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useCategories, type Category } from "../hooks/useCategories";
 import { useProducts } from "../hooks/useProducts";
 import { formatFilePath } from "../utils/fileUtils";
@@ -15,6 +15,30 @@ export function OrderCategoryCards({
   const { categories } = useCategories();
   // Always fetch all products for category cards
   const { products: allProducts } = useProducts();
+  const [categoryIcons, setCategoryIcons] = useState<Record<number, string>>({});
+
+  // Load category icons
+  useEffect(() => {
+    const loadIcons = async () => {
+      console.log("OrderCategoryCards - Loading category icons...");
+      const iconMap: Record<number, string> = {};
+      
+      for (const category of categories) {
+        if (category.icon) {
+          try {
+            const formattedPath = await formatFilePath(category.icon);
+            iconMap[category.id] = formattedPath;
+          } catch (error) {
+            console.error(`Error loading icon for category ${category.id}:`, error);
+          }
+        }
+      }
+      
+      setCategoryIcons(iconMap);
+    };
+
+    loadIcons();
+  }, [categories]);
 
   // Count products per category
   const getProductCountForCategory = (categoryId: number) => {
@@ -45,6 +69,7 @@ export function OrderCategoryCards({
       {/* Category cards */}
       {categories.map((category: Category) => {
         const productCount = getProductCountForCategory(category.id);
+        const iconUrl = categoryIcons[category.id] || "";
 
         return (
           <div
@@ -59,9 +84,9 @@ export function OrderCategoryCards({
           >
             {/* Category Icon */}
             <div style={styles.iconContainer}>
-              {category.icon ? (
+              {iconUrl ? (
                 <img
-                  src={formatFilePath(category.icon)}
+                  src={iconUrl}
                   alt={category.name}
                   style={styles.icon}
                   onError={(e) => {

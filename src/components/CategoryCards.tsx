@@ -40,9 +40,13 @@ export function CategoryCards({
       for (const category of categories) {
         if (category.icon) {
           console.log(`Processing category ${category.id} icon:`, category.icon);
-          const formattedPath = formatFilePath(category.icon);
-          console.log(`Formatted path for category ${category.id}:`, formattedPath);
-          iconMap[category.id] = formattedPath;
+          try {
+            const formattedPath = await formatFilePath(category.icon);
+            console.log(`Formatted path for category ${category.id}:`, formattedPath);
+            iconMap[category.id] = formattedPath;
+          } catch (error) {
+            console.error(`Error loading icon for category ${category.id}:`, error);
+          }
         }
       }
       

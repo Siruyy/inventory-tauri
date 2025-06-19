@@ -20,6 +20,7 @@ export default function CategoryFormDrawer({
   const [imageUrl, setImageUrl] = useState("");
   const [displayUrl, setDisplayUrl] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingImage, setIsLoadingImage] = useState(false);
 
   // Reset form when opening drawer or changing category
   useEffect(() => {
@@ -30,7 +31,23 @@ export default function CategoryFormDrawer({
         setImageUrl(category.icon);
 
         // Format the image URL for display
-        setDisplayUrl(formatFilePath(category.icon));
+        if (category.icon) {
+          setIsLoadingImage(true);
+          formatFilePath(category.icon)
+            .then(formattedPath => {
+              console.log("Formatted path for edit form:", formattedPath);
+              setDisplayUrl(formattedPath);
+            })
+            .catch(error => {
+              console.error("Error formatting image path:", error);
+              setDisplayUrl("");
+            })
+            .finally(() => {
+              setIsLoadingImage(false);
+            });
+        } else {
+          setDisplayUrl("");
+        }
       } else {
         setCategoryName("");
         setImageUrl("");
@@ -90,7 +107,15 @@ export default function CategoryFormDrawer({
         console.log("Selected image path:", selected);
 
         // Format the file path for display
-        setDisplayUrl(formatFilePath(selected));
+        setIsLoadingImage(true);
+        try {
+          const formatted = await formatFilePath(selected);
+          setDisplayUrl(formatted);
+        } catch (error) {
+          console.error("Error formatting image path:", error);
+        } finally {
+          setIsLoadingImage(false);
+        }
       }
     } catch (error) {
       console.error("Error selecting image:", error);
@@ -138,7 +163,9 @@ export default function CategoryFormDrawer({
           {/* Image Upload Section */}
           <div style={styles.imageSection}>
             <div style={styles.imagePreview}>
-              {displayUrl ? (
+              {isLoadingImage ? (
+                <div style={styles.loadingIndicator}>Loading...</div>
+              ) : displayUrl ? (
                 <img
                   src={displayUrl}
                   alt="Category preview"
@@ -156,7 +183,7 @@ export default function CategoryFormDrawer({
             <button
               style={styles.changeImageButton}
               onClick={handleImageSelect}
-              disabled={isSaving}
+              disabled={isSaving || isLoadingImage}
             >
               {imageUrl ? "Change Picture/Icon" : "Add Picture/Icon"}
             </button>
@@ -184,14 +211,14 @@ export default function CategoryFormDrawer({
           <button
             style={styles.cancelButton}
             onClick={onClose}
-            disabled={isSaving}
+            disabled={isSaving || isLoadingImage}
           >
             Cancel
           </button>
           <button
             style={styles.saveButton}
             onClick={handleSave}
-            disabled={isSaving}
+            disabled={isSaving || isLoadingImage}
           >
             {isSaving ? "Saving..." : "Save"}
           </button>
@@ -253,107 +280,108 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   closeIcon: {
     fontSize: "24px",
-    lineHeight: 1,
+    lineHeight: "24px",
   },
   divider: {
     height: "1px",
-    backgroundColor: "#5E5E5E",
+    backgroundColor: "#3D4142",
     margin: "0 30px",
   },
   content: {
     padding: "30px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "60px",
-    width: "100%",
-    boxSizing: "border-box",
+    flex: 1,
+    overflowY: "auto",
   },
   imageSection: {
     display: "flex",
     flexDirection: "column",
-    gap: "15px",
     alignItems: "center",
-    width: "100%",
-    boxSizing: "border-box",
+    marginBottom: "30px",
   },
   imagePreview: {
-    width: "239px",
-    height: "217px",
-    borderRadius: "10px",
-    overflow: "hidden",
+    width: "240px",
+    height: "216px",
     backgroundColor: "#383C3D",
+    borderRadius: "10px",
+    marginBottom: "16px",
+    overflow: "hidden",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  previewImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "contain",
   },
   placeholderImage: {
     width: "100%",
     height: "100%",
     backgroundColor: "#383C3D",
   },
-  previewImage: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
+  loadingIndicator: {
+    color: "#FFFFFF",
+    fontSize: "16px",
   },
   changeImageButton: {
-    color: "#FAC1D9",
     backgroundColor: "transparent",
     border: "none",
+    color: "#FAC1D9",
+    fontSize: "16px",
     cursor: "pointer",
-    fontSize: "14px",
-    padding: "0",
-    fontWeight: 400,
+    padding: "8px 16px",
+    borderRadius: "4px",
+    transition: "background-color 0.2s",
   },
   inputSection: {
-    width: "100%",
-    boxSizing: "border-box",
+    marginBottom: "20px",
   },
   label: {
     color: "#FFFFFF",
     fontSize: "16px",
-    fontWeight: 500,
     marginBottom: "8px",
     display: "block",
   },
   inputWrapper: {
-    marginTop: "0",
-    width: "100%",
+    position: "relative",
   },
   input: {
     width: "100%",
-    height: "65px",
-    backgroundColor: "#3D4142",
-    border: "none",
-    borderRadius: "10px",
-    padding: "0 25px",
+    height: "48px",
+    backgroundColor: "#1F1F1F",
+    border: "1px solid #3D4142",
+    borderRadius: "8px",
+    padding: "0 16px",
     color: "#FFFFFF",
     fontSize: "16px",
-    outline: "none",
+    boxSizing: "border-box",
   },
   footer: {
-    marginTop: "auto",
-    padding: "24px 30px",
+    padding: "20px 30px",
+    borderTop: "1px solid #3D4142",
     display: "flex",
     justifyContent: "flex-end",
-    gap: "30px",
-    marginBottom: "40px",
+    gap: "16px",
   },
   cancelButton: {
-    padding: "20px 0",
     backgroundColor: "transparent",
-    border: "none",
+    border: "1px solid #3D4142",
     color: "#FFFFFF",
+    padding: "10px 24px",
+    borderRadius: "8px",
     fontSize: "16px",
-    fontWeight: 500,
     cursor: "pointer",
-    width: "58px",
+    transition: "background-color 0.2s",
   },
   saveButton: {
-    padding: "20px 50px",
     backgroundColor: "#FAC1D9",
     border: "none",
-    borderRadius: "10px",
-    color: "#333333",
+    color: "#292C2D",
+    padding: "10px 24px",
+    borderRadius: "8px",
     fontSize: "16px",
     fontWeight: 500,
     cursor: "pointer",
+    transition: "background-color 0.2s",
   },
-};
+}

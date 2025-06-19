@@ -1,13 +1,17 @@
 /**
  * Utility functions for handling file paths in Tauri
  */
+import { invoke } from '@tauri-apps/api/core';
+
+// Keep track of image cache to avoid repeated loading
+const imageCache: Record<string, string> = {};
 
 /**
  * Formats a file path for display in the UI
  * @param filePath The local file path
  * @returns The formatted path
  */
-export function formatFilePath(filePath: string): string {
+export async function formatFilePath(filePath: string): Promise<string> {
   if (!filePath) {
     return "https://via.placeholder.com/240x216";
   }
@@ -21,10 +25,27 @@ export function formatFilePath(filePath: string): string {
     return filePath;
   }
 
-  // For local file paths, use a placeholder for now
-  // Local file access is restricted in the browser for security reasons
-  console.log("Using placeholder for local file:", filePath);
-  return "https://via.placeholder.com/240x216";
+  // Check if we have this image in cache
+  if (imageCache[filePath]) {
+    console.log("Using cached image for:", filePath);
+    return imageCache[filePath];
+  }
+
+  // For local file paths, use our Rust command to load the image as base64
+  console.log("Loading image from path:", filePath);
+  
+  try {
+    const base64Data = await invoke<string>('read_image_to_base64', { path: filePath });
+    console.log("Successfully loaded image, data length:", base64Data.length);
+    
+    // Cache the result
+    imageCache[filePath] = base64Data;
+    
+    return base64Data;
+  } catch (error) {
+    console.error("Error loading image:", error);
+    return "https://via.placeholder.com/240x216?text=Error";
+  }
 }
 
 /**

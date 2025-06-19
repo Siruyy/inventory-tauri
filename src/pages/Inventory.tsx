@@ -42,6 +42,9 @@ export default function Inventory() {
   // Memoized save product handler to prevent unnecessary re-renders
   const handleSaveProduct = useCallback(
     (product: any) => {
+      // Log the product being saved to debug
+      console.log("Saving product with data:", product);
+      
       // Prevent multiple submissions
       if (isProcessing) return;
 
@@ -72,13 +75,15 @@ export default function Inventory() {
           unit_price: product.retailPrice,
           price_bought: product.priceBought,
           current_stock: product.stockCount,
+          thumbnailUrl: product.thumbnailUrl,
+          barcode: product.barcode,
         };
 
         console.log("Updating product:", updatedProduct);
 
         // Use timeout to ensure UI has time to update before mutation
         setTimeout(() => {
-          updateProduct.mutate(updatedProduct, {
+          updateProduct(updatedProduct, {
             onSuccess: () => {
               // Use timeout to ensure state updates don't conflict
               setTimeout(() => {
@@ -87,7 +92,7 @@ export default function Inventory() {
                 setSelectedProduct(null);
               }, 100);
             },
-            onError: (error) => {
+            onError: (error: Error) => {
               console.error("Error updating product:", error);
               setIsProcessing(false);
             },
@@ -105,13 +110,15 @@ export default function Inventory() {
           current_stock: product.stockCount,
           minimum_stock: Math.max(1, Math.floor(product.stockCount * 0.2)), // Set minimum to 20% of current or at least 1
           supplier: null,
+          thumbnailUrl: product.thumbnailUrl,
+          barcode: product.barcode,
         };
 
         console.log("Adding new product:", newProduct);
 
         // Use timeout to ensure UI has time to update before mutation
         setTimeout(() => {
-          addProduct.mutate(newProduct, {
+          addProduct(newProduct, {
             onSuccess: () => {
               // Use timeout to ensure state updates don't conflict
               setTimeout(() => {
@@ -120,7 +127,7 @@ export default function Inventory() {
                 setSelectedProduct(null);
               }, 100);
             },
-            onError: (error) => {
+            onError: (error: Error) => {
               console.error("Error adding product:", error);
               setIsProcessing(false);
             },
@@ -201,17 +208,19 @@ export default function Inventory() {
   // Handle edit product
   const handleEditProduct = useCallback(
     (product: import("../hooks/useProducts").Product) => {
+      console.log("Editing product with data:", product);
       // Convert the product from DB format to the drawer format
       const formattedProduct = {
         id: product.id.toString(),
         name: product.name,
-        thumbnailUrl: "",
+        thumbnailUrl: product.thumbnailUrl || "",
         stockCount: product.current_stock,
         status: product.current_stock > 0 ? "Active" : "Inactive",
         category: product.category_name,
         retailPrice: product.unit_price,
         priceBought: product.price_bought || 0,
         perishable: false,
+        barcode: product.barcode || "",
       };
 
       setSelectedProduct(formattedProduct);
@@ -526,7 +535,6 @@ export default function Inventory() {
         isOpen={isDrawerOpen}
         onClose={handleCloseDrawer}
         onSave={handleSaveProduct}
-        categories={categories}
       />
 
       {/* Category Form Drawer */}

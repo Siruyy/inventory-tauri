@@ -2,6 +2,7 @@ pub mod auth;
 pub mod category;
 pub mod product;
 pub mod transaction;
+pub mod file;
 
 pub use auth::{login, register};
 pub use category::{get_all_categories, add_category, delete_category, update_category};
@@ -14,3 +15,4 @@ pub use transaction::{
     get_recent_orders, get_order_history, get_order_statistics, get_sales_report_data,
     debug_order_dates, update_order_dates_to_today
 };
+pub use file::read_image_to_base64;

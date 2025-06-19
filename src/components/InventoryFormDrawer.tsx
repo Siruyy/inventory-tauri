@@ -2,17 +2,20 @@
 import React, { useState, useEffect } from "react";
 import { useCategories } from "../hooks/useCategories";
 import { open } from "@tauri-apps/plugin-dialog";
+import { formatFilePath } from "../utils/fileUtils";
 
 interface Product {
   id: string;
   name: string;
   thumbnailUrl: string;
+  displayUrl: string;
   stockCount: number;
   status: "Active" | "Inactive" | "Draft";
   category: string;
   retailPrice: number;
   priceBought: number;
   perishable: boolean;
+  barcode?: string;
 }
 
 interface InventoryFormDrawerProps {
@@ -30,18 +33,21 @@ export default function InventoryFormDrawer({
 }: InventoryFormDrawerProps) {
   // Get categories from the hook
   const { categories } = useCategories();
+  const [isLoadingImage, setIsLoadingImage] = useState(false);
 
   // Local form state; when "product" changes (or product === null), initialize fields
   const [formValues, setFormValues] = useState<Product>({
     id: "",
     name: "",
     thumbnailUrl: "",
+    displayUrl: "",
     stockCount: 0,
     status: "Active",
     category: "",
     retailPrice: 0,
     priceBought: 0,
     perishable: false,
+    barcode: "",
   });
 
   useEffect(() => {
@@ -51,12 +57,14 @@ export default function InventoryFormDrawer({
         id: product.id,
         name: product.name,
         thumbnailUrl: product.thumbnailUrl,
+        displayUrl: "", // Will be loaded in a separate effect
         stockCount: product.stockCount,
         status: product.status,
         category: product.category,
         retailPrice: product.retailPrice,
         priceBought: product.priceBought || 0,
         perishable: product.perishable ?? false,
+        barcode: product.barcode || "",
       });
     } else {
       // ADD mode: blank/default form with first available category
@@ -65,15 +73,39 @@ export default function InventoryFormDrawer({
         id: "", // new ID will be assigned on save
         name: "",
         thumbnailUrl: "",
+        displayUrl: "",
         stockCount: 0,
         status: "Active",
         category: defaultCategory,
         retailPrice: 0,
         priceBought: 0,
         perishable: false,
+        barcode: "",
       });
     }
   }, [product, isOpen, categories.length]);
+
+  // Load image when thumbnailUrl changes
+  useEffect(() => {
+    const loadImage = async () => {
+      if (formValues.thumbnailUrl) {
+        setIsLoadingImage(true);
+        try {
+          const displayUrl = await formatFilePath(formValues.thumbnailUrl);
+          setFormValues(prev => ({
+            ...prev,
+            displayUrl
+          }));
+        } catch (error) {
+          console.error("Error loading image:", error);
+        } finally {
+          setIsLoadingImage(false);
+        }
+      }
+    };
+
+    loadImage();
+  }, [formValues.thumbnailUrl]);
 
   // If the drawer is closed, render nothing
   if (!isOpen) {
@@ -81,7 +113,7 @@ export default function InventoryFormDrawer({
   }
 
   const handleChange = (
-    key: keyof Omit<Product, "id" | "thumbnailUrl">,
+    key: keyof Omit<Product, "id" | "thumbnailUrl" | "displayUrl">,
     value: string | number | boolean
   ) => {
     setFormValues((prev) => ({
@@ -91,7 +123,12 @@ export default function InventoryFormDrawer({
   };
 
   const handleSave = () => {
-    onSave(formValues);
+    // Pass only the necessary fields to the save handler (exclude displayUrl)
+    const productToSave = {
+      ...formValues,
+      displayUrl: undefined
+    };
+    onSave(productToSave);
   };
 
   const handleImageSelect = async () => {
@@ -112,6 +149,7 @@ export default function InventoryFormDrawer({
         setFormValues((prev) => ({
           ...prev,
           thumbnailUrl: selected,
+          // displayUrl will be updated by the useEffect
         }));
       }
     } catch (error) {
@@ -140,7 +178,7 @@ export default function InventoryFormDrawer({
             <div style={styles.drawerTitle}>
               {product ? "Edit Inventory" : "Add New Inventory"}
             </div>
-            <button onClick={onClose} style={styles.closeButton}>
+            <button onClick={onClose} style={styles.closeButton} disabled={isLoadingImage}>
               ×
             </button>
           </div>
@@ -150,11 +188,18 @@ export default function InventoryFormDrawer({
             {/* Image upload / placeholder */}
             <div style={styles.imageSection}>
               <div style={styles.imagePlaceholder}>
-                {formValues.thumbnailUrl ? (
+                {isLoadingImage ? (
+                  <div style={styles.loadingIndicator}>Loading...</div>
+                ) : formValues.displayUrl ? (
                   <img
-                    src={formValues.thumbnailUrl}
+                    src={formValues.displayUrl}
                     alt="Thumbnail"
                     style={styles.thumbnailImage}
+                    onError={(e) => {
+                      console.error("Error loading image:", formValues.displayUrl);
+                      (e.target as HTMLImageElement).src =
+                        "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='216' viewBox='0 0 240 216'%3E%3Crect width='240' height='216' fill='%23383C3D'/%3E%3C/svg%3E";
+                    }}
                   />
                 ) : (
                   <div style={styles.thumbnailIconPlaceholder}>
@@ -175,8 +220,14 @@ export default function InventoryFormDrawer({
                   </div>
                 )}
               </div>
-              <div style={styles.changePicText} onClick={handleImageSelect}>
-                Change Profile Picture
+              <div 
+                style={{
+                  ...styles.changePicText,
+                  ...(isLoadingImage ? { opacity: 0.5, cursor: 'not-allowed' } : {})
+                }} 
+                onClick={isLoadingImage ? undefined : handleImageSelect}
+              >
+                {isLoadingImage ? 'Loading...' : 'Change Profile Picture'}
               </div>
             </div>
 
@@ -191,6 +242,7 @@ export default function InventoryFormDrawer({
                   onChange={(e) => handleChange("name", e.target.value)}
                   placeholder="Enter inventory name"
                   style={styles.textInput}
+                  disabled={isLoadingImage}
                 />
               </div>
 
@@ -202,6 +254,7 @@ export default function InventoryFormDrawer({
                     value={formValues.category}
                     onChange={(e) => handleChange("category", e.target.value)}
                     style={styles.dropdown}
+                    disabled={isLoadingImage}
                   >
                     {categories.map((category) => (
                       <option key={category.id} value={category.name}>
@@ -225,6 +278,7 @@ export default function InventoryFormDrawer({
                   }
                   placeholder="Enter quantity"
                   style={styles.textInput}
+                  disabled={isLoadingImage}
                 />
               </div>
 
@@ -241,6 +295,7 @@ export default function InventoryFormDrawer({
                       )
                     }
                     style={styles.dropdown}
+                    disabled={isLoadingImage}
                   >
                     <option value="InStock">In Stock</option>
                     <option value="OutOfStock">Out of Stock</option>
@@ -259,6 +314,7 @@ export default function InventoryFormDrawer({
                       handleChange("status", e.target.value as any)
                     }
                     style={styles.dropdown}
+                    disabled={isLoadingImage}
                   >
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
@@ -280,6 +336,7 @@ export default function InventoryFormDrawer({
                     }
                     placeholder="Enter inventory price"
                     style={styles.textInput}
+                    disabled={isLoadingImage}
                   />
                 </div>
               </div>
@@ -296,8 +353,22 @@ export default function InventoryFormDrawer({
                     }
                     placeholder="Enter purchase price"
                     style={styles.textInput}
+                    disabled={isLoadingImage}
                   />
                 </div>
+              </div>
+
+              {/* BARCODE */}
+              <div style={{ ...styles.formRow, gridColumn: "span 2" }}>
+                <label style={styles.label}>Barcode</label>
+                <input
+                  type="text"
+                  value={formValues.barcode || ""}
+                  onChange={(e) => handleChange("barcode", e.target.value)}
+                  placeholder="Enter barcode"
+                  style={styles.textInput}
+                  disabled={isLoadingImage}
+                />
               </div>
 
               {/* PERISHABLE */}
@@ -317,6 +388,7 @@ export default function InventoryFormDrawer({
                       checked={formValues.perishable === true}
                       onChange={() => handleChange("perishable", true)}
                       style={styles.radioInput}
+                      disabled={isLoadingImage}
                     />{" "}
                     Yes
                   </label>
@@ -327,6 +399,7 @@ export default function InventoryFormDrawer({
                       checked={formValues.perishable === false}
                       onChange={() => handleChange("perishable", false)}
                       style={styles.radioInput}
+                      disabled={isLoadingImage}
                     />{" "}
                     No
                   </label>
@@ -335,12 +408,20 @@ export default function InventoryFormDrawer({
             </div>
           </div>
 
-          {/* Footer: Cancel / Save */}
+          {/* Drawer footer */}
           <div style={styles.drawerFooter}>
-            <button onClick={onClose} style={styles.cancelButton}>
+            <button 
+              onClick={onClose} 
+              style={styles.cancelButton}
+              disabled={isLoadingImage}
+            >
               Cancel
             </button>
-            <button onClick={handleSave} style={styles.saveButton}>
+            <button 
+              onClick={handleSave} 
+              style={styles.saveButton}
+              disabled={isLoadingImage}
+            >
               Save
             </button>
           </div>
@@ -354,79 +435,72 @@ const styles: { [key: string]: React.CSSProperties } = {
   overlay: {
     position: "fixed",
     top: 0,
+    left: 0,
     right: 0,
     bottom: 0,
-    left: 0,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     zIndex: 1000,
+    display: "flex",
+    justifyContent: "flex-end",
   },
   drawer: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    width: "640px", // Wider drawer to match Figma design
+    width: "600px",
     backgroundColor: "#292C2D",
-    boxShadow: "-4px 0 8px rgba(0,0,0,0.5)",
+    height: "100%",
+    boxShadow: "-2px 0 10px rgba(0, 0, 0, 0.3)",
+    animation: "slideIn 0.3s ease-out",
     display: "flex",
     flexDirection: "column",
-    borderTopLeftRadius: "30px", // Rounded corners to match Figma
-    borderBottomLeftRadius: "30px", // Rounded corners to match Figma
-    boxSizing: "border-box",
-    animation: "slideIn 0.3s ease-out forwards", // Slide‐in animation
   },
   drawerHeader: {
+    padding: "20px",
+    borderBottom: "1px solid #3D4142",
     display: "flex",
-    alignItems: "center",
     justifyContent: "space-between",
-    padding: "24px 30px",
-    borderBottom: "1px solid #5E5E5E",
+    alignItems: "center",
   },
   drawerTitle: {
     color: "#FFFFFF",
     fontSize: "1.5rem",
-    fontWeight: 500,
+    fontWeight: 600,
   },
   closeButton: {
-    backgroundColor: "#3D4142",
+    backgroundColor: "transparent",
     border: "none",
     color: "#FFFFFF",
-    fontSize: "1.2rem",
-    fontWeight: 600,
-    width: "36px",
-    height: "36px",
-    borderRadius: "50%",
+    fontSize: "1.5rem",
+    cursor: "pointer",
+    width: "32px",
+    height: "32px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    cursor: "pointer",
-    lineHeight: 1,
+    borderRadius: "50%",
+    transition: "background-color 0.2s",
   },
   drawerBody: {
-    padding: "24px 30px",
-    flexGrow: 1,
+    padding: "20px",
+    flex: 1,
     overflowY: "auto",
     display: "flex",
     flexDirection: "column",
-    gap: "24px",
+    gap: "30px",
   },
-
-  // IMAGE SECTION
   imageSection: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: "16px",
-    marginBottom: "32px",
+    gap: "10px",
   },
   imagePlaceholder: {
-    width: "240px",
-    height: "216px",
-    backgroundColor: "#383C3D",
+    width: "150px",
+    height: "150px",
+    backgroundColor: "#3D4142",
     borderRadius: "10px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
   thumbnailImage: {
     width: "100%",
@@ -444,8 +518,10 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: "#FAC1D9",
     cursor: "pointer",
   },
-
-  // FORM GRID
+  loadingIndicator: {
+    color: "#FFFFFF",
+    fontSize: "16px",
+  },
   formGrid: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
@@ -517,45 +593,63 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: "center",
     marginTop: "8px",
   },
-  radioLabel: {
+  radioOption: {
     display: "flex",
     alignItems: "center",
     gap: "8px",
-    color: "#777979",
+    cursor: "pointer",
+  },
+  radioButton: {
+    width: "18px",
+    height: "18px",
+    borderRadius: "50%",
+    border: "2px solid #777979",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  radioButtonSelected: {
+    width: "10px",
+    height: "10px",
+    borderRadius: "50%",
+    backgroundColor: "#FAC1D9",
+  },
+  radioLabel: {
+    color: "#DDDDDD",
+    fontSize: "0.9rem",
+  },
+  drawerFooter: {
+    padding: "20px",
+    borderTop: "1px solid #3D4142",
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: "16px",
+  },
+  cancelButton: {
+    padding: "12px 24px",
+    backgroundColor: "transparent",
+    border: "1px solid #3D4142",
+    borderRadius: "8px",
+    color: "#FFFFFF",
     fontSize: "0.9rem",
     cursor: "pointer",
+    transition: "background-color 0.2s",
+  },
+  saveButton: {
+    padding: "12px 24px",
+    backgroundColor: "#FAC1D9",
+    border: "none",
+    borderRadius: "8px",
+    color: "#292C2D",
+    fontSize: "0.9rem",
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "background-color 0.2s",
   },
   radioInput: {
     accentColor: "#FAC1D9",
     cursor: "pointer",
     width: "16px",
     height: "16px",
-  },
-
-  // FOOTER (Cancel + Save)
-  drawerFooter: {
-    display: "flex",
-    justifyContent: "flex-end",
-    alignItems: "center",
-    gap: "16px",
-    padding: "24px 30px",
-    borderTop: "1px solid #5E5E5E",
-  },
-  cancelButton: {
-    background: "transparent",
-    border: "none",
-    color: "#FFFFFF",
-    fontSize: "1rem",
-    cursor: "pointer",
-  },
-  saveButton: {
-    backgroundColor: "#FAC1D9",
-    color: "#292C2D",
-    border: "none",
-    borderRadius: "10px",
-    padding: "16px 48px",
-    fontSize: "1rem",
-    fontWeight: 500,
-    cursor: "pointer",
   },
 };

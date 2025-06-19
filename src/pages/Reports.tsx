@@ -450,6 +450,7 @@ export default function Reports() {
     format(new Date(), "yyyy-MM-dd")
   );
   const [filterApplied, setFilterApplied] = useState(false);
+  const [isFiltering, setIsFiltering] = useState(false);
 
   // Mock delivery history data for inventory tab
   const mockDeliveryHistory = [
@@ -710,6 +711,7 @@ export default function Reports() {
 
   // Apply date filters
   const handleApplyFilter = async () => {
+    setIsFiltering(true);
     const formattedStartDate = startDate
       ? format(startDate, "yyyy-MM-dd")
       : undefined;
@@ -720,10 +722,20 @@ export default function Reports() {
     setAppliedStartDate(formattedStartDate);
     setAppliedEndDate(formattedEndDate);
     setFilterApplied(true);
+    
+    try {
+      // Refetch the sales report data with the new date range
+      await refetchSalesReport();
+    } catch (error) {
+      console.error("Error refreshing sales report data:", error);
+    } finally {
+      setIsFiltering(false);
+    }
   };
 
   // Reset date filters
-  const handleResetFilter = () => {
+  const handleResetFilter = async () => {
+    setIsFiltering(true);
     const defaultStartDate = subMonths(new Date(), 1);
     const defaultEndDate = new Date();
 
@@ -732,6 +744,15 @@ export default function Reports() {
     setAppliedStartDate(format(defaultStartDate, "yyyy-MM-dd"));
     setAppliedEndDate(format(defaultEndDate, "yyyy-MM-dd"));
     setFilterApplied(false);
+    
+    try {
+      // Refetch the sales report with the default date range
+      await refetchSalesReport();
+    } catch (error) {
+      console.error("Error resetting sales report data:", error);
+    } finally {
+      setIsFiltering(false);
+    }
   };
 
   // Function to check and update attendance status automatically
@@ -886,7 +907,7 @@ export default function Reports() {
             </FilterStatus>
 
             {/* Display error if any */}
-            {isLoadingSalesReport ? (
+            {isLoadingSalesReport || isFiltering ? (
               <LoadingIndicator />
             ) : (
               <>

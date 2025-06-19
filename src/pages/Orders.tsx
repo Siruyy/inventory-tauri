@@ -9,6 +9,7 @@ import {
   type CreateOrderRequest,
 } from "../hooks/useOrders";
 import { useAuth } from "../context/AuthContext";
+import { useBarcodeScanner } from "../hooks/useBarcodeScanner";
 import "../styles/Orders.css";
 
 interface OrderItem {
@@ -42,10 +43,35 @@ const Orders: React.FC = () => {
     cashier: user?.full_name || "Unknown Cashier",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [lastScannedBarcode, setLastScannedBarcode] = useState<string | null>(null);
 
   // Always fetch all products and filter on client side
   const { products: allProducts, isLoading, refetchProducts } = useProducts();
   const { createOrder } = useOrders();
+  
+  // Initialize barcode scanner
+  useBarcodeScanner({
+    onBarcodeScanned: (barcode, quantity = 1) => {
+      console.log(`Barcode scanned: ${barcode}, Quantity: ${quantity}`);
+      setLastScannedBarcode(barcode);
+      
+      // Find product with this barcode
+      const product = allProducts.find(
+        (p) => (p as any).barcode === barcode
+      );
+      
+      if (product) {
+        console.log(`Found product for barcode: ${product.name} x${quantity}`);
+        addProductToOrderWithQuantity(product, quantity);
+      } else {
+        console.log("No product found for barcode:", barcode);
+        // Optional: Show notification that barcode wasn't found
+      }
+    },
+    minLength: 3, // Minimum barcode length
+    enabled: true, // Enable barcode scanning
+    supportQuantityPrefix: true, // Enable quantity prefix support
+  });
 
   // Update cashier name whenever user changes
   useEffect(() => {
@@ -89,8 +115,8 @@ const Orders: React.FC = () => {
     setSelectedCategoryId(categoryId);
   };
 
-  // Add product to order
-  const addProductToOrder = (product: any) => {
+  // Add product to order with quantity
+  const addProductToOrderWithQuantity = (product: any, quantity: number = 1) => {
     setCurrentOrder((prevOrder) => {
       // Check if the product is already in the order
       const existingItemIndex = prevOrder.items.findIndex(
@@ -104,16 +130,16 @@ const Orders: React.FC = () => {
         updatedItems = [...prevOrder.items];
         updatedItems[existingItemIndex] = {
           ...updatedItems[existingItemIndex],
-          quantity: updatedItems[existingItemIndex].quantity + 1,
+          quantity: updatedItems[existingItemIndex].quantity + quantity,
         };
       } else {
-        // Add new item to order
+        // Add new item to order with specified quantity
         updatedItems = [
           ...prevOrder.items,
           {
             id: product.id,
             name: product.name,
-            quantity: 1,
+            quantity: quantity,
             price: product.unit_price,
           },
         ];
@@ -135,6 +161,11 @@ const Orders: React.FC = () => {
         total,
       };
     });
+  };
+
+  // Update the existing addProductToOrder to use the new function
+  const addProductToOrder = (product: any) => {
+    addProductToOrderWithQuantity(product, 1);
   };
 
   // Remove product from order
@@ -241,6 +272,18 @@ const Orders: React.FC = () => {
               />
             </div>
 
+            {/* Barcode Scanner Status */}
+            <div className="barcode-scanner-status">
+              <span className="scanner-indicator">
+                Barcode Scanner: <span className="scanner-active">Active</span>
+              </span>
+              {lastScannedBarcode && (
+                <span className="last-scanned">
+                  Last scanned: {lastScannedBarcode}
+                </span>
+              )}
+            </div>
+
             {/* Categories Section - Using OrderCategoryCards to hide edit/delete buttons */}
             <div className="categories-section">
               <OrderCategoryCards
@@ -263,17 +306,33 @@ const Orders: React.FC = () => {
                         onClick={() => addProductToOrder(product)}
                       >
                         <div className="menu-item-image">
-                          {/* Use product icon or a placeholder based on category */}
-                          <img
-                            src={
-                              product.category_name === "Beverage"
-                                ? "/icons/beverage.svg"
-                                : product.category_name === "Food"
-                                ? "/icons/food.svg"
-                                : "/icons/item.svg"
-                            }
-                            alt={product.name}
-                          />
+                          {product.thumbnailUrl ? (
+                            <img
+                              src={product.thumbnailUrl}
+                              alt={product.name}
+                              onError={(e) => {
+                                // Fallback to category-based icons
+                                (e.target as HTMLImageElement).src = 
+                                  product.category_name === "Food & Beverages"
+                                    ? "/icons/beverage.svg"
+                                    : product.category_name === "Clothing"
+                                    ? "/icons/clothing.svg"
+                                    : "/icons/item.svg";
+                              }}
+                            />
+                          ) : (
+                            // Use product icon or a placeholder based on category
+                            <img
+                              src={
+                                product.category_name === "Food & Beverages"
+                                  ? "/icons/beverage.svg"
+                                  : product.category_name === "Clothing"
+                                  ? "/icons/clothing.svg"
+                                  : "/icons/item.svg"
+                              }
+                              alt={product.name}
+                            />
+                          )}
                         </div>
                         <div className="menu-item-info">
                           <h3>{product.name}</h3>
