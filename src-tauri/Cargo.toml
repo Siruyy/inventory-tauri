@@ -13,7 +13,7 @@ tauri-build = { version = "2.0.0-rc.3", features = [] }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 # This is the corrected `tauri` dependency with the incorrect features removed.
-tauri = { version = "2.0.0-rc.6", features = [] }
+tauri = { version = "2.0.0-rc.6", features = ["protocol-asset"] }
 
 # All your other dependencies are preserved below.
 serde = { version = "1.0", features = ["derive"] }
@@ -26,12 +26,10 @@ jsonwebtoken = "9.2.0"
 r2d2 = "0.8.10"
 thiserror = "1.0"
 rusqlite = { version = "0.36.0", features = ["bundled"] }
-
-# The necessary plugins are correctly listed as separate dependencies.
-tauri-plugin-dialog = { version = "2.0.0-rc.6" }
 tauri-plugin-fs = { version = "2.0.0-rc.6" }
 tauri-plugin-shell = { version = "2.0.0-rc.6" }
 r2d2_sqlite = "0.29.0"
+tauri-plugin-dialog = "2.2.2"
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem

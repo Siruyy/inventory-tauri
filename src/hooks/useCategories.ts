@@ -12,11 +12,20 @@ export interface Category {
   description: string | null;
   created_at: string;
   updated_at: string;
+  icon?: string | null;
 }
 
 export interface NewCategory {
   name: string;
   description: string | null;
+  icon?: string | null;
+}
+
+export interface UpdateCategory {
+  id: number;
+  name: string;
+  description: string | null;
+  icon?: string | null;
 }
 
 // Mock categories for development - for reference only, not used anymore
@@ -150,6 +159,7 @@ export function useCategories() {
             id: -1, // Temporary ID
             name: newCategory.name,
             description: newCategory.description,
+            icon: newCategory.icon,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           } as Category,
@@ -179,6 +189,77 @@ export function useCategories() {
       toast.error("Failed to add category", {
         description:
           "There was an error adding the category. Please try again.",
+        duration: 5000,
+      });
+
+      // Revert back to the previous state if available
+      if (context?.previousCategories) {
+        queryClient.setQueryData<Category[]>(
+          ["categories"],
+          context.previousCategories
+        );
+      }
+    },
+  });
+
+  // Optimistic update category
+  const updateCategory = useMutation({
+    mutationFn: async (updatedCategory: UpdateCategory) => {
+      // Delay execution slightly to allow UI to settle
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return safeTauriInvoke<Category>("update_category", {
+        category: updatedCategory,
+      });
+    },
+    onMutate: async (updatedCategory) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["categories"] });
+
+      // Snapshot the previous value
+      const previousCategories = queryClient.getQueryData<Category[]>([
+        "categories",
+      ]);
+
+      // Optimistically update to the new value
+      if (previousCategories) {
+        queryClient.setQueryData<Category[]>(["categories"], (old) =>
+          (old || []).map((category) =>
+            category.id === updatedCategory.id
+              ? {
+                  ...category,
+                  name: updatedCategory.name,
+                  description: updatedCategory.description,
+                  icon: updatedCategory.icon,
+                  updated_at: new Date().toISOString(),
+                }
+              : category
+          )
+        );
+      }
+
+      return { previousCategories };
+    },
+    onSuccess: (data) => {
+      console.log("Category updated successfully");
+
+      // Show success toast notification
+      toast.success("Category updated successfully", {
+        description: `${data.name} has been updated.`,
+        duration: 5000,
+      });
+
+      // Wait a bit before refetching to allow the UI to stabilize
+      setTimeout(() => {
+        refetchCategories();
+      }, 200);
+    },
+    onError: (error, _updatedCategory, context) => {
+      console.error("Failed to update category:", error);
+
+      // Show error toast notification
+      toast.error("Failed to update category", {
+        description:
+          "There was an error updating the category. Please try again.",
         duration: 5000,
       });
 
@@ -253,11 +334,13 @@ export function useCategories() {
     },
   });
 
+  // Return hook functions and data - add updateCategory
   return {
     categories: categories || [],
     isLoading,
-    addCategory: addCategory.mutate,
-    deleteCategory: deleteCategory.mutate,
+    addCategory,
+    updateCategory,
+    deleteCategory,
     refetchCategories,
   };
 }

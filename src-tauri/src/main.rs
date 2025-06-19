@@ -6,9 +6,9 @@ mod db;
 
 use rusqlite::Connection;
 use commands::{
-    auth::*,
-    category::*,
-    product::*,
+    auth::{login, register},
+    category::{get_all_categories, add_category, delete_category, update_category},
+    product::{get_all_products, get_products_by_category, add_product, update_product, delete_product, update_product_stock},
     transaction::*,
 };
 use crate::db::DbState;
@@ -99,6 +99,9 @@ fn initialize_database(conn: &Connection) -> Result<(), String> {
     
     // Add price_bought column if needed
     add_price_bought_to_products(conn)?;
+    
+    // Add icon column to categories if needed
+    add_icon_to_categories(conn)?;
 
     // Check if admin user exists
     let mut stmt = conn.prepare("SELECT COUNT(*) FROM users WHERE username = 'admin'")
@@ -395,58 +398,69 @@ fn add_price_bought_to_products(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
-fn main() {
-    let db_path = "inventory.db";
-    let manager = SqliteConnectionManager::file(db_path)
-        .with_init(|conn| {
-            // Enable foreign keys for each new connection from the pool
-            conn.execute_batch("PRAGMA foreign_keys = ON;")?;
-            Ok(())
-        });
-    
-    // Create connection pool
-    let pool = r2d2::Pool::new(manager)
-        .expect("Failed to create connection pool");
-    
-    // The initialize_database function needs a connection.
-    // We get one from the pool.
-    let conn = pool.get().expect("Failed to get conn for init");
-    
-    // Initialize database with default admin user
-    if let Err(e) = initialize_database(&conn) {
-        eprintln!("Error initializing database: {}", e);
+// Add a new function to add the icon column to the categories table
+fn add_icon_to_categories(conn: &Connection) -> Result<(), String> {
+    // Check if icon column exists
+    let result = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('categories') WHERE name='icon'",
+        [],
+        |row| row.get::<_, i64>(0)
+    );
+
+    // If column doesn't exist (count = 0), add it
+    if let Ok(0) = result {
+        println!("Adding icon column to categories table...");
+        
+        // Add the column
+        conn.execute(
+            "ALTER TABLE categories ADD COLUMN icon TEXT",
+            [],
+        ).map_err(|e| format!("Failed to add icon column: {}", e))?;
+        
+        println!("Successfully added icon column to categories table!");
+    } else if let Err(e) = result {
+        return Err(format!("Failed to check for icon column: {}", e));
+    } else {
+        println!("icon column already exists in categories table, skipping migration");
     }
     
-    println!("Database initialized successfully. Products can now be deleted even if they're referenced in orders.");
+    Ok(())
+}
+
+fn main() {
+    // Server initialization code
+    let db_path = std::path::PathBuf::from("inventory.db");
+    println!("Database path: {:?}", db_path);
     
-    // Build the Tauri application
+    // Use the r2d2 connection pool
+    let manager = SqliteConnectionManager::file(&db_path);
+    let pool = r2d2::Pool::new(manager).expect("Failed to create database pool");
+    
+    // Initialize database with tables and test data
+    {
+        let conn = pool.get().expect("Failed to get db connection");
+        initialize_database(&conn).expect("Failed to initialize database");
+    }
+
     tauri::Builder::default()
-        .manage(DbState {
-            pool,
-        })
-        .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_fs::init())
+        .manage(DbState { pool })
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
-            // Auth
-            register,
+            greet,
             login,
-            verify_auth,
-            
-            // Categories
+            register,
             get_all_categories,
             add_category,
+            update_category,
             delete_category,
-            
-            // Products
             get_all_products,
             get_products_by_category,
             add_product,
+            update_product,
             delete_product,
             update_product_stock,
-            update_product,
-            
-            // Transactions
             create_order,
             get_order_by_id,
             get_order_items,
@@ -456,12 +470,7 @@ fn main() {
             get_order_statistics,
             get_sales_report_data,
             debug_order_dates,
-            update_order_dates_to_today,
-            test_date_filtering,
-            debug_date_filtering,
-            
-            // Misc
-            greet
+            update_order_dates_to_today
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

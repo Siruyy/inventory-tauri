@@ -1,4 +1,4 @@
-use crate::db::models::category::{Category, NewCategory};
+use crate::db::models::category::{Category, NewCategory, UpdateCategory};
 use crate::db::DbState;
 use rusqlite::{params, Result};
 
@@ -8,7 +8,7 @@ pub fn get_all_categories(state: tauri::State<DbState>) -> Result<Vec<Category>,
     let conn = state.pool.get().map_err(|e| format!("Failed to get connection from pool: {}", e))?;
     
     let mut stmt = conn.prepare(
-        "SELECT id, name, description, created_at, updated_at FROM categories ORDER BY name"
+        "SELECT id, name, description, created_at, updated_at, icon FROM categories ORDER BY name"
     ).map_err(|e| {
         println!("Backend error preparing get_all_categories: {}", e);
         e.to_string()
@@ -21,6 +21,7 @@ pub fn get_all_categories(state: tauri::State<DbState>) -> Result<Vec<Category>,
             description: row.get(2)?,
             created_at: row.get(3)?,
             updated_at: row.get(4)?,
+            icon: row.get(5)?,
         })
     }).map_err(|e| {
         println!("Backend error querying categories: {}", e);
@@ -33,6 +34,96 @@ pub fn get_all_categories(state: tauri::State<DbState>) -> Result<Vec<Category>,
     })?;
     
     println!("Backend: Retrieved {} categories", result.len());
+    Ok(result)
+}
+
+#[tauri::command]
+pub fn update_category(state: tauri::State<DbState>, category: UpdateCategory) -> Result<Category, String> {
+    println!("Backend: Updating category id: {}, name: {:?}", category.id, category.name);
+    
+    // Get a connection from the pool with proper error handling
+    let mut conn = match state.pool.get() {
+        Ok(conn) => conn,
+        Err(e) => {
+            let error_msg = format!("Failed to get connection from pool: {}", e);
+            println!("Backend error: {}", error_msg);
+            return Err(error_msg);
+        }
+    };
+    
+    // Wrap the entire operation in a transaction to ensure atomicity
+    let tx = match conn.transaction() {
+        Ok(tx) => tx,
+        Err(e) => {
+            let error_msg = format!("Failed to start transaction: {}", e);
+            println!("Backend error: {}", error_msg);
+            return Err(error_msg);
+        }
+    };
+    
+    // Update the category
+    match tx.execute(
+        "UPDATE categories SET name = ?1, description = ?2, icon = ?3, updated_at = CURRENT_TIMESTAMP WHERE id = ?4",
+        params![category.name, category.description, category.icon, category.id],
+    ) {
+        Ok(updated) => {
+            if updated == 0 {
+                let error_msg = format!("No category found with id: {}", category.id);
+                println!("Backend error: {}", error_msg);
+                return Err(error_msg);
+            }
+        },
+        Err(e) => {
+            let error_msg = format!("Backend error updating category: {}", e);
+            println!("{}", error_msg);
+            return Err(error_msg);
+        }
+    }
+    
+    // Create a variable to store the result
+    let result: Category;
+    
+    // Use a block to limit the scope of the statement
+    {
+        // Retrieve the updated category
+        let mut stmt = match tx.prepare(
+            "SELECT id, name, description, created_at, updated_at, icon FROM categories WHERE id = ?1"
+        ) {
+            Ok(stmt) => stmt,
+            Err(e) => {
+                let error_msg = format!("Failed to prepare statement: {}", e);
+                println!("Backend error: {}", error_msg);
+                return Err(error_msg);
+            }
+        };
+
+        result = match stmt.query_row(params![category.id], |row| {
+            Ok(Category {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                description: row.get(2)?,
+                created_at: row.get(3)?,
+                updated_at: row.get(4)?,
+                icon: row.get(5)?,
+            })
+        }) {
+            Ok(category) => category,
+            Err(e) => {
+                let error_msg = format!("Failed to query updated category: {}", e);
+                println!("Backend error: {}", error_msg);
+                return Err(error_msg);
+            }
+        };
+    } // stmt goes out of scope here
+    
+    // Commit the transaction
+    if let Err(e) = tx.commit() {
+        let error_msg = format!("Failed to commit transaction: {}", e);
+        println!("Backend error: {}", error_msg);
+        return Err(error_msg);
+    }
+
+    println!("Backend: Updated category with id: {}", result.id);
     Ok(result)
 }
 
@@ -62,8 +153,8 @@ pub fn add_category(state: tauri::State<DbState>, category: NewCategory) -> Resu
     
     // Insert the new category
     match tx.execute(
-        "INSERT INTO categories (name, description) VALUES (?1, ?2)",
-        params![category.name, category.description],
+        "INSERT INTO categories (name, description, icon) VALUES (?1, ?2, ?3)",
+        params![category.name, category.description, category.icon],
     ) {
         Ok(_) => (),
         Err(e) => {
@@ -82,7 +173,7 @@ pub fn add_category(state: tauri::State<DbState>, category: NewCategory) -> Resu
     {
         // Retrieve the newly inserted category
         let mut stmt = match tx.prepare(
-            "SELECT id, name, description, created_at, updated_at FROM categories WHERE id = ?1"
+            "SELECT id, name, description, created_at, updated_at, icon FROM categories WHERE id = ?1"
         ) {
             Ok(stmt) => stmt,
             Err(e) => {
@@ -99,6 +190,7 @@ pub fn add_category(state: tauri::State<DbState>, category: NewCategory) -> Resu
                 description: row.get(2)?,
                 created_at: row.get(3)?,
                 updated_at: row.get(4)?,
+                icon: row.get(5)?,
             })
         }) {
             Ok(category) => category,

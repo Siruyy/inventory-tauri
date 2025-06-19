@@ -20,9 +20,10 @@ export default function Inventory() {
   const [isCategoryDrawerOpen, setIsCategoryDrawerOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [selectedCategory, setSelectedCategory] = useState<any>(null);
   const { products, addProduct, updateProduct, updateStock, deleteProduct } =
     useProducts(selectedCategoryId);
-  const { categories, addCategory } = useCategories();
+  const { categories, addCategory, updateCategory } = useCategories();
 
   // Calculate total products
   const totalProducts = products.length;
@@ -77,7 +78,7 @@ export default function Inventory() {
 
         // Use timeout to ensure UI has time to update before mutation
         setTimeout(() => {
-          updateProduct(updatedProduct, {
+          updateProduct.mutate(updatedProduct, {
             onSuccess: () => {
               // Use timeout to ensure state updates don't conflict
               setTimeout(() => {
@@ -110,7 +111,7 @@ export default function Inventory() {
 
         // Use timeout to ensure UI has time to update before mutation
         setTimeout(() => {
-          addProduct(newProduct, {
+          addProduct.mutate(newProduct, {
             onSuccess: () => {
               // Use timeout to ensure state updates don't conflict
               setTimeout(() => {
@@ -138,29 +139,55 @@ export default function Inventory() {
 
       setIsProcessing(true);
 
-      // Convert the category data to the format expected by addCategory
-      const newCategory = {
-        name: categoryData.name,
-        description: categoryData.imageUrl, // Store the imageUrl in the description field for now
-      };
+      if (selectedCategory) {
+        // EDIT mode - update existing category
+        const updatedCategory = {
+          id: selectedCategory.id,
+          name: categoryData.name,
+          description: categoryData.imageUrl, // Store the imageUrl in the description field
+        };
 
-      // Use timeout to ensure UI has time to update before mutation
-      setTimeout(() => {
-        addCategory(newCategory, {
-          onSuccess: () => {
-            // Use timeout to ensure state updates don't conflict
-            setTimeout(() => {
-              setIsCategoryDrawerOpen(false);
+        // Use timeout to ensure UI has time to update before mutation
+        setTimeout(() => {
+          updateCategory.mutate(updatedCategory, {
+            onSuccess: () => {
+              // Use timeout to ensure state updates don't conflict
+              setTimeout(() => {
+                setIsCategoryDrawerOpen(false);
+                setIsProcessing(false);
+                setSelectedCategory(null);
+              }, 100);
+            },
+            onError: () => {
               setIsProcessing(false);
-            }, 100);
-          },
-          onError: () => {
-            setIsProcessing(false);
-          },
-        });
-      }, 50);
+            },
+          });
+        }, 50);
+      } else {
+        // ADD mode - add new category
+        const newCategory = {
+          name: categoryData.name,
+          description: categoryData.imageUrl, // Store the imageUrl in the description field for now
+        };
+
+        // Use timeout to ensure UI has time to update before mutation
+        setTimeout(() => {
+          addCategory.mutate(newCategory, {
+            onSuccess: () => {
+              // Use timeout to ensure state updates don't conflict
+              setTimeout(() => {
+                setIsCategoryDrawerOpen(false);
+                setIsProcessing(false);
+              }, 100);
+            },
+            onError: () => {
+              setIsProcessing(false);
+            },
+          });
+        }, 50);
+      }
     },
-    [addCategory, isProcessing]
+    [addCategory, updateCategory, isProcessing, selectedCategory]
   );
 
   // Handle edit product
@@ -185,6 +212,19 @@ export default function Inventory() {
     []
   );
 
+  // Handle edit category
+  const handleEditCategory = useCallback((category: any) => {
+    // Format category for the drawer
+    const formattedCategory = {
+      id: category.id,
+      name: category.name,
+      icon: category.description || "https://via.placeholder.com/40",
+    };
+
+    setSelectedCategory(formattedCategory);
+    setIsCategoryDrawerOpen(true);
+  }, []);
+
   // Handle drawer close with safety checks
   const handleCloseDrawer = useCallback(() => {
     if (!isProcessing) {
@@ -197,6 +237,7 @@ export default function Inventory() {
   const handleCloseCategoryDrawer = useCallback(() => {
     if (!isProcessing) {
       setIsCategoryDrawerOpen(false);
+      setSelectedCategory(null);
     }
   }, [isProcessing]);
 
@@ -450,6 +491,7 @@ export default function Inventory() {
               <CategoryCards
                 onSelectCategory={handleCategorySelect}
                 selectedCategoryId={selectedCategoryId}
+                onEditCategory={handleEditCategory}
               />
               <ProductList
                 products={
@@ -484,6 +526,7 @@ export default function Inventory() {
         isOpen={isCategoryDrawerOpen}
         onClose={handleCloseCategoryDrawer}
         onSave={handleSaveCategory}
+        category={selectedCategory}
       />
     </div>
   );

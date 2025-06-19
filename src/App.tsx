@@ -2,6 +2,8 @@
 import React, { Component, ErrorInfo } from "react";
 import Router from "./router";
 import AuthProvider from "./context/AuthContext";
+import { NotificationProvider } from "./context/NotificationContext";
+import NotificationManager from "./components/NotificationManager";
 // Temporarily disable toast
 import { Toaster } from "sonner";
 
@@ -70,8 +72,11 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <Router />
-        <Toaster richColors position="top-right" duration={5000} />
+        <NotificationProvider>
+          <NotificationManager />
+          <Router />
+          <Toaster richColors position="top-right" duration={5000} />
+        </NotificationProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

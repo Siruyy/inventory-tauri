@@ -8,6 +8,7 @@ import {
   type NewOrderItem,
   type CreateOrderRequest,
 } from "../hooks/useOrders";
+import { useAuth } from "../context/AuthContext";
 import "../styles/Orders.css";
 
 interface OrderItem {
@@ -27,6 +28,7 @@ interface Order {
 }
 
 const Orders: React.FC = () => {
+  const { user } = useAuth();
   const [selectedCategoryId, setSelectedCategoryId] = useState<
     number | undefined
   >(undefined);
@@ -37,13 +39,21 @@ const Orders: React.FC = () => {
     subtotal: 0,
     tax: 0,
     total: 0,
-    cashier: "John Doe", // TODO: Replace with actual logged-in user
+    cashier: user?.full_name || "Unknown Cashier",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Always fetch all products and filter on client side
   const { products: allProducts, isLoading, refetchProducts } = useProducts();
   const { createOrder } = useOrders();
+
+  // Update cashier name whenever user changes
+  useEffect(() => {
+    setCurrentOrder(prev => ({
+      ...prev,
+      cashier: user?.full_name || "Unknown Cashier"
+    }));
+  }, [user]);
 
   // Filter products by category client-side instead of relying on backend
   const categoryFilteredProducts =
@@ -202,7 +212,7 @@ const Orders: React.FC = () => {
         subtotal: 0,
         tax: 0,
         total: 0,
-        cashier: "John Doe", // TODO: Replace with actual logged-in user
+        cashier: user?.full_name || "Unknown Cashier",
       });
 
       // Show success message

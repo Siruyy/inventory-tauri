@@ -10,11 +10,15 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { useCategories, NewCategory } from "../hooks/useCategories";
+import { open } from "@tauri-apps/plugin-dialog";
+import { formatFilePath } from "../utils/fileUtils";
 
 export function AddCategoryDialog() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [icon, setIcon] = useState<string>("");
+  const [displayIcon, setDisplayIcon] = useState<string>("");
   const { addCategory } = useCategories();
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -22,14 +26,44 @@ export function AddCategoryDialog() {
     const newCategory: NewCategory = {
       name,
       description: description || null,
+      icon: icon || null,
     };
-    addCategory(newCategory, {
+    addCategory.mutate(newCategory, {
       onSuccess: () => {
         setOpen(false);
         setName("");
         setDescription("");
+        setIcon("");
+        setDisplayIcon("");
       },
     });
+  };
+
+  const handleImageSelect = async () => {
+    try {
+      // Open file dialog to select an image
+      const selected = await open({
+        multiple: false,
+        filters: [
+          {
+            name: "Images",
+            extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg"],
+          },
+        ],
+      });
+
+      // If user selected a file, update the icon
+      if (selected && !Array.isArray(selected)) {
+        // Store the file path directly
+        setIcon(selected);
+        console.log("Selected image path:", selected);
+
+        // Format the file path for display
+        setDisplayIcon(formatFilePath(selected));
+      }
+    } catch (error) {
+      console.error("Error selecting image:", error);
+    }
   };
 
   return (
@@ -59,6 +93,31 @@ export function AddCategoryDialog() {
           <DialogTitle className="text-[#FFFFFF]">Add New Category</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Image Upload Section */}
+          <div className="flex flex-col items-center space-y-3">
+            <div className="w-32 h-32 bg-[#383C3D] rounded-lg overflow-hidden flex items-center justify-center">
+              {displayIcon ? (
+                <img
+                  src={displayIcon}
+                  alt="Category Icon"
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <div className="text-[#666] text-xs text-center p-2">
+                  No image selected
+                </div>
+              )}
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={handleImageSelect}
+              className="text-[#FAC1D9] hover:text-[#e0a9c1] hover:bg-transparent"
+            >
+              Add Picture/Icon
+            </Button>
+          </div>
+
           <div className="space-y-2">
             <label
               htmlFor="name"

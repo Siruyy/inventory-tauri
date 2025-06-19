@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
+import { formatFilePath } from "../utils/fileUtils";
 import "./CategoryFormDrawer.css";
 
 interface CategoryFormDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (categoryData: { name: string; imageUrl: string }) => void;
-  category?: { name: string; icon: string } | null;
+  category?: { id?: number; name: string; icon: string } | null;
 }
 
 export default function CategoryFormDrawer({
@@ -17,19 +18,27 @@ export default function CategoryFormDrawer({
 }: CategoryFormDrawerProps) {
   const [categoryName, setCategoryName] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [displayUrl, setDisplayUrl] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   // Reset form when opening drawer or changing category
   useEffect(() => {
-    if (category) {
-      setCategoryName(category.name);
-      setImageUrl(category.icon);
-    } else {
-      setCategoryName("");
-      setImageUrl("");
+    if (isOpen) {
+      if (category) {
+        console.log("Editing category:", category);
+        setCategoryName(category.name);
+        setImageUrl(category.icon);
+
+        // Format the image URL for display
+        setDisplayUrl(formatFilePath(category.icon));
+      } else {
+        setCategoryName("");
+        setImageUrl("");
+        setDisplayUrl("");
+      }
+      // Reset saving state when drawer opens/closes
+      setIsSaving(false);
     }
-    // Reset saving state when drawer opens/closes
-    setIsSaving(false);
   }, [category, isOpen]);
 
   const handleSave = () => {
@@ -69,14 +78,19 @@ export default function CategoryFormDrawer({
         filters: [
           {
             name: "Images",
-            extensions: ["png", "jpg", "jpeg", "gif", "webp"],
+            extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg"],
           },
         ],
       });
 
       // If user selected a file, update the imageUrl
       if (selected && !Array.isArray(selected)) {
+        // Store the file path directly
         setImageUrl(selected);
+        console.log("Selected image path:", selected);
+
+        // Format the file path for display
+        setDisplayUrl(formatFilePath(selected));
       }
     } catch (error) {
       console.error("Error selecting image:", error);
@@ -124,11 +138,16 @@ export default function CategoryFormDrawer({
           {/* Image Upload Section */}
           <div style={styles.imageSection}>
             <div style={styles.imagePreview}>
-              {imageUrl ? (
+              {displayUrl ? (
                 <img
-                  src={imageUrl}
+                  src={displayUrl}
                   alt="Category preview"
                   style={styles.previewImage}
+                  onError={(e) => {
+                    console.error("Error loading image:", displayUrl);
+                    (e.target as HTMLImageElement).src =
+                      "https://via.placeholder.com/240x216";
+                  }}
                 />
               ) : (
                 <div style={styles.placeholderImage}></div>
@@ -139,7 +158,7 @@ export default function CategoryFormDrawer({
               onClick={handleImageSelect}
               disabled={isSaving}
             >
-              Change Profile\Icon
+              {imageUrl ? "Change Picture/Icon" : "Add Picture/Icon"}
             </button>
           </div>
 

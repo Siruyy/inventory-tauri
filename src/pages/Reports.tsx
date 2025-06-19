@@ -18,10 +18,14 @@ import {
   Stack,
   Alert,
   Grid,
+  Card,
+  CardContent,
+  Divider,
+  Avatar,
 } from "@mui/material";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
-import { format, subMonths, differenceInDays } from "date-fns";
+import { format, subMonths, differenceInDays, subDays } from "date-fns";
 import Header from "../components/Header";
 import {
   LineChart,
@@ -44,6 +48,7 @@ import {
 import type { SalesReportData } from "../hooks/useOrders";
 import { invoke } from "@tauri-apps/api/core";
 import { useOrders } from "../hooks/useOrders";
+import { useProducts, Product } from "../hooks/useProducts";
 
 // Colors for the pie chart
 const COLORS = [
@@ -301,24 +306,28 @@ const debugDateFiltering = async (date: string) => {
 };
 
 // Add new styled components for date filter
-const FilterContainer = styled(Box)({
+const FilterContainer = styled("div")({
   display: "flex",
-  gap: "16px",
-  marginBottom: "24px",
   alignItems: "center",
+  margin: "8px 0 24px",
+  gap: "16px",
+  backgroundColor: "#2A2A2A",
+  padding: "16px",
+  borderRadius: "8px",
   flexWrap: "wrap",
 });
 
-const DatePickerContainer = styled(Box)({
+const DatePickerContainer = styled("div")({
   display: "flex",
-  gap: "16px",
   alignItems: "center",
+  gap: "16px",
+  flex: 1,
 });
 
 const StyledDatePicker = styled(DatePicker)({
   "& .MuiInputBase-root": {
     color: "#FFFFFF",
-    backgroundColor: "#2A2A2A",
+    backgroundColor: "#333333",
     borderRadius: "8px",
     "& .MuiOutlinedInput-notchedOutline": {
       borderColor: "#444444",
@@ -333,31 +342,52 @@ const StyledDatePicker = styled(DatePicker)({
   "& .MuiIconButton-root": {
     color: "#AAAAAA",
   },
+  "& .MuiInputLabel-root": {
+    color: "#AAAAAA",
+  },
+  "& .MuiInputBase-input": {
+    color: "#FFFFFF !important",
+  },
+  "& .MuiPickersDay-root": {
+    color: "#FFFFFF",
+  },
+  // Add styles for the calendar popup
+  "& .MuiCalendarPicker-root": {
+    backgroundColor: "#333333",
+    color: "#FFFFFF",
+  },
+  "& .MuiPickersDay-today": {
+    border: "1px solid #fac1d9",
+  },
+  "& .MuiPickersDay-daySelected": {
+    backgroundColor: "#fac1d9",
+    color: "#000000",
+  },
 });
 
 const StyledButton = styled(Button)({
   backgroundColor: "#fac1d9",
-  color: "#1F1F1F",
-  "&:hover": {
-    backgroundColor: "#f7a8c9",
-  },
+  color: "#000000",
   padding: "8px 16px",
-  borderRadius: "8px",
+  "&:hover": {
+    backgroundColor: "#f8aac8",
+  },
 });
 
 const ResetButton = styled(Button)({
   color: "#AAAAAA",
   borderColor: "#444444",
+  padding: "8px 16px",
   "&:hover": {
-    borderColor: "#AAAAAA",
+    borderColor: "#FFFFFF",
   },
 });
 
-// Add new styled component for filter status
+// Better styling for filter status text
 const FilterStatus = styled(Typography)({
-  fontSize: "14px",
+  fontSize: "13px",
   color: "#AAAAAA",
-  marginTop: "8px",
+  marginBottom: "16px",
   fontStyle: "italic",
 });
 
@@ -368,6 +398,44 @@ const FilteredDateInfo = styled(Typography)({
   marginTop: "8px",
   fontWeight: "bold",
 });
+
+// Styled components for Staff tab
+const StatusChip = styled("span")<{ status: string }>(({ status }) => ({
+  padding: "4px 10px",
+  borderRadius: "12px",
+  fontSize: "12px",
+  fontWeight: "500",
+  backgroundColor:
+    status === "Present"
+      ? "rgba(71, 179, 156, 0.2)"
+      : status === "Absent"
+      ? "rgba(255, 107, 139, 0.2)"
+      : "rgba(255, 193, 84, 0.2)",
+  color:
+    status === "Present"
+      ? "#47B39C"
+      : status === "Absent"
+      ? "#FF6B8B"
+      : "#FFC154",
+  border:
+    status === "Present"
+      ? "1px solid #47B39C"
+      : status === "Absent"
+      ? "1px solid #FF6B8B"
+      : "1px solid #FFC154",
+}));
+
+// Mock attendance data
+interface StaffAttendanceRecord {
+  id: number;
+  staffName: string;
+  role: string;
+  date: string;
+  shiftTime: string;
+  checkIn: string | null;
+  checkOut: string | null;
+  status: "Present" | "Absent" | "Half-shift";
+}
 
 export default function Reports() {
   const [tabValue, setTabValue] = useState(0);
@@ -383,12 +451,200 @@ export default function Reports() {
   );
   const [filterApplied, setFilterApplied] = useState(false);
 
+  // Mock delivery history data for inventory tab
+  const mockDeliveryHistory = [
+    {
+      id: 1,
+      product_name: "Coffee Beans (Arabica)",
+      supplier: "Mountain Coffee Co.",
+      quantity: 20,
+      date: format(subDays(new Date(), 2), "yyyy-MM-dd"),
+      cost: 240.0,
+    },
+    {
+      id: 2,
+      product_name: "Milk (Whole)",
+      supplier: "Dairy Delight",
+      quantity: 30,
+      date: format(subDays(new Date(), 3), "yyyy-MM-dd"),
+      cost: 90.0,
+    },
+    {
+      id: 3,
+      product_name: "Sugar (White)",
+      supplier: "Sweet Supplies Inc.",
+      quantity: 15,
+      date: format(subDays(new Date(), 4), "yyyy-MM-dd"),
+      cost: 45.0,
+    },
+    {
+      id: 4,
+      product_name: "Tea Bags (Assorted)",
+      supplier: "Global Tea Traders",
+      quantity: 25,
+      date: format(subDays(new Date(), 5), "yyyy-MM-dd"),
+      cost: 75.0,
+    },
+    {
+      id: 5,
+      product_name: "Chocolate Syrup",
+      supplier: "Dessert Delights",
+      quantity: 10,
+      date: format(subDays(new Date(), 7), "yyyy-MM-dd"),
+      cost: 60.0,
+    },
+  ];
+
+  // Get products data for inventory tab
+  const { products } = useProducts();
+
+  // Function to prepare category data for pie chart
+  const getCategoryData = (products: Product[]) => {
+    const categoryMap = new Map<number, { name: string; value: number }>();
+
+    products.forEach((product: Product) => {
+      const value = product.unit_price * product.current_stock;
+      const categoryId = product.category_id;
+      const categoryName = product.category_name || `Category ${categoryId}`;
+
+      if (categoryMap.has(categoryId)) {
+        const existing = categoryMap.get(categoryId)!;
+        existing.value += value;
+      } else {
+        categoryMap.set(categoryId, { name: categoryName, value });
+      }
+    });
+
+    return Array.from(categoryMap.values());
+  };
+
   // Get filtered sales report from React Query
   const {
     data: salesReportData,
     isLoading: isLoadingSalesReport,
     refetch: refetchSalesReport,
   } = useOrders().getSalesReportData(appliedStartDate, appliedEndDate, "day");
+
+  // Mock staff attendance data
+  const [staffAttendance, setStaffAttendance] = useState<
+    StaffAttendanceRecord[]
+  >(() => {
+    // Create attendance records for the last 7 days
+    const records: StaffAttendanceRecord[] = [];
+    const staffNames = [
+      { name: "John Smith", role: "Cashier" },
+      { name: "Maria Garcia", role: "Admin" },
+      { name: "David Lee", role: "Inventory" },
+      { name: "Sarah Johnson", role: "Manager" },
+      { name: "Michael Brown", role: "Cashier" },
+    ];
+
+    // Generate records for the last 7 days
+    for (let i = 0; i < 7; i++) {
+      const date = format(subDays(new Date(), i), "yyyy-MM-dd");
+
+      staffNames.forEach((staff, index) => {
+        // Create random attendance status
+        const randomStatus = Math.random();
+        let status: "Present" | "Absent" | "Half-shift";
+        let checkIn: string | null = null;
+        let checkOut: string | null = null;
+
+        const shiftStartHour = 8 + (index % 3); // 8, 9, or 10 AM
+        const shiftEndHour = shiftStartHour + 8; // 8 hours later
+        const shiftTime = `${shiftStartHour
+          .toString()
+          .padStart(2, "0")}:00 - ${shiftEndHour
+          .toString()
+          .padStart(2, "0")}:00`;
+
+        if (randomStatus > 0.8) {
+          status = "Absent";
+        } else if (randomStatus > 0.2) {
+          status = "Present";
+          checkIn = `${shiftStartHour.toString().padStart(2, "0")}:${Math.floor(
+            Math.random() * 15
+          )
+            .toString()
+            .padStart(2, "0")}`;
+          checkOut = `${shiftEndHour.toString().padStart(2, "0")}:${Math.floor(
+            Math.random() * 15
+          )
+            .toString()
+            .padStart(2, "0")}`;
+        } else {
+          status = "Half-shift";
+          checkIn = `${shiftStartHour.toString().padStart(2, "0")}:${Math.floor(
+            Math.random() * 15
+          )
+            .toString()
+            .padStart(2, "0")}`;
+          // Half-shift means they checked in but didn't check out
+          checkOut = null;
+        }
+
+        records.push({
+          id: records.length + 1,
+          staffName: staff.name,
+          role: staff.role,
+          date,
+          shiftTime,
+          checkIn,
+          checkOut,
+          status,
+        });
+      });
+    }
+
+    // Add a few specific records to ensure variety in today's data for the pie chart
+    const today = format(new Date(), "yyyy-MM-dd");
+
+    // Add 2 present, 1 absent, 1 half-shift for today
+    records.push(
+      {
+        id: records.length + 1,
+        staffName: "Emma Wilson",
+        role: "Cashier",
+        date: today,
+        shiftTime: "08:00 - 16:00",
+        checkIn: "08:05",
+        checkOut: "16:10",
+        status: "Present",
+      },
+      {
+        id: records.length + 2,
+        staffName: "James Rodriguez",
+        role: "Inventory",
+        date: today,
+        shiftTime: "09:00 - 17:00",
+        checkIn: "09:02",
+        checkOut: "17:05",
+        status: "Present",
+      },
+      {
+        id: records.length + 3,
+        staffName: "Jessica Taylor",
+        role: "Cashier",
+        date: today,
+        shiftTime: "10:00 - 18:00",
+        checkIn: null,
+        checkOut: null,
+        status: "Absent",
+      },
+      {
+        id: records.length + 4,
+        staffName: "Alex Chen",
+        role: "Manager",
+        date: today,
+        shiftTime: "09:00 - 17:00",
+        checkIn: "09:10",
+        checkOut: null,
+        status: "Half-shift",
+      }
+    );
+
+    return records;
+  });
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -478,6 +734,72 @@ export default function Reports() {
     setFilterApplied(false);
   };
 
+  // Function to check and update attendance status automatically
+  useEffect(() => {
+    const autoUpdateAttendance = () => {
+      const now = new Date();
+      const todayFormatted = format(now, "yyyy-MM-dd");
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+
+      setStaffAttendance((prev) =>
+        prev.map((record) => {
+          // Only process today's records
+          if (record.date !== todayFormatted) return record;
+
+          // Parse shift times
+          const [startTime, endTime] = record.shiftTime.split(" - ");
+          const [startHour, startMinute] = startTime.split(":").map(Number);
+          const [endHour, endMinute] = endTime.split(":").map(Number);
+
+          // Convert to minutes for comparison
+          const shiftStartMinutes = startHour * 60 + startMinute;
+          const shiftEndMinutes = endHour * 60 + endMinute;
+          const currentMinutes = currentHour * 60 + currentMinute;
+
+          // Logic to determine status:
+
+          // If current time is past shift end time
+          if (currentMinutes > shiftEndMinutes) {
+            // If they checked in and checked out, they're present
+            if (record.checkIn && record.checkOut) {
+              return { ...record, status: "Present" };
+            }
+            // If they checked in but didn't check out, they're half-shift
+            else if (record.checkIn) {
+              return { ...record, status: "Half-shift" };
+            }
+            // If they didn't check in at all, they're absent
+            else {
+              return { ...record, status: "Absent" };
+            }
+          }
+
+          // If current time is between shift start and end
+          else if (currentMinutes >= shiftStartMinutes) {
+            // If they already checked in, leave status as is
+            if (record.checkIn) {
+              return record;
+            }
+            // If they're more than 30 mins late, mark as absent
+            else if (currentMinutes > shiftStartMinutes + 30) {
+              return { ...record, status: "Absent" };
+            }
+          }
+
+          // For all other cases, return record unchanged
+          return record;
+        })
+      );
+    };
+
+    // Run once and set interval
+    autoUpdateAttendance();
+    const interval = setInterval(autoUpdateAttendance, 60000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <Container>
       <Header title="Reports" />
@@ -501,11 +823,18 @@ export default function Reports() {
             }_${"day"}`}
           >
             {/* Date Range Filter */}
-            <LocalizationProvider dateAdapter={AdapterDateFns}>
-              <FilterContainer>
-                <Typography variant="body1" color="#AAAAAA">
-                  Filter by date range:
-                </Typography>
+            <FilterContainer>
+              <Typography
+                variant="body1"
+                sx={{
+                  color: "#AAAAAA",
+                  fontWeight: "medium",
+                  minWidth: "150px",
+                }}
+              >
+                Filter by date range:
+              </Typography>
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
                 <DatePickerContainer>
                   <StyledDatePicker
                     label="Start Date"
@@ -514,12 +843,15 @@ export default function Reports() {
                     slotProps={{
                       textField: {
                         size: "small",
-                        InputLabelProps: { style: { color: "#AAAAAA" } },
+                        fullWidth: true,
+                        InputProps: {
+                          style: { color: "#FFFFFF" },
+                        },
                       },
                     }}
                     format="yyyy-MM-dd"
                   />
-                  <Typography color="#AAAAAA">to</Typography>
+                  <Typography color="#FFFFFF">to</Typography>
                   <StyledDatePicker
                     label="End Date"
                     value={endDate}
@@ -527,34 +859,31 @@ export default function Reports() {
                     slotProps={{
                       textField: {
                         size: "small",
-                        InputLabelProps: { style: { color: "#AAAAAA" } },
+                        fullWidth: true,
+                        InputProps: {
+                          style: { color: "#FFFFFF" },
+                        },
                       },
                     }}
                     format="yyyy-MM-dd"
                   />
                 </DatePickerContainer>
-                <Stack direction="row" spacing={2}>
-                  <StyledButton variant="contained" onClick={handleApplyFilter}>
-                    Apply Filter
-                  </StyledButton>
-                  <ResetButton variant="outlined" onClick={handleResetFilter}>
-                    Reset
-                  </ResetButton>
-                </Stack>
-              </FilterContainer>
+              </LocalizationProvider>
+              <Stack direction="row" spacing={2}>
+                <StyledButton variant="contained" onClick={handleApplyFilter}>
+                  Apply Filter
+                </StyledButton>
+                <ResetButton variant="outlined" onClick={handleResetFilter}>
+                  Reset
+                </ResetButton>
+              </Stack>
+            </FilterContainer>
 
-              <FilterStatus>
-                {filterApplied
-                  ? `Filtered data from ${appliedStartDate} to ${appliedEndDate} (exact dates used in query)`
-                  : "Showing data from the last month"}
-              </FilterStatus>
-
-              {filterApplied && (
-                <FilteredDateInfo>
-                  Filtered data from {appliedStartDate} to {appliedEndDate}
-                </FilteredDateInfo>
-              )}
-            </LocalizationProvider>
+            <FilterStatus>
+              {filterApplied
+                ? `Filtered data from ${appliedStartDate} to ${appliedEndDate}`
+                : "Showing data from the last month"}
+            </FilterStatus>
 
             {/* Display error if any */}
             {isLoadingSalesReport ? (
@@ -965,37 +1294,605 @@ export default function Reports() {
           </TabPanel>
         )}
 
-        {/* Inventory Tab (placeholder) */}
+        {/* Inventory Tab */}
         {tabValue === 1 && (
           <TabPanel>
-            <PlaceholderTab>
-              <CircularProgress
-                size={40}
-                sx={{ color: "#fac1d9", marginBottom: "16px" }}
-              />
-              <Typography variant="h6">
-                Inventory Reports Coming Soon
+            {/* Date Range Filter */}
+            <FilterContainer>
+              <Typography
+                variant="body1"
+                sx={{
+                  color: "#AAAAAA",
+                  fontWeight: "medium",
+                  minWidth: "150px",
+                }}
+              >
+                Filter by date range:
               </Typography>
-              <Typography variant="body2">
-                This section is under development
-              </Typography>
-            </PlaceholderTab>
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePickerContainer>
+                  <StyledDatePicker
+                    label="Start Date"
+                    value={startDate}
+                    onChange={(newValue) => setStartDate(newValue)}
+                    slotProps={{
+                      textField: {
+                        size: "small",
+                        fullWidth: true,
+                        InputProps: {
+                          style: { color: "#FFFFFF" },
+                        },
+                      },
+                    }}
+                    format="yyyy-MM-dd"
+                  />
+                  <Typography color="#FFFFFF">to</Typography>
+                  <StyledDatePicker
+                    label="End Date"
+                    value={endDate}
+                    onChange={(newValue) => setEndDate(newValue)}
+                    slotProps={{
+                      textField: {
+                        size: "small",
+                        fullWidth: true,
+                        InputProps: {
+                          style: { color: "#FFFFFF" },
+                        },
+                      },
+                    }}
+                    format="yyyy-MM-dd"
+                  />
+                </DatePickerContainer>
+              </LocalizationProvider>
+              <Stack direction="row" spacing={2}>
+                <StyledButton variant="contained" onClick={handleApplyFilter}>
+                  Apply Filter
+                </StyledButton>
+                <ResetButton variant="outlined" onClick={handleResetFilter}>
+                  Reset
+                </ResetButton>
+              </Stack>
+            </FilterContainer>
+
+            <FilterStatus>
+              {filterApplied
+                ? `Filtered data from ${appliedStartDate} to ${appliedEndDate}`
+                : "Showing data from the last month"}
+            </FilterStatus>
+
+            {isLoadingSalesReport ? (
+              <LoadingIndicator />
+            ) : (
+              <>
+                {/* Summary Cards */}
+                <SummaryContainer>
+                  <SummaryCard elevation={0}>
+                    <CardTitle variant="body2">Total Inventory Value</CardTitle>
+                    <CardValue variant="h5">
+                      {formatCurrency(
+                        products
+                          ? products.reduce(
+                              (sum, product) =>
+                                sum +
+                                product.unit_price * product.current_stock,
+                              0
+                            )
+                          : 0
+                      )}
+                    </CardValue>
+                  </SummaryCard>
+                  <SummaryCard elevation={0}>
+                    <CardTitle variant="body2">Total Items</CardTitle>
+                    <CardValue variant="h5">
+                      {products
+                        ? products.reduce(
+                            (sum, product) => sum + product.current_stock,
+                            0
+                          )
+                        : 0}
+                    </CardValue>
+                  </SummaryCard>
+                  <SummaryCard elevation={0}>
+                    <CardTitle variant="body2">Low Stock Items</CardTitle>
+                    <CardValue variant="h5">
+                      {products
+                        ? products.filter(
+                            (product) =>
+                              product.current_stock <= product.minimum_stock
+                          ).length
+                        : 0}
+                    </CardValue>
+                  </SummaryCard>
+                  <SummaryCard elevation={0}>
+                    <CardTitle variant="body2">Stock Turnover Rate</CardTitle>
+                    <CardValue variant="h5">5.2x</CardValue>
+                  </SummaryCard>
+                </SummaryContainer>
+
+                {/* Charts */}
+                <ChartsRow>
+                  <ChartColumnLarge>
+                    <ChartContainer>
+                      <ChartTitle>Stock Level Trends</ChartTitle>
+                      <ResponsiveContainer width="100%" height="85%">
+                        <LineChart
+                          data={[
+                            { date: "Jan", stock: 120 },
+                            { date: "Feb", stock: 150 },
+                            { date: "Mar", stock: 180 },
+                            { date: "Apr", stock: 140 },
+                            { date: "May", stock: 160 },
+                            { date: "Jun", stock: 200 },
+                          ]}
+                          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                          <XAxis dataKey="date" stroke="#AAA" />
+                          <YAxis stroke="#AAA" />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: "#333",
+                              border: "1px solid #444",
+                              borderRadius: "4px",
+                              color: "#FFF",
+                            }}
+                          />
+                          <Legend />
+                          <Line
+                            type="monotone"
+                            dataKey="stock"
+                            name="Total Stock"
+                            stroke="#FAC1D9"
+                            activeDot={{ r: 8 }}
+                            strokeWidth={2}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </ChartContainer>
+                  </ChartColumnLarge>
+
+                  <ChartColumnSmall>
+                    <ChartContainer>
+                      <ChartTitle>Inventory Value by Category</ChartTitle>
+                      <ResponsiveContainer width="100%" height="85%">
+                        <PieChart>
+                          <Pie
+                            data={products ? getCategoryData(products) : []}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={renderCustomizedLabel}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            {(products ? getCategoryData(products) : []).map(
+                              (entry, index) => (
+                                <Cell
+                                  key={`cell-${index}`}
+                                  fill={COLORS[index % COLORS.length]}
+                                />
+                              )
+                            )}
+                          </Pie>
+                          <Tooltip
+                            formatter={(value) => formatCurrency(Number(value))}
+                            contentStyle={{
+                              backgroundColor: "#333",
+                              border: "1px solid #444",
+                              borderRadius: "4px",
+                              color: "#FFF",
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </ChartContainer>
+                  </ChartColumnSmall>
+                </ChartsRow>
+
+                {/* Product Delivery History Table */}
+                <TableTitle variant="h6">Product Delivery History</TableTitle>
+                <StyledTableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <EnhancedHeaderCell>Product</EnhancedHeaderCell>
+                        <EnhancedHeaderCell>Supplier</EnhancedHeaderCell>
+                        <EnhancedHeaderCell align="right">
+                          Quantity
+                        </EnhancedHeaderCell>
+                        <EnhancedHeaderCell align="right">
+                          Cost
+                        </EnhancedHeaderCell>
+                        <EnhancedHeaderCell align="right">
+                          Date
+                        </EnhancedHeaderCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {mockDeliveryHistory.map((record, index) => (
+                        <TableRow key={record.id}>
+                          <EnhancedTableCell>
+                            {record.product_name}
+                          </EnhancedTableCell>
+                          <EnhancedTableCell>
+                            {record.supplier}
+                          </EnhancedTableCell>
+                          <EnhancedTableCell align="right">
+                            {record.quantity}
+                          </EnhancedTableCell>
+                          <EnhancedTableCell align="right">
+                            {formatCurrency(record.cost)}
+                          </EnhancedTableCell>
+                          <EnhancedTableCell align="right">
+                            {record.date}
+                          </EnhancedTableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </StyledTableContainer>
+              </>
+            )}
           </TabPanel>
         )}
 
-        {/* Staff Tab (placeholder) */}
+        {/* Staff Tab */}
         {tabValue === 2 && (
           <TabPanel>
-            <PlaceholderTab>
-              <CircularProgress
-                size={40}
-                sx={{ color: "#fac1d9", marginBottom: "16px" }}
-              />
-              <Typography variant="h6">Staff Reports Coming Soon</Typography>
-              <Typography variant="body2">
-                This section is under development
+            {/* Date Range Filter */}
+            <FilterContainer>
+              <Typography
+                variant="body1"
+                sx={{
+                  color: "#AAAAAA",
+                  fontWeight: "medium",
+                  minWidth: "150px",
+                }}
+              >
+                Filter by date range:
               </Typography>
-            </PlaceholderTab>
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePickerContainer>
+                  <StyledDatePicker
+                    label="Start Date"
+                    value={startDate}
+                    onChange={(newValue) => setStartDate(newValue)}
+                    slotProps={{
+                      textField: {
+                        size: "small",
+                        fullWidth: true,
+                        InputProps: {
+                          style: { color: "#FFFFFF" },
+                        },
+                      },
+                    }}
+                    format="yyyy-MM-dd"
+                  />
+                  <Typography color="#FFFFFF">to</Typography>
+                  <StyledDatePicker
+                    label="End Date"
+                    value={endDate}
+                    onChange={(newValue) => setEndDate(newValue)}
+                    slotProps={{
+                      textField: {
+                        size: "small",
+                        fullWidth: true,
+                        InputProps: {
+                          style: { color: "#FFFFFF" },
+                        },
+                      },
+                    }}
+                    format="yyyy-MM-dd"
+                  />
+                </DatePickerContainer>
+              </LocalizationProvider>
+              <Stack direction="row" spacing={2}>
+                <StyledButton variant="contained" onClick={handleApplyFilter}>
+                  Apply Filter
+                </StyledButton>
+                <ResetButton variant="outlined" onClick={handleResetFilter}>
+                  Reset
+                </ResetButton>
+              </Stack>
+            </FilterContainer>
+
+            <FilterStatus>
+              {filterApplied
+                ? `Filtered data from ${appliedStartDate} to ${appliedEndDate}`
+                : "Showing data from the last month"}
+            </FilterStatus>
+
+            {isLoadingSalesReport ? (
+              <LoadingIndicator />
+            ) : (
+              <>
+                {/* Summary Cards */}
+                <SummaryContainer>
+                  <SummaryCard elevation={0}>
+                    <CardTitle variant="body2">Total Staff</CardTitle>
+                    <CardValue variant="h5">
+                      {
+                        Array.from(
+                          new Set(staffAttendance.map((s) => s.staffName))
+                        ).length
+                      }
+                    </CardValue>
+                  </SummaryCard>
+                  <SummaryCard elevation={0}>
+                    <CardTitle variant="body2">Present Today</CardTitle>
+                    <CardValue variant="h5">
+                      {
+                        staffAttendance.filter(
+                          (record) =>
+                            record.status === "Present" &&
+                            record.date === format(new Date(), "yyyy-MM-dd")
+                        ).length
+                      }
+                    </CardValue>
+                  </SummaryCard>
+                  <SummaryCard elevation={0}>
+                    <CardTitle variant="body2">Absent Today</CardTitle>
+                    <CardValue variant="h5">
+                      {
+                        staffAttendance.filter(
+                          (record) =>
+                            record.status === "Absent" &&
+                            record.date === format(new Date(), "yyyy-MM-dd")
+                        ).length
+                      }
+                    </CardValue>
+                  </SummaryCard>
+                  <SummaryCard elevation={0}>
+                    <CardTitle variant="body2">Half-Shift Today</CardTitle>
+                    <CardValue variant="h5">
+                      {
+                        staffAttendance.filter(
+                          (record) =>
+                            record.status === "Half-shift" &&
+                            record.date === format(new Date(), "yyyy-MM-dd")
+                        ).length
+                      }
+                    </CardValue>
+                  </SummaryCard>
+                </SummaryContainer>
+
+                {/* Charts */}
+                <ChartsRow>
+                  <ChartColumnLarge>
+                    <ChartContainer>
+                      <ChartTitle>Staff Attendance Trend</ChartTitle>
+                      <ResponsiveContainer width="100%" height="85%">
+                        <LineChart
+                          data={[
+                            {
+                              date: "Mon",
+                              present: 12,
+                              absent: 3,
+                              halfShift: 1,
+                            },
+                            {
+                              date: "Tue",
+                              present: 14,
+                              absent: 2,
+                              halfShift: 0,
+                            },
+                            {
+                              date: "Wed",
+                              present: 13,
+                              absent: 3,
+                              halfShift: 0,
+                            },
+                            {
+                              date: "Thu",
+                              present: 15,
+                              absent: 0,
+                              halfShift: 1,
+                            },
+                            {
+                              date: "Fri",
+                              present: 14,
+                              absent: 1,
+                              halfShift: 1,
+                            },
+                            {
+                              date: "Sat",
+                              present: 11,
+                              absent: 4,
+                              halfShift: 1,
+                            },
+                            {
+                              date: "Sun",
+                              present: 10,
+                              absent: 5,
+                              halfShift: 1,
+                            },
+                          ]}
+                          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                          <XAxis dataKey="date" stroke="#AAA" />
+                          <YAxis stroke="#AAA" />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: "#333",
+                              border: "1px solid #444",
+                              borderRadius: "4px",
+                              color: "#FFF",
+                            }}
+                          />
+                          <Legend />
+                          <Line
+                            type="monotone"
+                            dataKey="present"
+                            name="Present"
+                            stroke="#47B39C"
+                            activeDot={{ r: 8 }}
+                            strokeWidth={2}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="absent"
+                            name="Absent"
+                            stroke="#FF6B8B"
+                            activeDot={{ r: 6 }}
+                            strokeWidth={2}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="halfShift"
+                            name="Half-Shift"
+                            stroke="#FFC154"
+                            activeDot={{ r: 6 }}
+                            strokeWidth={2}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </ChartContainer>
+                  </ChartColumnLarge>
+
+                  <ChartColumnSmall>
+                    <ChartContainer>
+                      <ChartTitle>Today's Attendance Breakdown</ChartTitle>
+                      <ResponsiveContainer width="100%" height="85%">
+                        <PieChart>
+                          <Pie
+                            data={[
+                              {
+                                name: "Present",
+                                value: staffAttendance.filter(
+                                  (r) =>
+                                    r.status === "Present" &&
+                                    r.date === format(new Date(), "yyyy-MM-dd")
+                                ).length,
+                              },
+                              {
+                                name: "Absent",
+                                value: staffAttendance.filter(
+                                  (r) =>
+                                    r.status === "Absent" &&
+                                    r.date === format(new Date(), "yyyy-MM-dd")
+                                ).length,
+                              },
+                              {
+                                name: "Half-shift",
+                                value: staffAttendance.filter(
+                                  (r) =>
+                                    r.status === "Half-shift" &&
+                                    r.date === format(new Date(), "yyyy-MM-dd")
+                                ).length,
+                              },
+                            ]}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={renderCustomizedLabel}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            <Cell key="cell-0" fill="#47B39C" />
+                            <Cell key="cell-1" fill="#FF6B8B" />
+                            <Cell key="cell-2" fill="#FFC154" />
+                          </Pie>
+                          <Tooltip
+                            formatter={(value) => value}
+                            contentStyle={{
+                              backgroundColor: "#333",
+                              border: "1px solid #444",
+                              borderRadius: "4px",
+                              color: "#FFF",
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </ChartContainer>
+                  </ChartColumnSmall>
+                </ChartsRow>
+
+                {/* Staff Attendance History Table */}
+                <TableTitle variant="h6">Staff Attendance History</TableTitle>
+                <StyledTableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <EnhancedHeaderCell>Staff Name</EnhancedHeaderCell>
+                        <EnhancedHeaderCell>Role</EnhancedHeaderCell>
+                        <EnhancedHeaderCell>Date</EnhancedHeaderCell>
+                        <EnhancedHeaderCell>Shift Time</EnhancedHeaderCell>
+                        <EnhancedHeaderCell>Check In</EnhancedHeaderCell>
+                        <EnhancedHeaderCell>Check Out</EnhancedHeaderCell>
+                        <EnhancedHeaderCell>Status</EnhancedHeaderCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {staffAttendance
+                        .sort(
+                          (a, b) =>
+                            new Date(b.date).getTime() -
+                            new Date(a.date).getTime()
+                        )
+                        .slice(0, 20) // Limit to 20 recent records for performance
+                        .map((record, index) =>
+                          index % 2 === 0 ? (
+                            <StyledTableRowEven key={record.id}>
+                              <EnhancedTableCell>
+                                {record.staffName}
+                              </EnhancedTableCell>
+                              <EnhancedTableCell>
+                                {record.role}
+                              </EnhancedTableCell>
+                              <EnhancedTableCell>
+                                {record.date}
+                              </EnhancedTableCell>
+                              <EnhancedTableCell>
+                                {record.shiftTime}
+                              </EnhancedTableCell>
+                              <EnhancedTableCell>
+                                {record.checkIn || "-"}
+                              </EnhancedTableCell>
+                              <EnhancedTableCell>
+                                {record.checkOut || "-"}
+                              </EnhancedTableCell>
+                              <EnhancedTableCell>
+                                <StatusChip status={record.status}>
+                                  {record.status}
+                                </StatusChip>
+                              </EnhancedTableCell>
+                            </StyledTableRowEven>
+                          ) : (
+                            <StyledTableRowOdd key={record.id}>
+                              <EnhancedTableCell>
+                                {record.staffName}
+                              </EnhancedTableCell>
+                              <EnhancedTableCell>
+                                {record.role}
+                              </EnhancedTableCell>
+                              <EnhancedTableCell>
+                                {record.date}
+                              </EnhancedTableCell>
+                              <EnhancedTableCell>
+                                {record.shiftTime}
+                              </EnhancedTableCell>
+                              <EnhancedTableCell>
+                                {record.checkIn || "-"}
+                              </EnhancedTableCell>
+                              <EnhancedTableCell>
+                                {record.checkOut || "-"}
+                              </EnhancedTableCell>
+                              <EnhancedTableCell>
+                                <StatusChip status={record.status}>
+                                  {record.status}
+                                </StatusChip>
+                              </EnhancedTableCell>
+                            </StyledTableRowOdd>
+                          )
+                        )}
+                    </TableBody>
+                  </Table>
+                </StyledTableContainer>
+              </>
+            )}
           </TabPanel>
         )}
       </Box>

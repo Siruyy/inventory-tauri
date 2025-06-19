@@ -17,6 +17,7 @@ import Reports from "./pages/Reports";
 import Profile from "./pages/Profile";
 import InventoryReport from "./pages/InventoryReport";
 import Orders from "./pages/Orders";
+import Notifications from "./pages/Notifications";
 
 // AuthenticatedLayout component to wrap protected routes
 const AuthenticatedLayout: React.FC<{ children: React.ReactNode }> = ({
@@ -131,6 +132,18 @@ export default function Router() {
             <ProtectedRoute>
               <AuthenticatedLayout>
                 <Profile />
+              </AuthenticatedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Notifications route */}
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <AuthenticatedLayout>
+                <Notifications />
               </AuthenticatedLayout>
             </ProtectedRoute>
           }

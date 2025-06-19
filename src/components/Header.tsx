@@ -6,8 +6,8 @@ import { useAuth } from "../context/AuthContext";
 // Make sure these three SVG files live in the same folder as Header.tsx,
 // or adjust the import paths accordingly.
 import BackArrow from "./back-arrow.svg";
-import NotificationBell from "./notification-bell.svg";
 import ProfileIcon from "./profile-icon.svg";
+import NotificationBell from "./NotificationBell";
 
 interface HeaderProps {
   title: string;
@@ -73,21 +73,7 @@ export default function Header({ title }: HeaderProps): JSX.Element {
         <h1 style={styles.title}>{title}</h1>
       </div>
       <div style={styles.right}>
-        <NavLink
-          to="/notifications"
-          style={
-            location.pathname === "/notifications"
-              ? { ...styles.iconLink, ...styles.iconActive }
-              : styles.iconLink
-          }
-          title="Notifications"
-        >
-          <img
-            src={NotificationBell}
-            alt="Notifications"
-            style={styles.iconImage}
-          />
-        </NavLink>
+        <NotificationBell />
         <NavLink
           to="/profile"
           style={

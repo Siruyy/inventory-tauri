@@ -1,18 +1,21 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import PenIcon from "/icons/pen.svg";
 import TrashIcon from "/icons/trash.svg";
 import { useCategories, type Category } from "../hooks/useCategories";
 import { useProducts } from "../hooks/useProducts";
 import { toast } from "sonner";
+import { formatFilePath } from "../utils/fileUtils";
 
 interface CategoryCardsProps {
   selectedCategoryId?: number;
   onSelectCategory: (categoryId?: number) => void;
+  onEditCategory?: (category: Category) => void;
 }
 
 export function CategoryCards({
   selectedCategoryId,
   onSelectCategory,
+  onEditCategory,
 }: CategoryCardsProps) {
   const { categories, deleteCategory, refetchCategories } = useCategories();
   const { products, refetchProducts } = useProducts();
@@ -20,10 +23,28 @@ export function CategoryCards({
     null
   );
   const [isProcessing, setIsProcessing] = useState(false);
+  const [categoryIcons, setCategoryIcons] = useState<Record<number, string>>(
+    {}
+  );
 
   console.log("CategoryCards - categories:", categories);
   console.log("CategoryCards - products:", products);
   console.log("CategoryCards - selectedCategoryId:", selectedCategoryId);
+
+  // Load category icons
+  useEffect(() => {
+    const loadIcons = () => {
+      const iconMap: Record<number, string> = {};
+      categories.forEach((category) => {
+        if (category.icon) {
+          iconMap[category.id] = formatFilePath(category.icon);
+        }
+      });
+      setCategoryIcons(iconMap);
+    };
+
+    loadIcons();
+  }, [categories]);
 
   // Count products per category
   const getProductCountForCategory = (categoryId: number) => {
@@ -32,6 +53,14 @@ export function CategoryCards({
     ).length;
     console.log(`Category ${categoryId} has ${count} products`);
     return count;
+  };
+
+  // Handle edit button click
+  const handleEditClick = (e: React.MouseEvent, category: Category) => {
+    e.stopPropagation();
+    if (onEditCategory) {
+      onEditCategory(category);
+    }
   };
 
   // First step in delete process - mark category for deletion and show confirmation
@@ -51,7 +80,7 @@ export function CategoryCards({
       setIsProcessing(true);
 
       try {
-        await deleteCategory(deletingCategoryId);
+        await deleteCategory.mutate(deletingCategoryId);
         console.log("Category deleted successfully");
         // Explicitly refetch after deletion to ensure UI is up to date
         refetchCategories();
@@ -142,6 +171,7 @@ export function CategoryCards({
       {/* Category cards */}
       {categories.map((category: Category) => {
         const productCount = getProductCountForCategory(category.id);
+        const iconUrl = categoryIcons[category.id] || "";
 
         return (
           <div
@@ -156,11 +186,22 @@ export function CategoryCards({
           >
             {/* Category Icon */}
             <div style={styles.iconContainer}>
-              <img
-                src={category.description || "https://via.placeholder.com/40"}
-                alt={category.name}
-                style={styles.icon}
-              />
+              {iconUrl ? (
+                <img
+                  src={iconUrl}
+                  alt={category.name}
+                  style={styles.icon}
+                  onError={(e) => {
+                    console.error("Error loading image:", iconUrl);
+                    (e.target as HTMLImageElement).src =
+                      "https://via.placeholder.com/40";
+                  }}
+                />
+              ) : (
+                <div style={styles.placeholderIcon}>
+                  {category.name.charAt(0)}
+                </div>
+              )}
             </div>
 
             {/* Category Info */}
@@ -175,10 +216,7 @@ export function CategoryCards({
             <div style={styles.actionButtons}>
               <button
                 style={styles.actionButton}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // We'll implement edit functionality later
-                }}
+                onClick={(e) => handleEditClick(e, category)}
               >
                 <img src={PenIcon} alt="Edit" style={styles.actionIcon} />
               </button>
@@ -367,6 +405,18 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: "8px",
   },
   allCategoryIcon: {
+    width: "40px",
+    height: "40px",
+    borderRadius: "8px",
+    backgroundColor: "#3A3D40",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#FFFFFF",
+    fontWeight: "bold",
+    fontSize: "16px",
+  },
+  placeholderIcon: {
     width: "40px",
     height: "40px",
     borderRadius: "8px",
