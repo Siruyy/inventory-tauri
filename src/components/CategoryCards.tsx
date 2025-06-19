@@ -33,13 +33,20 @@ export function CategoryCards({
 
   // Load category icons
   useEffect(() => {
-    const loadIcons = () => {
+    const loadIcons = async () => {
+      console.log("Loading category icons...");
       const iconMap: Record<number, string> = {};
-      categories.forEach((category) => {
+      
+      for (const category of categories) {
         if (category.icon) {
-          iconMap[category.id] = formatFilePath(category.icon);
+          console.log(`Processing category ${category.id} icon:`, category.icon);
+          const formattedPath = formatFilePath(category.icon);
+          console.log(`Formatted path for category ${category.id}:`, formattedPath);
+          iconMap[category.id] = formattedPath;
         }
-      });
+      }
+      
+      console.log("Final icon map:", iconMap);
       setCategoryIcons(iconMap);
     };
 
@@ -194,7 +201,7 @@ export function CategoryCards({
                   onError={(e) => {
                     console.error("Error loading image:", iconUrl);
                     (e.target as HTMLImageElement).src =
-                      "https://via.placeholder.com/40";
+                      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%23383C3D'/%3E%3C/svg%3E";
                   }}
                 />
               ) : (

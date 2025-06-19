@@ -1,6 +1,7 @@
 import React from "react";
 import { useCategories, type Category } from "../hooks/useCategories";
 import { useProducts } from "../hooks/useProducts";
+import { formatFilePath } from "../utils/fileUtils";
 
 interface OrderCategoryCardsProps {
   selectedCategoryId?: number;
@@ -58,11 +59,22 @@ export function OrderCategoryCards({
           >
             {/* Category Icon */}
             <div style={styles.iconContainer}>
-              <img
-                src={category.description || "https://via.placeholder.com/40"}
-                alt={category.name}
-                style={styles.icon}
-              />
+              {category.icon ? (
+                <img
+                  src={formatFilePath(category.icon)}
+                  alt={category.name}
+                  style={styles.icon}
+                  onError={(e) => {
+                    console.error("Error loading image:", category.icon);
+                    (e.target as HTMLImageElement).src =
+                      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%23383C3D'/%3E%3C/svg%3E";
+                  }}
+                />
+              ) : (
+                <div style={styles.placeholderIcon}>
+                  {category.name.charAt(0)}
+                </div>
+              )}
             </div>
 
             {/* Category Info */}
@@ -167,6 +179,18 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: "8px",
   },
   allCategoryIcon: {
+    width: "40px",
+    height: "40px",
+    borderRadius: "8px",
+    backgroundColor: "#3A3D40",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#FFFFFF",
+    fontWeight: "bold",
+    fontSize: "16px",
+  },
+  placeholderIcon: {
     width: "40px",
     height: "40px",
     borderRadius: "8px",

@@ -134,6 +134,8 @@ export default function Inventory() {
   // Memoized save category handler to prevent unnecessary re-renders
   const handleSaveCategory = useCallback(
     (categoryData: { name: string; imageUrl: string }) => {
+      console.log("Saving category with imageUrl:", categoryData.imageUrl);
+      
       // Prevent multiple submissions
       if (isProcessing) return;
 
@@ -144,8 +146,11 @@ export default function Inventory() {
         const updatedCategory = {
           id: selectedCategory.id,
           name: categoryData.name,
-          description: categoryData.imageUrl, // Store the imageUrl in the description field
+          description: null,
+          icon: categoryData.imageUrl, // Use the icon field for the imageUrl, not description
         };
+
+        console.log("Updating category with:", updatedCategory);
 
         // Use timeout to ensure UI has time to update before mutation
         setTimeout(() => {
@@ -167,8 +172,11 @@ export default function Inventory() {
         // ADD mode - add new category
         const newCategory = {
           name: categoryData.name,
-          description: categoryData.imageUrl, // Store the imageUrl in the description field for now
+          description: null,
+          icon: categoryData.imageUrl, // Use the icon field for the imageUrl, not description
         };
+
+        console.log("Adding new category with:", newCategory);
 
         // Use timeout to ensure UI has time to update before mutation
         setTimeout(() => {
