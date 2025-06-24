@@ -22,6 +22,7 @@ import {
   CardContent,
   Divider,
   Avatar,
+  TablePagination,
 } from "@mui/material";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
@@ -46,9 +47,10 @@ import {
   LabelList,
 } from "recharts";
 import type { SalesReportData } from "../hooks/useOrders";
-import { invoke } from "@tauri-apps/api/core";
 import { useOrders } from "../hooks/useOrders";
 import { useProducts, Product } from "../hooks/useProducts";
+import { toast } from "sonner";
+import * as XLSX from "xlsx";
 
 // Colors for the pie chart
 const COLORS = [
@@ -292,19 +294,6 @@ const formatCurrency = (value: number) => {
   })}`;
 };
 
-// Debug function to check date filtering
-const debugDateFiltering = async (date: string) => {
-  try {
-    return await invoke("debug_date_filtering", {
-      date_str: date,
-      dateStr: date,
-    });
-  } catch (error) {
-    console.error("Error debugging date filtering:", error);
-    return null;
-  }
-};
-
 // Add new styled components for date filter
 const FilterContainer = styled("div")({
   display: "flex",
@@ -383,20 +372,14 @@ const ResetButton = styled(Button)({
   },
 });
 
-// Better styling for filter status text
-const FilterStatus = styled(Typography)({
-  fontSize: "13px",
-  color: "#AAAAAA",
-  marginBottom: "16px",
-  fontStyle: "italic",
-});
-
-// Add a component to display the filtered date range
-const FilteredDateInfo = styled(Typography)({
-  fontSize: "14px",
-  color: "#fac1d9",
-  marginTop: "8px",
-  fontWeight: "bold",
+// Add styled component for export button
+const ExportButton = styled(Button)({
+  backgroundColor: "#41C463",
+  color: "#000000",
+  padding: "8px 16px",
+  "&:hover": {
+    backgroundColor: "#35A052",
+  },
 });
 
 // Styled components for Staff tab
@@ -437,94 +420,114 @@ interface StaffAttendanceRecord {
   status: "Present" | "Absent" | "Half-shift";
 }
 
+// Define StaffMember type near other interfaces
+interface StaffMember {
+  id: string;
+  name: string;
+  role: string;
+  department?: string;
+  phone?: string;
+  age?: number;
+  timings: string; // e.g., "08:00 to 16:00" or "08:00 - 16:00"
+  avatar?: string;
+  isAvailable?: boolean;
+}
+
 export default function Reports() {
   const [tabValue, setTabValue] = useState(0);
-  const [startDate, setStartDate] = useState<Date | null>(
-    subMonths(new Date(), 1)
-  );
-  const [endDate, setEndDate] = useState<Date | null>(new Date());
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
   const [appliedStartDate, setAppliedStartDate] = useState<string | undefined>(
-    format(subMonths(new Date(), 1), "yyyy-MM-dd")
+    undefined
   );
   const [appliedEndDate, setAppliedEndDate] = useState<string | undefined>(
-    format(new Date(), "yyyy-MM-dd")
+    undefined
   );
   const [filterApplied, setFilterApplied] = useState(false);
   const [isFiltering, setIsFiltering] = useState(false);
 
-  // Mock delivery history data for inventory tab
-  const mockDeliveryHistory = [
-    {
-      id: 1,
-      product_name: "Coffee Beans (Arabica)",
-      supplier: "Mountain Coffee Co.",
-      quantity: 20,
-      date: format(subDays(new Date(), 2), "yyyy-MM-dd"),
-      cost: 240.0,
-    },
-    {
-      id: 2,
-      product_name: "Milk (Whole)",
-      supplier: "Dairy Delight",
-      quantity: 30,
-      date: format(subDays(new Date(), 3), "yyyy-MM-dd"),
-      cost: 90.0,
-    },
-    {
-      id: 3,
-      product_name: "Sugar (White)",
-      supplier: "Sweet Supplies Inc.",
-      quantity: 15,
-      date: format(subDays(new Date(), 4), "yyyy-MM-dd"),
-      cost: 45.0,
-    },
-    {
-      id: 4,
-      product_name: "Tea Bags (Assorted)",
-      supplier: "Global Tea Traders",
-      quantity: 25,
-      date: format(subDays(new Date(), 5), "yyyy-MM-dd"),
-      cost: 75.0,
-    },
-    {
-      id: 5,
-      product_name: "Chocolate Syrup",
-      supplier: "Dessert Delights",
-      quantity: 10,
-      date: format(subDays(new Date(), 7), "yyyy-MM-dd"),
-      cost: 60.0,
-    },
-  ];
+  // NEW: inventory-specific date filter state
+  const [invStartDate, setInvStartDate] = useState<Date | null>(null);
+  const [invEndDate, setInvEndDate] = useState<Date | null>(null);
+  const [appliedInvStartDate, setAppliedInvStartDate] = useState<
+    string | undefined
+  >(undefined);
+  const [appliedInvEndDate, setAppliedInvEndDate] = useState<
+    string | undefined
+  >(undefined);
+  const [invFilterApplied, setInvFilterApplied] = useState(false);
 
-  // Get products data for inventory tab
+  // Staff-specific date filter state
+  const [staffStartDate, setStaffStartDate] = useState<Date | null>(null);
+  const [staffEndDate, setStaffEndDate] = useState<Date | null>(null);
+  const [appliedStaffStartDate, setAppliedStaffStartDate] = useState<
+    string | undefined
+  >(undefined);
+  const [appliedStaffEndDate, setAppliedStaffEndDate] = useState<
+    string | undefined
+  >(undefined);
+  const [staffFilterApplied, setStaffFilterApplied] = useState(false);
+
+  // Products data
   const { products } = useProducts();
 
-  // Function to prepare category data for pie chart
-  const getCategoryData = (products: Product[]) => {
-    const categoryMap = new Map<number, { name: string; value: number }>();
+  // Derive delivery information per product
+  const enrichedProducts = (products ?? []).map((p) => {
+    // Use existing delivery_date if any, else fallback to created_at, else mock recent date
+    let deliveryDate: string | undefined = (p as any).delivery_date;
+    if (!deliveryDate && p.created_at) {
+      deliveryDate = p.created_at.slice(0, 10);
+    }
+    if (!deliveryDate) {
+      // Assign a mock date within the last 30 days
+      deliveryDate = format(
+        subDays(new Date(), Math.floor(Math.random() * 30) + 1),
+        "yyyy-MM-dd"
+      );
+    }
+    return { ...p, deliveryDate };
+  });
 
-    products.forEach((product: Product) => {
-      const value = product.unit_price * product.current_stock;
-      const categoryId = product.category_id;
-      const categoryName = product.category_name || `Category ${categoryId}`;
+  // Apply the inventory date range filter
+  const filteredProducts = enrichedProducts.filter((p) => {
+    if (!invFilterApplied || !appliedInvStartDate || !appliedInvEndDate)
+      return true;
+    return (
+      p.deliveryDate >= appliedInvStartDate &&
+      p.deliveryDate <= appliedInvEndDate
+    );
+  });
 
-      if (categoryMap.has(categoryId)) {
-        const existing = categoryMap.get(categoryId)!;
-        existing.value += value;
-      } else {
-        categoryMap.set(categoryId, { name: categoryName, value });
-      }
-    });
+  // Build delivery history rows (for table)
+  const deliveryHistory = filteredProducts
+    .map((p) => ({
+      id: p.id,
+      product_name: p.name,
+      supplier: p.supplier ?? "Unknown Supplier",
+      quantity: p.current_stock,
+      date: p.deliveryDate,
+      cost: p.unit_price * p.current_stock,
+    }))
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    return Array.from(categoryMap.values());
-  };
+  // Get orders hooks
+  const orders = useOrders();
 
   // Get filtered sales report from React Query
   const {
     data: salesReportData,
     isLoading: isLoadingSalesReport,
     refetch: refetchSalesReport,
-  } = useOrders().getSalesReportData(appliedStartDate, appliedEndDate, "day");
+  } = orders.getSalesReportData(appliedStartDate, appliedEndDate, "day");
+
+  // Load staff list from localStorage (same key used in Staff page)
+  const [staffList] = useState<StaffMember[]>(() => {
+    try {
+      const raw = localStorage.getItem("staffList");
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return [];
+  });
 
   // Mock staff attendance data
   const [staffAttendance, setStaffAttendance] = useState<
@@ -532,13 +535,13 @@ export default function Reports() {
   >(() => {
     // Create attendance records for the last 7 days
     const records: StaffAttendanceRecord[] = [];
-    const staffNames = [
-      { name: "John Smith", role: "Cashier" },
-      { name: "Maria Garcia", role: "Admin" },
-      { name: "David Lee", role: "Inventory" },
-      { name: "Sarah Johnson", role: "Manager" },
-      { name: "Michael Brown", role: "Cashier" },
-    ];
+    const staffNames = staffList.length
+      ? staffList.map((s) => ({
+          name: s.name,
+          role: s.role,
+          timings: s.timings,
+        }))
+      : [{ name: "John Smith", role: "Cashier", timings: "08:00 - 16:00" }];
 
     // Generate records for the last 7 days
     for (let i = 0; i < 7; i++) {
@@ -551,13 +554,17 @@ export default function Reports() {
         let checkIn: string | null = null;
         let checkOut: string | null = null;
 
-        const shiftStartHour = 8 + (index % 3); // 8, 9, or 10 AM
-        const shiftEndHour = shiftStartHour + 8; // 8 hours later
-        const shiftTime = `${shiftStartHour
-          .toString()
-          .padStart(2, "0")}:00 - ${shiftEndHour
-          .toString()
-          .padStart(2, "0")}:00`;
+        const parsedTimings =
+          staff.timings ?? `${8 + (index % 3)}:00 - ${16 + (index % 3)}:00`;
+        const [startT, endT] = parsedTimings
+          .replace("to", "-")
+          .split("-")
+          .map((t) => t.trim());
+        const [startHour] = startT.split(":").map(Number);
+        const [endHour] = endT.split(":").map(Number);
+        const shiftStartHour = startHour;
+        const shiftEndHour = endHour;
+        const shiftTime = `${startT} - ${endT}`;
 
         if (randomStatus > 0.8) {
           status = "Absent";
@@ -704,54 +711,297 @@ export default function Reports() {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   };
 
-  const formattedTopProducts = formatTopProducts(salesReportData);
-  const revenueDistributionData = formatRevenueDistribution(salesReportData);
-  const salesTrendData = formatSalesTrend(salesReportData);
-  const salesHistory = formatDetailedSales(salesReportData);
+  const rawDetailed = salesReportData?.detailed_sales ?? [];
+  const filteredRawDetailed = rawDetailed.filter((sale) => {
+    if (!filterApplied || !appliedStartDate || !appliedEndDate) return true;
+    const saleDateOnly = sale.date.slice(0, 10);
+    return saleDateOnly >= appliedStartDate && saleDateOnly <= appliedEndDate;
+  });
+
+  // Summary metrics
+  const totalRevenue = filteredRawDetailed.reduce(
+    (sum, s) => sum + s.revenue,
+    0
+  );
+  const totalProfit = filteredRawDetailed.reduce((sum, s) => sum + s.profit, 0);
+  const transactions = new Set(filteredRawDetailed.map((s) => s.id)).size;
+
+  // Recompute charts from filtered data
+  const filteredTopProducts = [...filteredRawDetailed]
+    .reduce((map, s) => {
+      const entry = map.get(s.product) || { quantity: 0, revenue: 0 };
+      entry.quantity += s.quantity;
+      entry.revenue += s.revenue;
+      map.set(s.product, entry);
+      return map;
+    }, new Map())
+    .entries();
+  const topProductsArray = Array.from(filteredTopProducts)
+    .map(([product, data]) => ({
+      name: product,
+      quantity: data.quantity,
+      revenue: data.revenue,
+      formattedRevenue: formatCurrency(data.revenue),
+    }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5);
+
+  // category pie
+  const revenueByCategory = [...filteredRawDetailed].reduce((map, s) => {
+    const rev = map.get(s.category) || 0;
+    map.set(s.category, rev + s.revenue);
+    return map;
+  }, new Map());
+  const revenueDistributionData = Array.from(revenueByCategory).map(
+    ([category, value]) => ({ name: category, value })
+  );
+
+  // trend by day
+  const trendMap = new Map();
+  filteredRawDetailed.forEach((s) => {
+    const day = s.date.slice(0, 10);
+    const t = trendMap.get(day) || { sales: 0, profit: 0 };
+    t.sales += s.revenue;
+    t.profit += s.profit;
+    trendMap.set(day, t);
+  });
+  const salesTrendData = Array.from(trendMap).map(([day, data]) => ({
+    name: day,
+    sales: data.sales,
+    profit: data.profit,
+  }));
+
+  const formattedTopProducts = topProductsArray;
+  const salesHistory = filteredRawDetailed
+    .map((sale) => ({
+      id: sale.id,
+      product: sale.product,
+      date: sale.date,
+      quantity: sale.quantity,
+      price: formatCurrency(sale.price),
+      totalPrice: formatCurrency(sale.revenue),
+      profit: formatCurrency(sale.profit),
+    }))
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  // Pagination state
+  const [salesPage, setSalesPage] = useState(0);
+  const [salesRowsPerPage, setSalesRowsPerPage] = useState(25);
+
+  const [invPage, setInvPage] = useState(0);
+  const [invRowsPerPage, setInvRowsPerPage] = useState(25);
+
+  const [staffPage, setStaffPage] = useState(0);
+  const [staffRowsPerPage, setStaffRowsPerPage] = useState(25);
+
+  // After staffAttendance variable and before pagedStaffAttendance computation
+  const filteredStaffAttendance = staffAttendance.filter((rec) => {
+    if (!staffFilterApplied || !appliedStaffStartDate || !appliedStaffEndDate)
+      return true;
+    return rec.date >= appliedStaffStartDate && rec.date <= appliedStaffEndDate;
+  });
+
+  // Compute pagedStaffAttendance using filtered list
+  const pagedStaffAttendance = filteredStaffAttendance
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(
+      staffPage * staffRowsPerPage,
+      staffPage * staffRowsPerPage + staffRowsPerPage
+    );
+
+  // Compute paged arrays
+  const pagedSalesHistory = salesHistory.slice(
+    salesPage * salesRowsPerPage,
+    salesPage * salesRowsPerPage + salesRowsPerPage
+  );
+
+  const pagedDeliveryHistory = deliveryHistory.slice(
+    invPage * invRowsPerPage,
+    invPage * invRowsPerPage + invRowsPerPage
+  );
+
+  // Add state for export loading
+  const [isExporting, setIsExporting] = useState(false);
 
   // Apply date filters
   const handleApplyFilter = async () => {
     setIsFiltering(true);
-    const formattedStartDate = startDate
-      ? format(startDate, "yyyy-MM-dd")
-      : undefined;
-    const formattedEndDate = endDate
-      ? format(endDate, "yyyy-MM-dd")
-      : undefined;
 
-    setAppliedStartDate(formattedStartDate);
-    setAppliedEndDate(formattedEndDate);
-    setFilterApplied(true);
-    
-    try {
-      // Refetch the sales report data with the new date range
-      await refetchSalesReport();
-    } catch (error) {
-      console.error("Error refreshing sales report data:", error);
-    } finally {
-      setIsFiltering(false);
+    if (tabValue === 0) {
+      // Sales tab logic (unchanged)
+      const formattedStartDate = startDate
+        ? format(startDate, "yyyy-MM-dd")
+        : undefined;
+      const formattedEndDate = endDate
+        ? format(endDate, "yyyy-MM-dd")
+        : undefined;
+
+      setAppliedStartDate(formattedStartDate);
+      setAppliedEndDate(formattedEndDate);
+      setFilterApplied(true);
+    } else if (tabValue === 1) {
+      // Inventory tab logic
+      const formattedStartDate = invStartDate
+        ? format(invStartDate, "yyyy-MM-dd")
+        : undefined;
+      const formattedEndDate = invEndDate
+        ? format(invEndDate, "yyyy-MM-dd")
+        : undefined;
+
+      setAppliedInvStartDate(formattedStartDate);
+      setAppliedInvEndDate(formattedEndDate);
+      setInvFilterApplied(true);
+    } else if (tabValue === 2) {
+      const formattedStartDate = staffStartDate
+        ? format(staffStartDate, "yyyy-MM-dd")
+        : undefined;
+      const formattedEndDate = staffEndDate
+        ? format(staffEndDate, "yyyy-MM-dd")
+        : undefined;
+
+      setAppliedStaffStartDate(formattedStartDate);
+      setAppliedStaffEndDate(formattedEndDate);
+      setStaffFilterApplied(true);
     }
+
+    setIsFiltering(false);
   };
 
   // Reset date filters
   const handleResetFilter = async () => {
     setIsFiltering(true);
-    const defaultStartDate = subMonths(new Date(), 1);
-    const defaultEndDate = new Date();
 
-    setStartDate(defaultStartDate);
-    setEndDate(defaultEndDate);
-    setAppliedStartDate(format(defaultStartDate, "yyyy-MM-dd"));
-    setAppliedEndDate(format(defaultEndDate, "yyyy-MM-dd"));
-    setFilterApplied(false);
-    
+    if (tabValue === 0) {
+      setStartDate(null);
+      setEndDate(null);
+      setAppliedStartDate(undefined);
+      setAppliedEndDate(undefined);
+      setFilterApplied(false);
+    } else if (tabValue === 1) {
+      setInvStartDate(null);
+      setInvEndDate(null);
+      setAppliedInvStartDate(undefined);
+      setAppliedInvEndDate(undefined);
+      setInvFilterApplied(false);
+    } else if (tabValue === 2) {
+      setStaffStartDate(null);
+      setStaffEndDate(null);
+      setAppliedStaffStartDate(undefined);
+      setAppliedStaffEndDate(undefined);
+      setStaffFilterApplied(false);
+    }
+
+    setIsFiltering(false);
+  };
+
+  // Add export function
+  const handleExportData = async () => {
+    if (!salesReportData) return;
     try {
-      // Refetch the sales report with the default date range
-      await refetchSalesReport();
-    } catch (error) {
-      console.error("Error resetting sales report data:", error);
-    } finally {
-      setIsFiltering(false);
+      setIsExporting(true);
+      const wb = XLSX.utils.book_new();
+      const now = format(new Date(), "yyyy-MM-dd HH:mm:ss");
+      const rangeLabel =
+        appliedStartDate && appliedEndDate
+          ? `${appliedStartDate} to ${appliedEndDate}`
+          : "All Time";
+
+      // Filter the detailed sales based on date range if filters are applied
+      const filteredDetailedSales =
+        appliedStartDate && appliedEndDate
+          ? salesReportData.detailed_sales.filter((sale) => {
+              const saleDate = sale.date.split(" ")[0]; // Extract just the date part
+              return saleDate >= appliedStartDate && saleDate <= appliedEndDate;
+            })
+          : salesReportData.detailed_sales;
+
+      // Calculate summary metrics based on filtered data
+      const filteredSummary = {
+        total_sales: filteredDetailedSales.length,
+        total_revenue: filteredDetailedSales.reduce(
+          (sum, sale) => sum + sale.revenue,
+          0
+        ),
+        total_profit: filteredDetailedSales.reduce(
+          (sum, sale) => sum + sale.profit,
+          0
+        ),
+        items_sold: filteredDetailedSales.reduce(
+          (sum, sale) => sum + sale.quantity,
+          0
+        ),
+        transactions: filteredDetailedSales.length,
+      };
+
+      const summaryAOA: any[] = [
+        ["Sales Report Summary"],
+        ["Exported on:", now],
+        ["Date Range:", rangeLabel],
+        [],
+        ["Total Sales Amount", filteredSummary.total_sales],
+        ["Total Revenue", filteredSummary.total_revenue],
+        ["Total Profit", filteredSummary.total_profit],
+        ["Total Items Sold", filteredSummary.items_sold],
+        ["Total Transactions", filteredSummary.transactions],
+      ];
+
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.aoa_to_sheet(summaryAOA),
+        "Summary"
+      );
+
+      const detailAOA: any[] = [
+        [
+          "ID",
+          "Product",
+          "Category",
+          "Date",
+          "Price",
+          "Quantity",
+          "Revenue",
+          "Profit",
+          "Margin",
+        ],
+      ];
+
+      filteredDetailedSales.forEach((s) => {
+        detailAOA.push([
+          s.id,
+          s.product,
+          s.category,
+          s.date,
+          s.price,
+          s.quantity,
+          s.revenue,
+          s.profit,
+          s.margin,
+        ]);
+      });
+
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.aoa_to_sheet(detailAOA),
+        "Detailed Sales"
+      );
+
+      const wbArray = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+      const blob = new Blob([wbArray], { type: "application/octet-stream" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Sales_Report_${format(new Date(), "yyyy-MM-dd")}${
+        appliedStartDate && appliedEndDate
+          ? `_${appliedStartDate}_to_${appliedEndDate}`
+          : ""
+      }.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setIsExporting(false);
+      toast.success("Sales report exported successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export");
     }
   };
 
@@ -820,6 +1070,40 @@ export default function Reports() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Function to prepare category data for pie chart (inventory)
+  const getCategoryData = (productsArr: typeof filteredProducts) => {
+    const categoryMap = new Map<number, { name: string; value: number }>();
+
+    productsArr.forEach((product) => {
+      const value = product.unit_price * product.current_stock;
+      const categoryId = product.category_id;
+      const categoryName = product.category_name || `Category ${categoryId}`;
+
+      if (categoryMap.has(categoryId)) {
+        const existing = categoryMap.get(categoryId)!;
+        existing.value += value;
+      } else {
+        categoryMap.set(categoryId, { name: categoryName, value });
+      }
+    });
+
+    return Array.from(categoryMap.values());
+  };
+
+  // Metrics derived from filtered records
+  const totalStaffCount = Array.from(
+    new Set(pagedStaffAttendance.map((s) => s.staffName))
+  ).length;
+  const presentCount = pagedStaffAttendance.filter(
+    (r) => r.status === "Present"
+  ).length;
+  const absentCount = pagedStaffAttendance.filter(
+    (r) => r.status === "Absent"
+  ).length;
+  const halfShiftCount = pagedStaffAttendance.filter(
+    (r) => r.status === "Half-shift"
+  ).length;
 
   return (
     <Container>
@@ -897,14 +1181,15 @@ export default function Reports() {
                 <ResetButton variant="outlined" onClick={handleResetFilter}>
                   Reset
                 </ResetButton>
+                <ExportButton
+                  variant="contained"
+                  onClick={handleExportData}
+                  disabled={isExporting || isLoadingSalesReport}
+                >
+                  {isExporting ? "Exporting..." : "Export"}
+                </ExportButton>
               </Stack>
             </FilterContainer>
-
-            <FilterStatus>
-              {filterApplied
-                ? `Filtered data from ${appliedStartDate} to ${appliedEndDate}`
-                : "Showing data from the last month"}
-            </FilterStatus>
 
             {/* Display error if any */}
             {isLoadingSalesReport || isFiltering ? (
@@ -916,43 +1201,27 @@ export default function Reports() {
                   <SummaryCard elevation={0}>
                     <CardTitle variant="body2">Total Sales</CardTitle>
                     <CardValue variant="h5">
-                      {salesReportData
-                        ? formatCurrency(
-                            salesReportData.sales_summary.total_revenue
-                          )
-                        : "₱0.00"}
+                      {formatCurrency(totalRevenue)}
                     </CardValue>
                   </SummaryCard>
 
                   <SummaryCard elevation={0}>
                     <CardTitle variant="body2">Total Profit</CardTitle>
                     <CardValue variant="h5">
-                      {salesReportData
-                        ? formatCurrency(
-                            salesReportData.sales_summary.total_profit
-                          )
-                        : "₱0.00"}
+                      {formatCurrency(totalProfit)}
                     </CardValue>
                   </SummaryCard>
 
                   <SummaryCard elevation={0}>
                     <CardTitle variant="body2">Total Transactions</CardTitle>
-                    <CardValue variant="h5">
-                      {salesReportData
-                        ? salesReportData.sales_summary.transactions
-                        : 0}
-                    </CardValue>
+                    <CardValue variant="h5">{transactions}</CardValue>
                   </SummaryCard>
 
                   <SummaryCard elevation={0}>
                     <CardTitle variant="body2">Avg. Order Value</CardTitle>
                     <CardValue variant="h5">
-                      {salesReportData &&
-                      salesReportData.sales_summary.transactions > 0
-                        ? formatCurrency(
-                            salesReportData.sales_summary.total_revenue /
-                              salesReportData.sales_summary.transactions
-                          )
+                      {transactions > 0
+                        ? formatCurrency(totalRevenue / transactions)
                         : "₱0.00"}
                     </CardValue>
                   </SummaryCard>
@@ -1091,6 +1360,9 @@ export default function Reports() {
                               borderRadius: "4px",
                               boxShadow: "0px 0px 10px rgba(0,0,0,0.5)",
                             }}
+                            wrapperStyle={{ color: "#FFFFFF" }}
+                            itemStyle={{ color: "#FFFFFF" }}
+                            labelStyle={{ color: "#FFFFFF" }}
                           />
                           <Legend
                             layout="vertical"
@@ -1258,8 +1530,8 @@ export default function Reports() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {salesHistory.length > 0 ? (
-                        salesHistory.map((sale, index) =>
+                      {pagedSalesHistory.length > 0 ? (
+                        pagedSalesHistory.map((sale, index) =>
                           index % 2 === 0 ? (
                             <StyledTableRowEven key={sale.id}>
                               <EnhancedTableCell>
@@ -1310,6 +1582,20 @@ export default function Reports() {
                     </TableBody>
                   </Table>
                 </StyledTableContainer>
+
+                <TablePagination
+                  component="div"
+                  count={salesHistory.length}
+                  page={salesPage}
+                  onPageChange={(_, newPage) => setSalesPage(newPage)}
+                  rowsPerPage={salesRowsPerPage}
+                  onRowsPerPageChange={(e) => {
+                    setSalesRowsPerPage(parseInt(e.target.value, 10));
+                    setSalesPage(0);
+                  }}
+                  rowsPerPageOptions={[25, 50, 100]}
+                  sx={{ color: "#FFFFFF" }}
+                />
               </>
             )}
           </TabPanel>
@@ -1334,8 +1620,8 @@ export default function Reports() {
                 <DatePickerContainer>
                   <StyledDatePicker
                     label="Start Date"
-                    value={startDate}
-                    onChange={(newValue) => setStartDate(newValue)}
+                    value={invStartDate}
+                    onChange={(newValue) => setInvStartDate(newValue)}
                     slotProps={{
                       textField: {
                         size: "small",
@@ -1350,8 +1636,8 @@ export default function Reports() {
                   <Typography color="#FFFFFF">to</Typography>
                   <StyledDatePicker
                     label="End Date"
-                    value={endDate}
-                    onChange={(newValue) => setEndDate(newValue)}
+                    value={invEndDate}
+                    onChange={(newValue) => setInvEndDate(newValue)}
                     slotProps={{
                       textField: {
                         size: "small",
@@ -1375,12 +1661,6 @@ export default function Reports() {
               </Stack>
             </FilterContainer>
 
-            <FilterStatus>
-              {filterApplied
-                ? `Filtered data from ${appliedStartDate} to ${appliedEndDate}`
-                : "Showing data from the last month"}
-            </FilterStatus>
-
             {isLoadingSalesReport ? (
               <LoadingIndicator />
             ) : (
@@ -1391,37 +1671,32 @@ export default function Reports() {
                     <CardTitle variant="body2">Total Inventory Value</CardTitle>
                     <CardValue variant="h5">
                       {formatCurrency(
-                        products
-                          ? products.reduce(
-                              (sum, product) =>
-                                sum +
-                                product.unit_price * product.current_stock,
-                              0
-                            )
-                          : 0
+                        filteredProducts.reduce(
+                          (sum, product) =>
+                            sum + product.unit_price * product.current_stock,
+                          0
+                        )
                       )}
                     </CardValue>
                   </SummaryCard>
                   <SummaryCard elevation={0}>
                     <CardTitle variant="body2">Total Items</CardTitle>
                     <CardValue variant="h5">
-                      {products
-                        ? products.reduce(
-                            (sum, product) => sum + product.current_stock,
-                            0
-                          )
-                        : 0}
+                      {filteredProducts.reduce(
+                        (sum, product) => sum + product.current_stock,
+                        0
+                      )}
                     </CardValue>
                   </SummaryCard>
                   <SummaryCard elevation={0}>
                     <CardTitle variant="body2">Low Stock Items</CardTitle>
                     <CardValue variant="h5">
-                      {products
-                        ? products.filter(
-                            (product) =>
-                              product.current_stock <= product.minimum_stock
-                          ).length
-                        : 0}
+                      {
+                        filteredProducts.filter(
+                          (product) =>
+                            product.current_stock <= product.minimum_stock
+                        ).length
+                      }
                     </CardValue>
                   </SummaryCard>
                   <SummaryCard elevation={0}>
@@ -1455,7 +1730,7 @@ export default function Reports() {
                               backgroundColor: "#333",
                               border: "1px solid #444",
                               borderRadius: "4px",
-                              color: "#FFF",
+                              color: "#FFFFFF",
                             }}
                           />
                           <Legend />
@@ -1478,7 +1753,7 @@ export default function Reports() {
                       <ResponsiveContainer width="100%" height="85%">
                         <PieChart>
                           <Pie
-                            data={products ? getCategoryData(products) : []}
+                            data={getCategoryData(filteredProducts)}
                             cx="50%"
                             cy="50%"
                             labelLine={false}
@@ -1487,7 +1762,7 @@ export default function Reports() {
                             fill="#8884d8"
                             dataKey="value"
                           >
-                            {(products ? getCategoryData(products) : []).map(
+                            {getCategoryData(filteredProducts).map(
                               (entry, index) => (
                                 <Cell
                                   key={`cell-${index}`}
@@ -1502,8 +1777,11 @@ export default function Reports() {
                               backgroundColor: "#333",
                               border: "1px solid #444",
                               borderRadius: "4px",
-                              color: "#FFF",
+                              color: "#FFFFFF",
                             }}
+                            wrapperStyle={{ color: "#FFFFFF" }}
+                            itemStyle={{ color: "#FFFFFF" }}
+                            labelStyle={{ color: "#FFFFFF" }}
                           />
                         </PieChart>
                       </ResponsiveContainer>
@@ -1531,7 +1809,7 @@ export default function Reports() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {mockDeliveryHistory.map((record, index) => (
+                      {pagedDeliveryHistory.map((record) => (
                         <TableRow key={record.id}>
                           <EnhancedTableCell>
                             {record.product_name}
@@ -1553,6 +1831,20 @@ export default function Reports() {
                     </TableBody>
                   </Table>
                 </StyledTableContainer>
+
+                <TablePagination
+                  component="div"
+                  count={deliveryHistory.length}
+                  page={invPage}
+                  onPageChange={(_, newPage) => setInvPage(newPage)}
+                  rowsPerPage={invRowsPerPage}
+                  onRowsPerPageChange={(e) => {
+                    setInvRowsPerPage(parseInt(e.target.value, 10));
+                    setInvPage(0);
+                  }}
+                  rowsPerPageOptions={[25, 50, 100]}
+                  sx={{ color: "#FFFFFF" }}
+                />
               </>
             )}
           </TabPanel>
@@ -1577,8 +1869,8 @@ export default function Reports() {
                 <DatePickerContainer>
                   <StyledDatePicker
                     label="Start Date"
-                    value={startDate}
-                    onChange={(newValue) => setStartDate(newValue)}
+                    value={staffStartDate}
+                    onChange={(newValue) => setStaffStartDate(newValue)}
                     slotProps={{
                       textField: {
                         size: "small",
@@ -1593,8 +1885,8 @@ export default function Reports() {
                   <Typography color="#FFFFFF">to</Typography>
                   <StyledDatePicker
                     label="End Date"
-                    value={endDate}
-                    onChange={(newValue) => setEndDate(newValue)}
+                    value={staffEndDate}
+                    onChange={(newValue) => setStaffEndDate(newValue)}
                     slotProps={{
                       textField: {
                         size: "small",
@@ -1618,12 +1910,6 @@ export default function Reports() {
               </Stack>
             </FilterContainer>
 
-            <FilterStatus>
-              {filterApplied
-                ? `Filtered data from ${appliedStartDate} to ${appliedEndDate}`
-                : "Showing data from the last month"}
-            </FilterStatus>
-
             {isLoadingSalesReport ? (
               <LoadingIndicator />
             ) : (
@@ -1632,49 +1918,19 @@ export default function Reports() {
                 <SummaryContainer>
                   <SummaryCard elevation={0}>
                     <CardTitle variant="body2">Total Staff</CardTitle>
-                    <CardValue variant="h5">
-                      {
-                        Array.from(
-                          new Set(staffAttendance.map((s) => s.staffName))
-                        ).length
-                      }
-                    </CardValue>
+                    <CardValue variant="h5">{totalStaffCount}</CardValue>
                   </SummaryCard>
                   <SummaryCard elevation={0}>
                     <CardTitle variant="body2">Present Today</CardTitle>
-                    <CardValue variant="h5">
-                      {
-                        staffAttendance.filter(
-                          (record) =>
-                            record.status === "Present" &&
-                            record.date === format(new Date(), "yyyy-MM-dd")
-                        ).length
-                      }
-                    </CardValue>
+                    <CardValue variant="h5">{presentCount}</CardValue>
                   </SummaryCard>
                   <SummaryCard elevation={0}>
                     <CardTitle variant="body2">Absent Today</CardTitle>
-                    <CardValue variant="h5">
-                      {
-                        staffAttendance.filter(
-                          (record) =>
-                            record.status === "Absent" &&
-                            record.date === format(new Date(), "yyyy-MM-dd")
-                        ).length
-                      }
-                    </CardValue>
+                    <CardValue variant="h5">{absentCount}</CardValue>
                   </SummaryCard>
                   <SummaryCard elevation={0}>
                     <CardTitle variant="body2">Half-Shift Today</CardTitle>
-                    <CardValue variant="h5">
-                      {
-                        staffAttendance.filter(
-                          (record) =>
-                            record.status === "Half-shift" &&
-                            record.date === format(new Date(), "yyyy-MM-dd")
-                        ).length
-                      }
-                    </CardValue>
+                    <CardValue variant="h5">{halfShiftCount}</CardValue>
                   </SummaryCard>
                 </SummaryContainer>
 
@@ -1739,7 +1995,7 @@ export default function Reports() {
                               backgroundColor: "#333",
                               border: "1px solid #444",
                               borderRadius: "4px",
-                              color: "#FFF",
+                              color: "#FFFFFF",
                             }}
                           />
                           <Legend />
@@ -1781,27 +2037,15 @@ export default function Reports() {
                             data={[
                               {
                                 name: "Present",
-                                value: staffAttendance.filter(
-                                  (r) =>
-                                    r.status === "Present" &&
-                                    r.date === format(new Date(), "yyyy-MM-dd")
-                                ).length,
+                                value: presentCount,
                               },
                               {
                                 name: "Absent",
-                                value: staffAttendance.filter(
-                                  (r) =>
-                                    r.status === "Absent" &&
-                                    r.date === format(new Date(), "yyyy-MM-dd")
-                                ).length,
+                                value: absentCount,
                               },
                               {
                                 name: "Half-shift",
-                                value: staffAttendance.filter(
-                                  (r) =>
-                                    r.status === "Half-shift" &&
-                                    r.date === format(new Date(), "yyyy-MM-dd")
-                                ).length,
+                                value: halfShiftCount,
                               },
                             ]}
                             cx="50%"
@@ -1822,8 +2066,11 @@ export default function Reports() {
                               backgroundColor: "#333",
                               border: "1px solid #444",
                               borderRadius: "4px",
-                              color: "#FFF",
+                              color: "#FFFFFF",
                             }}
+                            wrapperStyle={{ color: "#FFFFFF" }}
+                            itemStyle={{ color: "#FFFFFF" }}
+                            labelStyle={{ color: "#FFFFFF" }}
                           />
                         </PieChart>
                       </ResponsiveContainer>
@@ -1847,71 +2094,70 @@ export default function Reports() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {staffAttendance
-                        .sort(
-                          (a, b) =>
-                            new Date(b.date).getTime() -
-                            new Date(a.date).getTime()
+                      {pagedStaffAttendance.map((record, index) =>
+                        index % 2 === 0 ? (
+                          <StyledTableRowEven key={record.id}>
+                            <EnhancedTableCell>
+                              {record.staffName}
+                            </EnhancedTableCell>
+                            <EnhancedTableCell>{record.role}</EnhancedTableCell>
+                            <EnhancedTableCell>{record.date}</EnhancedTableCell>
+                            <EnhancedTableCell>
+                              {record.shiftTime}
+                            </EnhancedTableCell>
+                            <EnhancedTableCell>
+                              {record.checkIn || "-"}
+                            </EnhancedTableCell>
+                            <EnhancedTableCell>
+                              {record.checkOut || "-"}
+                            </EnhancedTableCell>
+                            <EnhancedTableCell>
+                              <StatusChip status={record.status}>
+                                {record.status}
+                              </StatusChip>
+                            </EnhancedTableCell>
+                          </StyledTableRowEven>
+                        ) : (
+                          <StyledTableRowOdd key={record.id}>
+                            <EnhancedTableCell>
+                              {record.staffName}
+                            </EnhancedTableCell>
+                            <EnhancedTableCell>{record.role}</EnhancedTableCell>
+                            <EnhancedTableCell>{record.date}</EnhancedTableCell>
+                            <EnhancedTableCell>
+                              {record.shiftTime}
+                            </EnhancedTableCell>
+                            <EnhancedTableCell>
+                              {record.checkIn || "-"}
+                            </EnhancedTableCell>
+                            <EnhancedTableCell>
+                              {record.checkOut || "-"}
+                            </EnhancedTableCell>
+                            <EnhancedTableCell>
+                              <StatusChip status={record.status}>
+                                {record.status}
+                              </StatusChip>
+                            </EnhancedTableCell>
+                          </StyledTableRowOdd>
                         )
-                        .slice(0, 20) // Limit to 20 recent records for performance
-                        .map((record, index) =>
-                          index % 2 === 0 ? (
-                            <StyledTableRowEven key={record.id}>
-                              <EnhancedTableCell>
-                                {record.staffName}
-                              </EnhancedTableCell>
-                              <EnhancedTableCell>
-                                {record.role}
-                              </EnhancedTableCell>
-                              <EnhancedTableCell>
-                                {record.date}
-                              </EnhancedTableCell>
-                              <EnhancedTableCell>
-                                {record.shiftTime}
-                              </EnhancedTableCell>
-                              <EnhancedTableCell>
-                                {record.checkIn || "-"}
-                              </EnhancedTableCell>
-                              <EnhancedTableCell>
-                                {record.checkOut || "-"}
-                              </EnhancedTableCell>
-                              <EnhancedTableCell>
-                                <StatusChip status={record.status}>
-                                  {record.status}
-                                </StatusChip>
-                              </EnhancedTableCell>
-                            </StyledTableRowEven>
-                          ) : (
-                            <StyledTableRowOdd key={record.id}>
-                              <EnhancedTableCell>
-                                {record.staffName}
-                              </EnhancedTableCell>
-                              <EnhancedTableCell>
-                                {record.role}
-                              </EnhancedTableCell>
-                              <EnhancedTableCell>
-                                {record.date}
-                              </EnhancedTableCell>
-                              <EnhancedTableCell>
-                                {record.shiftTime}
-                              </EnhancedTableCell>
-                              <EnhancedTableCell>
-                                {record.checkIn || "-"}
-                              </EnhancedTableCell>
-                              <EnhancedTableCell>
-                                {record.checkOut || "-"}
-                              </EnhancedTableCell>
-                              <EnhancedTableCell>
-                                <StatusChip status={record.status}>
-                                  {record.status}
-                                </StatusChip>
-                              </EnhancedTableCell>
-                            </StyledTableRowOdd>
-                          )
-                        )}
+                      )}
                     </TableBody>
                   </Table>
                 </StyledTableContainer>
+
+                <TablePagination
+                  component="div"
+                  count={filteredStaffAttendance.length}
+                  page={staffPage}
+                  onPageChange={(_, newPage) => setStaffPage(newPage)}
+                  rowsPerPage={staffRowsPerPage}
+                  onRowsPerPageChange={(e) => {
+                    setStaffRowsPerPage(parseInt(e.target.value, 10));
+                    setStaffPage(0);
+                  }}
+                  rowsPerPageOptions={[25, 50, 100]}
+                  sx={{ color: "#FFFFFF" }}
+                />
               </>
             )}
           </TabPanel>
