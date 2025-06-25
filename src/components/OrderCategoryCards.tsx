@@ -15,25 +15,30 @@ export function OrderCategoryCards({
   const { categories } = useCategories();
   // Always fetch all products for category cards
   const { products: allProducts } = useProducts();
-  const [categoryIcons, setCategoryIcons] = useState<Record<number, string>>({});
+  const [categoryIcons, setCategoryIcons] = useState<Record<number, string>>(
+    {}
+  );
 
   // Load category icons
   useEffect(() => {
     const loadIcons = async () => {
       console.log("OrderCategoryCards - Loading category icons...");
       const iconMap: Record<number, string> = {};
-      
+
       for (const category of categories) {
         if (category.icon) {
           try {
             const formattedPath = await formatFilePath(category.icon);
             iconMap[category.id] = formattedPath;
           } catch (error) {
-            console.error(`Error loading icon for category ${category.id}:`, error);
+            console.error(
+              `Error loading icon for category ${category.id}:`,
+              error
+            );
           }
         }
       }
-      
+
       setCategoryIcons(iconMap);
     };
 
@@ -84,22 +89,7 @@ export function OrderCategoryCards({
           >
             {/* Category Icon */}
             <div style={styles.iconContainer}>
-              {iconUrl ? (
-                <img
-                  src={iconUrl}
-                  alt={category.name}
-                  style={styles.icon}
-                  onError={(e) => {
-                    console.error("Error loading image:", category.icon);
-                    (e.target as HTMLImageElement).src =
-                      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%23383C3D'/%3E%3C/svg%3E";
-                  }}
-                />
-              ) : (
-                <div style={styles.placeholderIcon}>
-                  {category.name.charAt(0)}
-                </div>
-              )}
+              <CategoryIcon name={category.name} iconUrl={iconUrl} />
             </div>
 
             {/* Category Info */}
@@ -115,6 +105,42 @@ export function OrderCategoryCards({
     </div>
   );
 }
+
+// Helper component for category icons with local state
+const CategoryIcon = ({ name, iconUrl }: { name: string; iconUrl: string }) => {
+  const [imgError, setImgError] = useState(false);
+
+  if (!iconUrl || imgError) {
+    return (
+      <div
+        style={{
+          width: "40px",
+          height: "40px",
+          borderRadius: "8px",
+          backgroundColor: "#3A3D40",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#FFFFFF",
+          fontWeight: "bold",
+          fontSize: "20px",
+          zIndex: 1,
+        }}
+      >
+        {(name || "").trim().charAt(0).toUpperCase() || "?"}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={iconUrl}
+      alt={name}
+      style={{ width: "24px", height: "24px", objectFit: "contain" }}
+      onError={() => setImgError(true)}
+    />
+  );
+};
 
 const styles: { [key: string]: React.CSSProperties } = {
   container: {
