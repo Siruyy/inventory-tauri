@@ -58,8 +58,13 @@ export function AddCategoryDialog() {
         setIcon(selected);
         console.log("Selected image path:", selected);
 
-        // Format the file path for display
-        setDisplayIcon(formatFilePath(selected));
+        // Format the file path for display - properly await the Promise
+        try {
+          const formattedPath = await formatFilePath(selected);
+          setDisplayIcon(formattedPath);
+        } catch (error) {
+          console.error("Error formatting image path:", error);
+        }
       }
     } catch (error) {
       console.error("Error selecting image:", error);

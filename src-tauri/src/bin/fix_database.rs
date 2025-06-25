@@ -1,98 +1,93 @@
 use rusqlite::{Connection, params};
 use std::path::Path;
+use chrono::{Local, Duration, Timelike};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Connect to the database
+fn main() {
+    println!("Starting database fix...");
+
+    // Get the path to the database
     let db_path = Path::new("inventory.db");
-    println!("Connecting to database at {:?}", db_path.canonicalize()?);
+    println!("Connecting to database at {:?}", db_path.canonicalize().unwrap());
     
-    let conn = Connection::open(db_path)?;
+    // Connect to the database
+    let conn = Connection::open(db_path).expect("Failed to open database");
     
-    // Check if products table exists
-    let table_exists = conn.query_row(
-        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='products'",
-        [],
-        |row| row.get::<_, i64>(0)
-    )? > 0;
+    // Fix order dates
+    fix_order_dates(&conn);
+}
+
+fn fix_order_dates(conn: &Connection) {
+    println!("Checking orders in the database...");
     
-    if !table_exists {
-        println!("Products table doesn't exist!");
-        return Ok(());
-    }
+    // First, get all orders
+    let mut stmt = conn.prepare("SELECT id, order_id FROM orders ORDER BY id")
+        .expect("Failed to prepare statement");
     
-    // Check products count
-    let count: i64 = conn.query_row("SELECT COUNT(*) FROM products", [], |row| row.get(0))?;
-    println!("Found {} products in the database", count);
-    
-    // List all products
-    let mut stmt = conn.prepare("SELECT id, name, sku FROM products")?;
-    let products = stmt.query_map([], |row| {
+    let orders = stmt.query_map([], |row| {
         Ok((
-            row.get::<_, i32>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, String>(2)?
+            row.get::<_, i32>(0)?, // id
+            row.get::<_, String>(1)?, // order_id
         ))
-    })?;
+    }).expect("Failed to query orders");
     
-    println!("Products in database:");
-    for product in products {
-        match product {
-            Ok((id, name, sku)) => {
-                println!("  ID: {}, Name: {}, SKU: {}", id, name, sku);
-            }
-            Err(e) => println!("  Error reading product: {}", e),
+    let mut orders_vec = Vec::new();
+    for order in orders {
+        if let Ok(order_data) = order {
+            orders_vec.push(order_data);
         }
     }
     
-    // Check if thumbnailUrl column exists
-    let mut stmt = conn.prepare("PRAGMA table_info(products)")?;
-    let columns: Vec<String> = stmt.query_map([], |row| {
-        Ok(row.get::<_, String>(1)?)
-    })?.collect::<Result<Vec<String>, _>>()?;
+    println!("Found {} orders in the database", orders_vec.len());
     
-    if !columns.contains(&"thumbnailUrl".to_string()) {
-        println!("Adding thumbnailUrl column to products table");
-        conn.execute("ALTER TABLE products ADD COLUMN thumbnailUrl TEXT;", [])?;
-        println!("Added thumbnailUrl column to products table");
-    } else {
-        println!("thumbnailUrl column already exists");
-    }
+    // Get today's date and create a range of dates for the past week
+    let today = Local::now().naive_local().date();
     
-    // Check if barcode column exists
-    if !columns.contains(&"barcode".to_string()) {
-        println!("Adding barcode column to products table");
-        conn.execute("ALTER TABLE products ADD COLUMN barcode TEXT;", [])?;
+    // Most orders should be from previous days
+    let mut update_stmt = conn.prepare("UPDATE orders SET created_at = ? WHERE id = ?")
+        .expect("Failed to prepare update statement");
+    
+    println!("Distributing order dates across the past week...");
+    
+    // Leave one order for today (most recent one)
+    if !orders_vec.is_empty() {
+        let last_order = orders_vec.pop().unwrap();
+        let today_datetime = format!("{} {:02}:{:02}:{:02}", 
+                               today.format("%Y-%m-%d"),
+                               Local::now().hour(),
+                               Local::now().minute(),
+                               Local::now().second());
         
-        // Update existing products with a default barcode value based on SKU
-        conn.execute("UPDATE products SET barcode = 'BC-' || sku WHERE barcode IS NULL", [])?;
-        println!("Added barcode column to products table");
-    } else {
-        println!("barcode column already exists");
+        update_stmt.execute(params![today_datetime, last_order.0])
+            .expect("Failed to update most recent order");
+        
+        println!("  Set order ID: {} (OrderID: {}) to today: {}", 
+                 last_order.0, last_order.1, today_datetime);
     }
     
-    // Check table schema
-    println!("\nCurrent products table schema:");
-    let mut stmt = conn.prepare("PRAGMA table_info(products)")?;
-    let columns = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, i32>(0)?, // cid
-            row.get::<_, String>(1)?, // name
-            row.get::<_, String>(2)?, // type
-            row.get::<_, bool>(3)?, // notnull
-            row.get::<_, Option<String>>(4)?, // dflt_value
-            row.get::<_, i32>(5)? // pk
-        ))
-    })?;
-    
-    for column in columns {
-        match column {
-            Ok((cid, name, type_name, not_null, default_value, pk)) => {
-                println!("  Column {}: {} (type: {}, not_null: {}, default: {:?}, pk: {})", 
-                    cid, name, type_name, not_null, default_value, pk);
-            }
-            Err(e) => println!("  Error reading column: {}", e),
-        }
+    // Distribute remaining orders across past days
+    let mut days_ago = 1;
+    for (id, order_id) in orders_vec {
+        // Calculate a date in the past
+        let past_date = today - Duration::days(days_ago);
+        
+        // Create a timestamp with a random hour between 8am and 8pm
+        let hour = 8 + (id as u32 % 12); // Between 8 and 19
+        let minute = id as u32 % 60;
+        let second = (id * 7) as u32 % 60;
+        
+        let timestamp = format!("{} {:02}:{:02}:{:02}", 
+                               past_date.format("%Y-%m-%d"),
+                               hour, minute, second);
+        
+        update_stmt.execute(params![timestamp, id])
+            .expect(&format!("Failed to update order {}", id));
+        
+        println!("  Updated order ID: {}, OrderID: {}, Date: {}", 
+                 id, order_id, timestamp);
+        
+        // Cycle through the past 7 days
+        days_ago = (days_ago % 7) + 1;
     }
     
-    Ok(())
+    println!("Order dates updated successfully!");
 } 

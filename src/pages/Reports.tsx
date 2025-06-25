@@ -1752,21 +1752,71 @@ export default function Reports() {
                       <ChartTitle>Inventory Value by Category</ChartTitle>
                       <ResponsiveContainer width="100%" height="85%">
                         <PieChart>
+                          <defs>
+                            {/* Add gradients for more appealing colors */}
+                            {getCategoryData(filteredProducts).map(
+                              (entry, index) => (
+                                <linearGradient
+                                  key={`gradient-${index}`}
+                                  id={`inventory-gradient-${index}`}
+                                  x1="0"
+                                  y1="0"
+                                  x2="0"
+                                  y2="1"
+                                >
+                                  <stop
+                                    offset="0%"
+                                    stopColor={COLORS[index % COLORS.length]}
+                                    stopOpacity={1}
+                                  />
+                                  <stop
+                                    offset="100%"
+                                    stopColor={COLORS[index % COLORS.length]}
+                                    stopOpacity={0.7}
+                                  />
+                                </linearGradient>
+                              )
+                            )}
+                            {/* Add shadow filter for depth */}
+                            <filter
+                              id="inventory-shadow"
+                              x="-20%"
+                              y="-20%"
+                              width="140%"
+                              height="140%"
+                            >
+                              <feDropShadow
+                                dx="0"
+                                dy="0"
+                                stdDeviation="4"
+                                floodColor="#000"
+                                floodOpacity="0.3"
+                              />
+                            </filter>
+                          </defs>
                           <Pie
                             data={getCategoryData(filteredProducts)}
-                            cx="50%"
+                            cx="45%"
                             cy="50%"
                             labelLine={false}
                             label={renderCustomizedLabel}
-                            outerRadius={80}
+                            outerRadius="65%"
+                            innerRadius="45%"
                             fill="#8884d8"
                             dataKey="value"
+                            paddingAngle={2}
+                            filter="url(#inventory-shadow)"
+                            animationDuration={1000}
+                            animationBegin={200}
+                            animationEasing="ease"
                           >
                             {getCategoryData(filteredProducts).map(
                               (entry, index) => (
                                 <Cell
                                   key={`cell-${index}`}
-                                  fill={COLORS[index % COLORS.length]}
+                                  fill={`url(#inventory-gradient-${index})`}
+                                  stroke="#2A2A2A"
+                                  strokeWidth={1}
                                 />
                               )
                             )}
@@ -1774,14 +1824,28 @@ export default function Reports() {
                           <Tooltip
                             formatter={(value) => formatCurrency(Number(value))}
                             contentStyle={{
-                              backgroundColor: "#333",
-                              border: "1px solid #444",
-                              borderRadius: "4px",
+                              backgroundColor: "#333333",
                               color: "#FFFFFF",
+                              border: "none",
+                              borderRadius: "4px",
+                              boxShadow: "0px 0px 10px rgba(0,0,0,0.5)",
                             }}
                             wrapperStyle={{ color: "#FFFFFF" }}
                             itemStyle={{ color: "#FFFFFF" }}
                             labelStyle={{ color: "#FFFFFF" }}
+                          />
+                          <Legend
+                            layout="vertical"
+                            verticalAlign="middle"
+                            align="right"
+                            iconType="circle"
+                            wrapperStyle={{
+                              fontSize: "12px",
+                              color: "#FFFFFF",
+                              right: 10,
+                              top: 0,
+                              lineHeight: "24px",
+                            }}
                           />
                         </PieChart>
                       </ResponsiveContainer>
@@ -2033,44 +2097,108 @@ export default function Reports() {
                       <ChartTitle>Today's Attendance Breakdown</ChartTitle>
                       <ResponsiveContainer width="100%" height="85%">
                         <PieChart>
+                          <defs>
+                            {/* Add gradients for more appealing colors */}
+                            {[
+                              { name: "Present", value: presentCount },
+                              { name: "Absent", value: absentCount },
+                              { name: "Half-shift", value: halfShiftCount },
+                            ].map((entry, index) => (
+                              <linearGradient
+                                key={`gradient-${index}`}
+                                id={`staff-gradient-${index}`}
+                                x1="0"
+                                y1="0"
+                                x2="0"
+                                y2="1"
+                              >
+                                <stop
+                                  offset="0%"
+                                  stopColor={COLORS[index % COLORS.length]}
+                                  stopOpacity={1}
+                                />
+                                <stop
+                                  offset="100%"
+                                  stopColor={COLORS[index % COLORS.length]}
+                                  stopOpacity={0.7}
+                                />
+                              </linearGradient>
+                            ))}
+                            {/* Add shadow filter for depth */}
+                            <filter
+                              id="staff-shadow"
+                              x="-20%"
+                              y="-20%"
+                              width="140%"
+                              height="140%"
+                            >
+                              <feDropShadow
+                                dx="0"
+                                dy="0"
+                                stdDeviation="4"
+                                floodColor="#000"
+                                floodOpacity="0.3"
+                              />
+                            </filter>
+                          </defs>
                           <Pie
                             data={[
-                              {
-                                name: "Present",
-                                value: presentCount,
-                              },
-                              {
-                                name: "Absent",
-                                value: absentCount,
-                              },
-                              {
-                                name: "Half-shift",
-                                value: halfShiftCount,
-                              },
+                              { name: "Present", value: presentCount },
+                              { name: "Absent", value: absentCount },
+                              { name: "Half-shift", value: halfShiftCount },
                             ]}
-                            cx="50%"
+                            cx="45%"
                             cy="50%"
                             labelLine={false}
                             label={renderCustomizedLabel}
-                            outerRadius={80}
+                            outerRadius="65%"
+                            innerRadius="45%"
                             fill="#8884d8"
                             dataKey="value"
+                            paddingAngle={2}
+                            filter="url(#staff-shadow)"
+                            animationDuration={1000}
+                            animationBegin={200}
+                            animationEasing="ease"
                           >
-                            <Cell key="cell-0" fill="#47B39C" />
-                            <Cell key="cell-1" fill="#FF6B8B" />
-                            <Cell key="cell-2" fill="#FFC154" />
+                            {[
+                              { name: "Present", value: presentCount },
+                              { name: "Absent", value: absentCount },
+                              { name: "Half-shift", value: halfShiftCount },
+                            ].map((entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={`url(#staff-gradient-${index})`}
+                                stroke="#2A2A2A"
+                                strokeWidth={1}
+                              />
+                            ))}
                           </Pie>
                           <Tooltip
                             formatter={(value) => value}
                             contentStyle={{
-                              backgroundColor: "#333",
-                              border: "1px solid #444",
-                              borderRadius: "4px",
+                              backgroundColor: "#333333",
                               color: "#FFFFFF",
+                              border: "none",
+                              borderRadius: "4px",
+                              boxShadow: "0px 0px 10px rgba(0,0,0,0.5)",
                             }}
                             wrapperStyle={{ color: "#FFFFFF" }}
                             itemStyle={{ color: "#FFFFFF" }}
                             labelStyle={{ color: "#FFFFFF" }}
+                          />
+                          <Legend
+                            layout="vertical"
+                            verticalAlign="middle"
+                            align="right"
+                            iconType="circle"
+                            wrapperStyle={{
+                              fontSize: "12px",
+                              color: "#FFFFFF",
+                              right: 10,
+                              top: 0,
+                              lineHeight: "24px",
+                            }}
                           />
                         </PieChart>
                       </ResponsiveContainer>

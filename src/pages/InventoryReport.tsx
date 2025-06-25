@@ -15,6 +15,7 @@ import {
   Stack,
   Grid,
   Box,
+  TablePagination,
 } from "@mui/material";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
@@ -229,6 +230,8 @@ export default function InventoryReport() {
   const [categoryData, setCategoryData] = useState<
     { name: string; value: number }[]
   >([]);
+  const [salesPage, setSalesPage] = useState(0);
+  const [salesRows, setSalesRows] = useState(25);
 
   // Calculate inventory metrics
   useEffect(() => {
@@ -320,6 +323,11 @@ export default function InventoryReport() {
       </text>
     );
   };
+
+  const pagedDeliveryHistory = mockDeliveryHistory.slice(
+    salesPage * salesRows,
+    salesPage * salesRows + salesRows
+  );
 
   return (
     <Container>
@@ -474,7 +482,7 @@ export default function InventoryReport() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {mockDeliveryHistory.map((record) => (
+              {pagedDeliveryHistory.map((record) => (
                 <TableRow key={record.id}>
                   <StyledTableCell>{record.product_name}</StyledTableCell>
                   <StyledTableCell>{record.supplier}</StyledTableCell>
@@ -489,6 +497,18 @@ export default function InventoryReport() {
               ))}
             </TableBody>
           </Table>
+          <TablePagination
+            component="div"
+            count={mockDeliveryHistory.length}
+            page={salesPage}
+            onPageChange={(_, p) => setSalesPage(p)}
+            rowsPerPage={salesRows}
+            onRowsPerPageChange={(e) => {
+              setSalesRows(parseInt(e.target.value, 10));
+              setSalesPage(0);
+            }}
+            rowsPerPageOptions={[25, 50, 100]}
+          />
         </StyledTableContainer>
       </ContentWrapper>
     </Container>

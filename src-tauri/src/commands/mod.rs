@@ -13,6 +13,7 @@ pub use product::{
 pub use transaction::{
     create_order, get_order_by_id, get_order_items, get_order_with_items,
     get_recent_orders, get_order_history, get_order_statistics, get_sales_report_data,
-    debug_order_dates, update_order_dates_to_today
+    debug_order_dates, update_order_dates_to_today, test_date_filtering, debug_date_filtering,
+    debug_order_dates_extended, test_exact_date_filter, debug_daily_sales
 };
 pub use file::read_image_to_base64;

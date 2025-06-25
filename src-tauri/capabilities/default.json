@@ -7,6 +7,9 @@
     "core:default",
     "dialog:default",
     "fs:default",
+    "fs:allow-write",
+    "fs:allow-write-file",
+    "fs:write-files",
     "shell:allow-open"
   ]
 }

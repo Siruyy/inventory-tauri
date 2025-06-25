@@ -83,17 +83,21 @@ pub fn create_order(state: tauri::State<DbState>, request: CreateOrderRequest) -
     let tx = conn.transaction()
         .map_err(|e| format!("Failed to start transaction: {}", e))?;
     
-    // Insert the order
+    // Get local timestamp for created_at in user's local timezone
+    let current_time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    
+    // Insert the order with explicit created_at using local time
     tx.execute(
-        "INSERT INTO orders (order_id, cashier, subtotal, tax, total, status) 
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        "INSERT INTO orders (order_id, cashier, subtotal, tax, total, status, created_at) 
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         params![
             request.order.order_id,
             request.order.cashier,
             request.order.subtotal,
             request.order.tax,
             request.order.total,
-            request.order.status
+            request.order.status,
+            current_time
         ]
     ).map_err(|e| format!("Failed to insert order: {}", e))?;
     
@@ -117,14 +121,15 @@ pub fn create_order(state: tauri::State<DbState>, request: CreateOrderRequest) -
         };
         
         tx.execute(
-            "INSERT INTO order_items (order_id, product_id, quantity, price, product_name) 
-             VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT INTO order_items (order_id, product_id, quantity, price, product_name, created_at) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![
                 order_id,
                 item.product_id,
                 item.quantity,
                 item.price,
-                product_name
+                product_name,
+                current_time
             ]
         ).map_err(|e| format!("Failed to insert order item: {}", e))?;
         
@@ -412,21 +417,9 @@ pub fn get_sales_report_data(state: tauri::State<DbState>, start_date: Option<St
         }
     }
     
-    // Ensure the end date includes the entire day
-    let adjusted_end_date = if let Some(end_date_str) = &end_date {
-        // Append time to include the entire day
-        Some(format!("{} 23:59:59", end_date_str))
-    } else {
-        None
-    };
-    
-    // Ensure the start date starts at the beginning of the day
-    let adjusted_start_date = if let Some(start_date_str) = &start_date {
-        // Append time to start at the beginning of the day
-        Some(format!("{} 00:00:00", start_date_str))
-    } else {
-        None
-    };
+    // Pass the date strings directly, we'll handle date comparison in SQL
+    let adjusted_start_date = start_date.clone();
+    let adjusted_end_date = end_date.clone();
     
     let conn = state.pool.get()
         .map_err(|e| format!("Failed to get connection from pool: {}", e))?;
@@ -483,20 +476,29 @@ fn get_sales_summary(conn: &rusqlite::Connection, start_date: Option<String>, en
     
     // Add date range filters if both start and end dates are provided
     if let (Some(start), Some(end)) = (&start_date, &end_date) {
-        query.push_str(" AND o.created_at >= ? AND o.created_at <= ?");
-        query_params.push(Box::new(start.clone()));
-        query_params.push(Box::new(end.clone()));
-        println!("Sales summary - filtering orders between {} and {}", start, end);
+        // Use exact date comparison to ensure we only get orders for the exact date
+        if start == end {
+            // For same-day queries, use LIKE for exact date matching
+            query.push_str(" AND o.created_at LIKE ? || '%'");
+            query_params.push(Box::new(start.clone()));
+            println!("Sales summary - filtering orders for exact date: {}", start);
+        } else {
+            // For date ranges, use date() function
+            query.push_str(" AND date(o.created_at) >= date(?) AND date(o.created_at) <= date(?)");
+            query_params.push(Box::new(start.clone()));
+            query_params.push(Box::new(end.clone()));
+            println!("Sales summary - filtering orders between {} and {}", start, end);
+        }
     } else {
         // Add individual date filters if only one is provided
         if let Some(start) = &start_date {
-            query.push_str(" AND o.created_at >= ?");
+            query.push_str(" AND date(o.created_at) >= date(?)");
             query_params.push(Box::new(start.clone()));
             println!("Sales summary - filtering orders on or after date: {}", start);
         }
         
         if let Some(end) = &end_date {
-            query.push_str(" AND o.created_at <= ?");
+            query.push_str(" AND date(o.created_at) <= date(?)");
             query_params.push(Box::new(end.clone()));
             println!("Sales summary - filtering orders on or before date: {}", end);
         }
@@ -557,20 +559,29 @@ fn get_sales_by_period(conn: &rusqlite::Connection, start_date: Option<String>, 
     
     // Add date range filters if both start and end dates are provided
     if let (Some(start), Some(end)) = (&start_date, &end_date) {
-        query.push_str(" AND o.created_at >= ? AND o.created_at <= ?");
-        query_params.push(Box::new(start.clone()));
-        query_params.push(Box::new(end.clone()));
-        println!("Sales by period - filtering orders between {} and {}", start, end);
+        // Use exact date comparison to ensure we only get orders for the exact date
+        if start == end {
+            // For same-day queries, use LIKE for exact date matching
+            query.push_str(" AND o.created_at LIKE ? || '%'");
+            query_params.push(Box::new(start.clone()));
+            println!("Sales by period - filtering orders for exact date: {}", start);
+        } else {
+            // For date ranges, use date() function
+            query.push_str(" AND date(o.created_at) >= date(?) AND date(o.created_at) <= date(?)");
+            query_params.push(Box::new(start.clone()));
+            query_params.push(Box::new(end.clone()));
+            println!("Sales by period - filtering orders between {} and {}", start, end);
+        }
     } else {
         // Add individual date filters if only one is provided
         if let Some(start) = &start_date {
-            query.push_str(" AND o.created_at >= ?");
+            query.push_str(" AND date(o.created_at) >= date(?)");
             query_params.push(Box::new(start.clone()));
             println!("Sales by period - filtering orders on or after date: {}", start);
         }
         
         if let Some(end) = &end_date {
-            query.push_str(" AND o.created_at <= ?");
+            query.push_str(" AND date(o.created_at) <= date(?)");
             query_params.push(Box::new(end.clone()));
             println!("Sales by period - filtering orders on or before date: {}", end);
         }
@@ -612,7 +623,7 @@ fn get_sales_by_period(conn: &rusqlite::Connection, start_date: Option<String>, 
 fn get_sales_by_category(conn: &rusqlite::Connection, start_date: Option<String>, end_date: Option<String>) -> Result<Vec<CategorySales>, String> {
     // Build query based on filters
     let mut query = String::from(
-        "SELECT 
+        "SELECT
             COALESCE(c.name, 'Uncategorized') as category_name,
             SUM(oi.price * oi.quantity) as revenue,
             SUM((oi.price - COALESCE(p.price_bought, oi.price * 0.6)) * oi.quantity) as profit,
@@ -620,23 +631,29 @@ fn get_sales_by_category(conn: &rusqlite::Connection, start_date: Option<String>
             JOIN orders o2 ON o2.id = oi2.order_id"
     );
     
-    // Add date filters to the subquery if provided
+    // Add date filtering to the subquery if needed
     if start_date.is_some() || end_date.is_some() {
         query.push_str(" WHERE 1=1");
         
+        // Use exact date comparison for same-day queries
         if let (Some(start), Some(end)) = (&start_date, &end_date) {
-            query.push_str(" AND o2.created_at >= ? AND o2.created_at <= ?");
+            if start == end {
+                query.push_str(" AND o2.created_at LIKE ? || '%'");
+            } else {
+                query.push_str(" AND date(o2.created_at) >= date(?) AND date(o2.created_at) <= date(?)");
+            }
         } else {
-            if let Some(_) = &start_date {
-                query.push_str(" AND o2.created_at >= ?");
+            if let Some(start) = &start_date {
+                query.push_str(" AND date(o2.created_at) >= date(?)");
             }
             
-            if let Some(_) = &end_date {
-                query.push_str(" AND o2.created_at <= ?");
+            if let Some(end) = &end_date {
+                query.push_str(" AND date(o2.created_at) <= date(?)");
             }
         }
     }
     
+    // Continue with the main query
     query.push_str(")) * 100 as percentage
          FROM order_items oi
          JOIN orders o ON o.id = oi.order_id
@@ -646,51 +663,55 @@ fn get_sales_by_category(conn: &rusqlite::Connection, start_date: Option<String>
     
     let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
     
-    // Add parameters for the subquery
+    // Add date range filters for the main query
     if let (Some(start), Some(end)) = (&start_date, &end_date) {
-        query_params.push(Box::new(start.clone()));
-        query_params.push(Box::new(end.clone()));
-        println!("Category sales subquery - filtering between {} and {}", start, end);
-    } else {
-        if let Some(start) = &start_date {
+        if start == end {
+            // For same-day queries, use LIKE for exact date matching
+            query.push_str(" AND o.created_at LIKE ? || '%'");
+            // Parameters for the subquery
             query_params.push(Box::new(start.clone()));
-            println!("Category sales subquery - filtering from date: {}", start);
+            // Parameters for the main query
+            query_params.push(Box::new(start.clone()));
+            println!("Sales by category - filtering orders for exact date: {}", start);
+        } else {
+            // For date ranges, use date() function
+            query.push_str(" AND date(o.created_at) >= date(?) AND date(o.created_at) <= date(?)");
+            // Parameters for the subquery
+            query_params.push(Box::new(start.clone()));
+            query_params.push(Box::new(end.clone()));
+            // Parameters for the main query
+            query_params.push(Box::new(start.clone()));
+            query_params.push(Box::new(end.clone()));
+            println!("Sales by category - filtering orders between {} and {}", start, end);
+        }
+    } else {
+        // Add individual date filters if only one is provided
+        if let Some(start) = &start_date {
+            query.push_str(" AND date(o.created_at) >= date(?)");
+            // Parameter for the subquery
+            query_params.push(Box::new(start.clone()));
+            // Parameter for the main query
+            query_params.push(Box::new(start.clone()));
+            println!("Sales by category - filtering orders on or after date: {}", start);
         }
         
         if let Some(end) = &end_date {
+            query.push_str(" AND date(o.created_at) <= date(?)");
+            // Parameter for the subquery
             query_params.push(Box::new(end.clone()));
-            println!("Category sales subquery - filtering until date: {}", end);
+            // Parameter for the main query
+            query_params.push(Box::new(end.clone()));
+            println!("Sales by category - filtering orders on or before date: {}", end);
         }
     }
     
-    // Add date range filters to the main query if provided
-    if let (Some(start), Some(end)) = (&start_date, &end_date) {
-        query.push_str(" AND o.created_at >= ? AND o.created_at <= ?");
-        query_params.push(Box::new(start.clone()));
-        query_params.push(Box::new(end.clone()));
-        println!("Category sales - filtering orders between {} and {}", start, end);
-    } else {
-        if let Some(start) = &start_date {
-            query.push_str(" AND o.created_at >= ?");
-            query_params.push(Box::new(start.clone()));
-            println!("Category sales - filtering orders on or after date: {}", start);
-        }
-        
-        if let Some(end) = &end_date {
-            query.push_str(" AND o.created_at <= ?");
-            query_params.push(Box::new(end.clone()));
-            println!("Category sales - filtering orders on or before date: {}", end);
-        }
-    }
-    
-    // Add group by and order by
-    query.push_str(" GROUP BY category_name ORDER BY revenue DESC");
+    // Add group by and having clauses
+    query.push_str(" GROUP BY c.name HAVING SUM(oi.price * oi.quantity) > 0 ORDER BY revenue DESC");
     
     // Log the query
-    println!("Sales by category query: {}", query);
+    println!("Category sales query: {}", query);
     println!("Query parameters count: {}", query_params.len());
     
-    // Prepare and execute the query
     let params_slice: Vec<&dyn rusqlite::ToSql> = query_params
         .iter()
         .map(|p| p.as_ref() as &dyn rusqlite::ToSql)
@@ -717,41 +738,50 @@ fn get_sales_by_category(conn: &rusqlite::Connection, start_date: Option<String>
 fn get_top_products(conn: &rusqlite::Connection, start_date: Option<String>, end_date: Option<String>, limit: i32) -> Result<Vec<ProductSales>, String> {
     // Build query based on filters
     let mut query = String::from(
-        "SELECT 
-                COALESCE(p.name, oi.product_name, 'Unknown Product') as product_name,
-                SUM(oi.quantity) as quantity_sold,
-                SUM(oi.price * oi.quantity) as revenue,
-                SUM((oi.price - COALESCE(p.price_bought, oi.price * 0.6)) * oi.quantity) as profit
+        "SELECT
+            COALESCE(p.name, 'Unknown Product') as product_name,
+            SUM(oi.quantity) as quantity,
+            SUM(oi.price * oi.quantity) as revenue,
+            SUM((oi.price - COALESCE(p.price_bought, oi.price * 0.6)) * oi.quantity) as profit
          FROM order_items oi
-         JOIN orders o ON o.id = oi.order_id
+         JOIN orders o ON oi.order_id = o.id
          LEFT JOIN products p ON oi.product_id = p.id
          WHERE 1=1"
     );
     
     let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
     
-    // Add date range filters if provided
+    // Add date range filters if both start and end dates are provided
     if let (Some(start), Some(end)) = (&start_date, &end_date) {
-        query.push_str(" AND o.created_at >= ? AND o.created_at <= ?");
-        query_params.push(Box::new(start.clone()));
-        query_params.push(Box::new(end.clone()));
-        println!("Top products - filtering orders between {} and {}", start, end);
+        if start == end {
+            // For same-day queries, use LIKE for exact date matching
+            query.push_str(" AND o.created_at LIKE ? || '%'");
+            query_params.push(Box::new(start.clone()));
+            println!("Top products - filtering orders for exact date: {}", start);
+        } else {
+            // For date ranges, use date() function
+            query.push_str(" AND date(o.created_at) >= date(?) AND date(o.created_at) <= date(?)");
+            query_params.push(Box::new(start.clone()));
+            query_params.push(Box::new(end.clone()));
+            println!("Top products - filtering orders between {} and {}", start, end);
+        }
     } else {
+        // Add individual date filters if only one is provided
         if let Some(start) = &start_date {
-            query.push_str(" AND o.created_at >= ?");
+            query.push_str(" AND date(o.created_at) >= date(?)");
             query_params.push(Box::new(start.clone()));
             println!("Top products - filtering orders on or after date: {}", start);
         }
         
         if let Some(end) = &end_date {
-            query.push_str(" AND o.created_at <= ?");
+            query.push_str(" AND date(o.created_at) <= date(?)");
             query_params.push(Box::new(end.clone()));
             println!("Top products - filtering orders on or before date: {}", end);
         }
     }
     
     // Add group by, order by, and limit
-    query.push_str(" GROUP BY product_name ORDER BY quantity_sold DESC LIMIT ?");
+    query.push_str(" GROUP BY p.name ORDER BY revenue DESC LIMIT ?");
     query_params.push(Box::new(limit));
     
     // Log the query
@@ -793,7 +823,7 @@ fn get_detailed_sales(conn: &rusqlite::Connection, start_date: Option<String>, e
                 o.created_at as sale_date,
                 oi.price as unit_price,
                 (oi.price - COALESCE(p.price_bought, oi.price * 0.6)) as unit_profit,
-                CASE 
+                CASE
                     WHEN oi.price > 0 THEN ROUND(((oi.price - COALESCE(p.price_bought, oi.price * 0.6)) / oi.price) * 100, 1) || '%'
                     ELSE '0%'
                 END as profit_margin,
@@ -810,26 +840,34 @@ fn get_detailed_sales(conn: &rusqlite::Connection, start_date: Option<String>, e
     
     // Add date range filters if both start and end dates are provided
     if let (Some(start), Some(end)) = (&start_date, &end_date) {
-        query.push_str(" AND o.created_at >= ? AND o.created_at <= ?");
-        query_params.push(Box::new(start.clone()));
-        query_params.push(Box::new(end.clone()));
-        println!("Detailed sales - filtering orders between {} and {}", start, end);
+        if start == end {
+            // For same-day queries, use LIKE for exact date matching
+            query.push_str(" AND o.created_at LIKE ? || '%'");
+            query_params.push(Box::new(start.clone()));
+            println!("Detailed sales - filtering orders for exact date: {}", start);
+        } else {
+            // For date ranges, use date() function
+            query.push_str(" AND date(o.created_at) >= date(?) AND date(o.created_at) <= date(?)");
+            query_params.push(Box::new(start.clone()));
+            query_params.push(Box::new(end.clone()));
+            println!("Detailed sales - filtering orders between {} and {}", start, end);
+        }
     } else {
         // Add individual date filters if only one is provided
         if let Some(start) = &start_date {
-            query.push_str(" AND o.created_at >= ?");
+            query.push_str(" AND date(o.created_at) >= date(?)");
             query_params.push(Box::new(start.clone()));
             println!("Detailed sales - filtering orders on or after date: {}", start);
         }
         
         if let Some(end) = &end_date {
-            query.push_str(" AND o.created_at <= ?");
+            query.push_str(" AND date(o.created_at) <= date(?)");
             query_params.push(Box::new(end.clone()));
             println!("Detailed sales - filtering orders on or before date: {}", end);
         }
     }
     
-    // Add order by
+    // Add order by and limit
     query.push_str(" ORDER BY o.created_at DESC LIMIT 100");
     
     // Log the query
@@ -1119,4 +1157,139 @@ pub fn debug_order_dates_extended(state: tauri::State<DbState>) -> Result<Vec<St
     
     rows.collect::<Result<Vec<_>, _>>()
         .map_err(|e| format!("Failed to collect order data: {}", e))
+}
+
+#[tauri::command]
+pub fn test_exact_date_filter(state: tauri::State<DbState>, test_date: String) -> Result<Vec<String>, String> {
+    let conn = state.pool.get()
+        .map_err(|e| format!("Failed to get connection from pool: {}", e))?;
+    
+    let mut results = Vec::new();
+    
+    // Log the test date
+    results.push(format!("Testing exact date filtering with date: {}", test_date));
+    
+    // Get all orders for debugging
+    let all_orders_query = "SELECT id, order_id, created_at, strftime('%Y-%m-%d', created_at) as date_only FROM orders LIMIT 20";
+    let mut stmt = conn.prepare(all_orders_query)
+        .map_err(|e| format!("Failed to prepare statement: {}", e))?;
+    
+    let rows = stmt.query_map([], |row| {
+        let _id: i32 = row.get(0)?;
+        let order_id: String = row.get(1)?;
+        let created_at: String = row.get(2)?;
+        let date_only: String = row.get(3)?;
+        Ok(format!("Order ID: {}, created_at: {}, date_only: {}", order_id, created_at, date_only))
+    }).map_err(|e| format!("Failed to query orders: {}", e))?;
+    
+    results.push("All orders (up to 20):".to_string());
+    for row in rows {
+        results.push(row.map_err(|e| format!("Error formatting order: {}", e))?);
+    }
+    
+    // Test three different query approaches
+    let test_queries = [
+        (format!("SELECT COUNT(*) FROM orders WHERE strftime('%Y-%m-%d', created_at) = '{}'", test_date), 
+         "strftime exact match"),
+        (format!("SELECT COUNT(*) FROM orders WHERE DATE(created_at) = DATE('{}')", test_date), 
+         "DATE() exact match"),
+        (format!("SELECT COUNT(*) FROM orders WHERE created_at LIKE '{}%'", test_date), 
+         "LIKE pattern match"),
+    ];
+    
+    results.push("\nQuery test results:".to_string());
+    for (query, description) in test_queries {
+        match conn.query_row(&query, [], |row| row.get::<_, i64>(0)) {
+            Ok(count) => {
+                results.push(format!("{}: Found {} orders", description, count));
+                
+                // If we got results, show them
+                if count > 0 && description == "strftime exact match" {
+                    let detail_query = format!("SELECT id, order_id, created_at FROM orders WHERE strftime('%Y-%m-%d', created_at) = '{}'", test_date);
+                    let mut detail_stmt = conn.prepare(&detail_query)
+                        .map_err(|e| format!("Failed to prepare detail statement: {}", e))?;
+                    
+                    let detail_rows = detail_stmt.query_map([], |row| {
+                        let id: i32 = row.get(0)?;
+                        let order_id: String = row.get(1)?;
+                        let created_at: String = row.get(2)?;
+                        Ok(format!("  - Order {}: {}, created_at: {}", id, order_id, created_at))
+                    }).map_err(|e| format!("Failed to query matching orders: {}", e))?;
+                    
+                    results.push("Matching orders:".to_string());
+                    for row in detail_rows {
+                        results.push(row.map_err(|e| format!("Error formatting order detail: {}", e))?);
+                    }
+                }
+            },
+            Err(e) => {
+                results.push(format!("Error with {}: {}", description, e));
+            }
+        }
+    }
+    
+    Ok(results)
+}
+
+#[tauri::command]
+pub fn debug_daily_sales(state: tauri::State<DbState>) -> Result<String, String> {
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    
+    println!("DEBUG: Testing daily sales query for date: {}", today);
+    
+    let conn = state.pool.get()
+        .map_err(|e| format!("Failed to get connection from pool: {}", e))?;
+    
+    // Test the sales summary query with today's date
+    let query = format!(
+        "SELECT COUNT(DISTINCT o.id) as total_sales,
+                SUM(oi.price * oi.quantity) as total_revenue,
+                SUM((oi.price - COALESCE(p.price_bought, oi.price * 0.6)) * oi.quantity) as total_profit
+         FROM order_items oi
+         JOIN orders o ON o.id = oi.order_id
+         LEFT JOIN products p ON oi.product_id = p.id
+         WHERE date(o.created_at) = date('{}')
+        ", today
+    );
+    
+    println!("Query: {}", query);
+    
+    let mut stmt = conn.prepare(&query)
+        .map_err(|e| format!("Failed to prepare statement: {}", e))?;
+    
+    let row = stmt.query_row([], |row| {
+        Ok((
+            row.get::<_, i64>(0)?,
+            row.get::<_, f64>(1)?,
+            row.get::<_, f64>(2)?,
+        ))
+    }).map_err(|e| format!("Failed to query sales summary: {}", e))?;
+    
+    let (count, revenue, profit) = row;
+    
+    // Now get all orders for today to verify
+    let mut stmt = conn.prepare("SELECT id, order_id, created_at FROM orders WHERE date(created_at) = date(?)")
+        .map_err(|e| format!("Failed to prepare statement: {}", e))?;
+    
+    let orders = stmt.query_map(params![today], |row| {
+        Ok((
+            row.get::<_, i32>(0)?, // id
+            row.get::<_, String>(1)?, // order_id
+            row.get::<_, String>(2)?, // created_at
+        ))
+    }).map_err(|e| format!("Failed to query orders: {}", e))?;
+    
+    let mut orders_vec = Vec::new();
+    for order in orders {
+        if let Ok(order_data) = order {
+            orders_vec.push(order_data);
+        }
+    }
+    
+    let result = format!(
+        "Daily sales for {}: count={}, revenue={}, profit={}\n\nOrders found: {}",
+        today, count, revenue, profit, orders_vec.len()
+    );
+    
+    Ok(result)
 }

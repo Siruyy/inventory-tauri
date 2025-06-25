@@ -239,8 +239,8 @@ export function useOrders() {
 
           // Build args object, only include dates if defined
           const args: Record<string, unknown> = { period };
-          if (startDate !== undefined) args.start_date = startDate;
-          if (endDate !== undefined) args.end_date = endDate;
+          if (startDate !== undefined) args.startDate = startDate;
+          if (endDate !== undefined) args.endDate = endDate;
 
           console.log("Invoking get_sales_report_data with args:", args);
 

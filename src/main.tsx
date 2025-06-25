@@ -1,4 +1,5 @@
 import "./App.css"; // ← Import global CSS first
+import "./styles.css"; // custom scrollbar and other global styles
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";

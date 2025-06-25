@@ -23,7 +23,17 @@
       "csp": "default-src 'self'; img-src 'self' asset: https://asset.localhost http://asset.localhost file://* data:;",
       "assetProtocol": {
         "enable": true,
-        "scope": ["**", "$HOME/**", "$APPDATA/**", "$LOCALDATA/**", "$DESKTOP/**", "$DOCUMENT/**", "$DOWNLOAD/**", "$PICTURE/**", "$TEMP/**"]
+        "scope": [
+          "**",
+          "$HOME/**",
+          "$APPDATA/**",
+          "$LOCALDATA/**",
+          "$DESKTOP/**",
+          "$DOCUMENT/**",
+          "$DOWNLOAD/**",
+          "$PICTURE/**",
+          "$TEMP/**"
+        ]
       }
     }
   },

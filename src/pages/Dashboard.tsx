@@ -1,14 +1,34 @@
 // src/pages/Dashboard.tsx
-import React from "react";
+import React, { useState } from "react";
 import { NavLink } from "react-router-dom";
 import Header from "../components/Header";
 import { useAuth } from "../context/AuthContext";
+import dayjs from "dayjs";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+import { useOrders } from "../hooks/useOrders";
 
 // Import your summary-card icons
 import DailySalesIcon from "/icons/Daily Sales.svg";
 import MonthlyIcon from "/icons/Monthly.svg";
 import StaffIcon from "/icons/staff-sidebar.svg";
 import SearchIcon from "/icons/search.svg";
+
+// Helpers
+const today = dayjs();
+const formatCurrency = (value: number) =>
+  `₱${value.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 
 export default function Dashboard(): JSX.Element {
   // Get user from AuthContext
@@ -17,41 +37,8 @@ export default function Dashboard(): JSX.Element {
   // Case-insensitive check for admin role
   const isAdmin = user?.role?.toLowerCase() === "admin";
 
-  // Sample data for "Popular Item" list
-  const popularItems = [
-    {
-      id: "#1001",
-      name: "Chicken Parmesan",
-      serving: "Serving: 1 person",
-      price: "₱55.00",
-      inStock: true,
-      imgSrc: "https://via.placeholder.com/60",
-    },
-    {
-      id: "#1002",
-      name: "Beef Tapa",
-      serving: "Serving: 2 person",
-      price: "₱75.00",
-      inStock: true,
-      imgSrc: "https://via.placeholder.com/60",
-    },
-    {
-      id: "#1003",
-      name: "Pasta Carbonara",
-      serving: "Serving: 1 person",
-      price: "₱65.00",
-      inStock: false,
-      imgSrc: "https://via.placeholder.com/60",
-    },
-    {
-      id: "#1004",
-      name: "Fried Chicken",
-      serving: "Serving: 3 person",
-      price: "₱120.00",
-      inStock: true,
-      imgSrc: "https://via.placeholder.com/60",
-    },
-  ];
+  /* -------------------- DATA FETCHING HOOKS -------------------- */
+  const { getSalesReportData, recentOrders } = useOrders();
 
   // Sample cashier data
   const currentCashier = {
@@ -68,30 +55,103 @@ export default function Dashboard(): JSX.Element {
     date: "9 February 2024",
   };
 
-  // Sample recent transactions
-  const recentTransactions = [
-    {
-      id: "#TR5423",
-      time: "11:24 AM",
-      amount: "₱325.00",
-      items: 4,
-      status: "completed",
-    },
-    {
-      id: "#TR5422",
-      time: "11:18 AM",
-      amount: "₱180.50",
-      items: 2,
-      status: "completed",
-    },
-    {
-      id: "#TR5421",
-      time: "11:05 AM",
-      amount: "₱450.00",
-      items: 3,
-      status: "completed",
-    },
-  ];
+  // Recent orders from backend (already limited to 20 in hook)
+  const recentTransactions = (recentOrders || [])
+    .sort((a, b) => b.id - a.id) // latest first
+    .slice(0, 5) // top 5 for card
+    .map((o) => ({
+      id: o.order_id,
+      date: dayjs(o.created_at).format("MMM D"),
+      time: dayjs(o.created_at).format("h:mm A"),
+      amount: formatCurrency(o.total),
+    }));
+
+  // Daily summary (today only)
+  const { data: dailyReport, isLoading: loadingDaily } = getSalesReportData(
+    today.format("YYYY-MM-DD"),
+    today.format("YYYY-MM-DD"),
+    "day"
+  );
+
+  // Use backend daily report for today's metrics
+  const todaysTransactions = dailyReport?.sales_summary?.transactions || 0;
+  const todaysSales = dailyReport?.sales_summary?.total_revenue || 0;
+
+  /* ------------- Overview period (day / week / month) ------------- */
+  const [period, setPeriod] = useState<"day" | "week" | "month">("month");
+
+  const getStartDate = (p: "day" | "week" | "month") => {
+    if (p === "day") return today.format("YYYY-MM-DD");
+    if (p === "week") return today.subtract(6, "day").format("YYYY-MM-DD");
+    // month – first day of current month
+    return today.startOf("month").format("YYYY-MM-DD");
+  };
+
+  const overviewStart = getStartDate(period);
+  const overviewEnd = today.format("YYYY-MM-DD");
+
+  const { data: overviewReport, isLoading: loadingOverview } =
+    getSalesReportData(overviewStart, overviewEnd, period);
+
+  // Staff count from localStorage (fallback to 0)
+  const staffCount = (() => {
+    try {
+      const list = JSON.parse(localStorage.getItem("staffList") || "[]");
+      return Array.isArray(list) ? list.length : 0;
+    } catch (_) {
+      return 0;
+    }
+  })();
+
+  // Popular items – take top products from overview within range
+  const popularItems = (overviewReport?.top_products || []).map((p) => ({
+    id: p.product,
+    name: p.product,
+    serving: `Sold: ${p.quantity}`,
+    price: formatCurrency(p.revenue),
+    inStock: true, // TODO: connect to actual stock if desired
+    imgSrc: "https://via.placeholder.com/60", // Placeholder until thumbnails are wired
+  }));
+
+  // Chart data
+  const chartData = (overviewReport?.sales_by_period || []).map((row) => ({
+    period: row.period,
+    revenue: row.revenue,
+    profit: row.profit,
+  }));
+
+  /* ---------------- CASHIER METRICS ---------------- */
+  const todaysOrdersForCashier = (recentOrders || []).filter((o) => {
+    const isToday = o.created_at.startsWith(today.format("YYYY-MM-DD"));
+    const cashierName = (o.cashier || "").toLowerCase();
+    const isMine =
+      cashierName === (user?.username || "").toLowerCase() ||
+      cashierName === (user?.full_name || "").toLowerCase();
+    return isToday && isMine;
+  });
+
+  const cashierRevenue = todaysOrdersForCashier.reduce(
+    (sum, o) => sum + (o.total || 0),
+    0
+  );
+  const cashierTransactions = todaysOrdersForCashier.length;
+
+  // Get staff record from localStorage to display full name and timings
+  let cashierDisplay = user?.full_name || user?.username;
+  let cashierShift = "";
+  try {
+    const staffListStr = localStorage.getItem("staffList");
+    if (staffListStr && user?.username) {
+      const staffArr = JSON.parse(staffListStr);
+      const rec = staffArr.find((s: any) => s.username === user.username);
+      if (rec) {
+        cashierDisplay = rec.name || cashierDisplay;
+        cashierShift = rec.timings || "";
+      }
+    }
+  } catch (e) {
+    console.error("Failed to parse staffList", e);
+  }
 
   // Render admin dashboard
   const renderAdminDashboard = () => {
@@ -109,8 +169,10 @@ export default function Dashboard(): JSX.Element {
               />
             </div>
             <div style={styles.summaryLabel}>Daily Sales</div>
-            <div style={styles.summaryValue}>$2k</div>
-            <div style={styles.summaryDate}>9 February 2024</div>
+            <div style={styles.summaryValue}>
+              {loadingDaily ? "--" : formatCurrency(todaysSales)}
+            </div>
+            <div style={styles.summaryDate}>{today.format("D MMMM YYYY")}</div>
           </div>
 
           {/* Daily Transactions Card */}
@@ -123,8 +185,10 @@ export default function Dashboard(): JSX.Element {
               />
             </div>
             <div style={styles.summaryLabel}>Daily Transactions</div>
-            <div style={styles.summaryValue}>42</div>
-            <div style={styles.summaryDate}>9 February 2024</div>
+            <div style={styles.summaryValue}>
+              {loadingDaily ? "--" : todaysTransactions}
+            </div>
+            <div style={styles.summaryDate}>{today.format("D MMMM YYYY")}</div>
           </div>
 
           {/* Staffs Card */}
@@ -133,7 +197,7 @@ export default function Dashboard(): JSX.Element {
               <img src={StaffIcon} alt="Staffs" style={styles.summaryIcon} />
             </div>
             <div style={styles.summaryLabel}>Staffs</div>
-            <div style={styles.summaryValue}>5</div>
+            <div style={styles.summaryValue}>{staffCount}</div>
             <div style={styles.summaryDate}></div>
           </div>
         </div>
@@ -183,20 +247,66 @@ export default function Dashboard(): JSX.Element {
               <button
                 style={{
                   ...styles.overviewButton,
-                  ...styles.overviewButtonActive,
+                  ...(period === "day" ? styles.overviewButtonActive : {}),
                 }}
+                onClick={() => setPeriod("day")}
+              >
+                Daily
+              </button>
+              <button
+                style={{
+                  ...styles.overviewButton,
+                  ...(period === "week" ? styles.overviewButtonActive : {}),
+                }}
+                onClick={() => setPeriod("week")}
+              >
+                Weekly
+              </button>
+              <button
+                style={{
+                  ...styles.overviewButton,
+                  ...(period === "month" ? styles.overviewButtonActive : {}),
+                }}
+                onClick={() => setPeriod("month")}
               >
                 Monthly
               </button>
-              <button style={styles.overviewButton}>Daily</button>
-              <button style={styles.overviewButton}>Weekly</button>
-              <button style={styles.exportButton}>Export</button>
             </div>
           </div>
           <div style={styles.chartPlaceholder}>
-            <span style={styles.chartText}>
-              [Your Sales vs. Revenue Chart Here]
-            </span>
+            {loadingOverview ? (
+              <span style={styles.chartText}>Loading chart...</span>
+            ) : chartData.length === 0 ? (
+              <span style={styles.chartText}>No data available</span>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ left: 0, right: 20 }}>
+                  <CartesianGrid stroke="#444" strokeDasharray="3 3" />
+                  <XAxis dataKey="period" stroke="#fff" />
+                  <YAxis stroke="#fff" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#2A2A2A",
+                      border: "none",
+                    }}
+                    labelStyle={{ color: "#fac1d9" }}
+                  />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="#fac1d9"
+                    name="Revenue"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="profit"
+                    stroke="#47B39C"
+                    name="Profit"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </>
@@ -224,9 +334,9 @@ export default function Dashboard(): JSX.Element {
                 <div key={transaction.id} style={styles.transactionItem}>
                   <div style={styles.transactionId}>{transaction.id}</div>
                   <div style={styles.transactionDetails}>
-                    <span>{transaction.time}</span>
+                    <span>{transaction.date}</span>
                     <span>•</span>
-                    <span>{transaction.items} items</span>
+                    <span>{transaction.time}</span>
                   </div>
                   <div style={styles.transactionAmount}>
                     {transaction.amount}
@@ -246,12 +356,15 @@ export default function Dashboard(): JSX.Element {
               />
             </div>
             <div style={styles.summaryLabel}>On-duty Sales</div>
-            <div style={styles.summaryValue}>{currentCashier.onDutySales}</div>
+            <div style={styles.summaryValue}>
+              {formatCurrency(cashierRevenue)}
+            </div>
             <div style={styles.summaryDate}>
-              Transactions: {currentCashier.transactionCount}
+              Transactions: {cashierTransactions}
             </div>
             <div style={styles.cashierInfo}>
-              {currentCashier.name} • {currentCashier.shift}
+              {cashierDisplay}
+              {cashierShift ? ` • ${cashierShift}` : ""}
             </div>
           </div>
 
@@ -265,13 +378,11 @@ export default function Dashboard(): JSX.Element {
               />
             </div>
             <div style={styles.summaryLabel}>Previous Cashier Balance</div>
-            <div style={styles.summaryValue}>
-              {previousCashier.closingBalance}
+            <div style={styles.summaryValue}>{formatCurrency(0)}</div>
+            <div style={styles.summaryDate}>
+              {today.subtract(1, "day").format("D MMMM YYYY")}
             </div>
-            <div style={styles.summaryDate}>{previousCashier.date}</div>
-            <div style={styles.cashierInfo}>
-              {previousCashier.name} • {previousCashier.shift}
-            </div>
+            <div style={styles.cashierInfo}>--</div>
           </div>
         </div>
 
@@ -404,6 +515,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     marginTop: 4,
     overflowY: "auto",
     maxHeight: 150,
+    paddingRight: 8,
+    marginRight: -8,
   },
   transactionItem: {
     display: "flex",
@@ -463,6 +576,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: 8,
     maxHeight: 280,
     overflowY: "auto",
+    paddingRight: 8,
+    marginRight: -8,
   },
   popularItem: {
     display: "flex",
@@ -555,17 +670,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     backgroundColor: "#fac1d9",
     color: "#292c2d",
     borderColor: "#fac1d9",
-  },
-  exportButton: {
-    fontWeight: 500,
-    fontSize: "0.875rem",
-    color: "#fac1d9",
-    backgroundColor: "transparent",
-    border: "1px solid #fac1d9",
-    borderRadius: 4,
-    padding: "4px 8px",
-    cursor: "pointer",
-    transition: "background-color 0.2s, color 0.2s",
   },
   chartPlaceholder: {
     width: "100%",

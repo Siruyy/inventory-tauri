@@ -448,6 +448,7 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
+            // Core commands directly from the module root
             greet,
             login,
             register,
@@ -474,7 +475,10 @@ fn main() {
             update_order_dates_to_today,
             test_date_filtering,
             debug_date_filtering,
-            commands::file::read_image_to_base64
+            commands::file::read_image_to_base64,
+            // Transaction commands
+            commands::transaction::test_exact_date_filter,
+            commands::transaction::debug_daily_sales,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

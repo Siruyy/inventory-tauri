@@ -45,4 +45,17 @@ pub struct NewOrderItem {
     pub product_id: i32,
     pub quantity: i32,
     pub price: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DetailedSale {
+    pub id: i32,
+    pub product: String,
+    pub category: String,
+    pub date: String,
+    pub price: f64,
+    pub profit: f64,
+    pub margin: String,
+    pub revenue: f64,
+    pub quantity: i32,
 } 

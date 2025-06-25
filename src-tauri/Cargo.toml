@@ -32,6 +32,7 @@ tauri-plugin-shell = { version = "2.0.0-rc.6" }
 r2d2_sqlite = "0.29.0"
 tauri-plugin-dialog = "2.2.2"
 base64 = "0.21.0"
+simple_excel_writer = "0.2.0"
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem
