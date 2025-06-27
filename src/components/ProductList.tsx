@@ -253,14 +253,22 @@ export function ProductList({
                   <span
                     style={{
                       backgroundColor:
-                        product.current_stock > 0 ? "#2E7D32" : "#D32F2F",
+                        product.current_stock === 0
+                          ? "#D32F2F"  // Out of stock - Red
+                          : product.current_stock <= product.minimum_stock
+                            ? "#FFA726"  // Low stock - Orange/Amber warning
+                            : "#2E7D32",  // In stock - Green
                       color: "white",
                       padding: "4px 12px",
                       borderRadius: "12px",
                       fontSize: "12px",
                     }}
                   >
-                    {product.current_stock > 0 ? "Active" : "Out of Stock"}
+                    {product.current_stock === 0
+                      ? "Out of Stock"
+                      : product.current_stock <= product.minimum_stock
+                        ? "Low Stock"
+                        : "Active"}
                   </span>
                 </td>
                 <td style={tableStyles.cellRight}>

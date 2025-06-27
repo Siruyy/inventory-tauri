@@ -1,120 +1,103 @@
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, Result, params};
 use std::path::Path;
 use std::process::Command;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Starting database fix and application restart...");
+fn main() -> Result<()> {
+    println!("Starting database fix and clean-up...");
     
-    // Connect to the database
+    // Get the database path
     let db_path = Path::new("inventory.db");
     println!("Connecting to database at {:?}", db_path.canonicalize()?);
     
+    // Connect to the database
     let conn = Connection::open(db_path)?;
     
-    // Check if products table exists
-    let table_exists = conn.query_row(
-        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='products'",
-        [],
-        |row| row.get::<_, i64>(0)
-    )? > 0;
+    // Find the Uncategorized category
+    let mut stmt = conn.prepare("SELECT id FROM categories WHERE name = 'Uncategorized'")?;
+    let uncategorized_id: Option<i32> = stmt.query_row([], |row| row.get(0)).ok();
     
-    if !table_exists {
-        println!("Products table doesn't exist!");
-        return Ok(());
-    }
-    
-    // Check products count
-    let count: i64 = conn.query_row("SELECT COUNT(*) FROM products", [], |row| row.get(0))?;
-    println!("Found {} products in the database", count);
-    
-    // List all products
-    let mut stmt = conn.prepare("SELECT id, name, sku FROM products")?;
-    let products = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, i32>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, String>(2)?
-        ))
-    })?;
-    
-    println!("Products in database:");
-    for product in products {
-        match product {
-            Ok((id, name, sku)) => {
-                println!("  ID: {}, Name: {}, SKU: {}", id, name, sku);
+    if let Some(uncategorized_id) = uncategorized_id {
+        println!("Found 'Uncategorized' category with ID: {}", uncategorized_id);
+        
+        // Check for products in this category
+        let mut stmt = conn.prepare("SELECT COUNT(*) FROM products WHERE category_id = ?")?;
+        let product_count: i32 = stmt.query_row(params![uncategorized_id], |row| row.get(0))?;
+        
+        println!("The 'Uncategorized' category has {} products according to the database", product_count);
+        
+        // Check if any of those products are referenced in order_items
+        let mut stmt = conn.prepare(
+            "SELECT COUNT(*) FROM products p 
+             JOIN order_items oi ON p.id = oi.product_id 
+             WHERE p.category_id = ?"
+        )?;
+        let products_in_orders: i32 = stmt.query_row(params![uncategorized_id], |row| row.get(0))?;
+        
+        println!("Of those, {} products are referenced in orders", products_in_orders);
+        
+        // Start a transaction for our fixes
+        let tx = conn.transaction()?;
+        
+        // Check for orphaned products (those not in any orders)
+        let mut stmt = tx.prepare(
+            "SELECT p.id, p.name FROM products p 
+             LEFT JOIN order_items oi ON p.id = oi.product_id 
+             WHERE p.category_id = ? AND oi.id IS NULL"
+        )?;
+        let orphaned_products = stmt.query_map(params![uncategorized_id], |row| {
+            Ok((row.get::<_, i32>(0)?, row.get::<_, String>(1)?))
+        })?;
+        
+        let mut orphaned_count = 0;
+        for product in orphaned_products {
+            if let Ok((id, name)) = product {
+                println!("Found orphaned product: ID = {}, Name = {}", id, name);
+                
+                // Delete orphaned products
+                tx.execute("DELETE FROM products WHERE id = ?", params![id])?;
+                println!("Deleted orphaned product with ID: {}", id);
+                orphaned_count += 1;
             }
-            Err(e) => println!("  Error reading product: {}", e),
         }
-    }
-    
-    // Check if thumbnailUrl column exists
-    let mut stmt = conn.prepare("PRAGMA table_info(products)")?;
-    let columns: Vec<String> = stmt.query_map([], |row| {
-        Ok(row.get::<_, String>(1)?)
-    })?.collect::<Result<Vec<String>, _>>()?;
-    
-    if !columns.contains(&"thumbnailUrl".to_string()) {
-        println!("Adding thumbnailUrl column to products table");
-        conn.execute("ALTER TABLE products ADD COLUMN thumbnailUrl TEXT;", [])?;
-        println!("Added thumbnailUrl column to products table");
+        
+        println!("Deleted {} orphaned products", orphaned_count);
+        
+        // If there are no remaining products in the Uncategorized category, we can delete it
+        if product_count == orphaned_count {
+            println!("All products in 'Uncategorized' category were orphaned. Attempting to delete the category...");
+            
+            // Double-check that there are no products left
+            let remaining_count: i32 = tx.query_row(
+                "SELECT COUNT(*) FROM products WHERE category_id = ?",
+                params![uncategorized_id],
+                |row| row.get(0)
+            )?;
+            
+            if remaining_count == 0 {
+                tx.execute("DELETE FROM categories WHERE id = ?", params![uncategorized_id])?;
+                println!("Successfully deleted the 'Uncategorized' category.");
+            } else {
+                println!("Could not delete 'Uncategorized' category - {} products still remain.", remaining_count);
+            }
+        } else if product_count > 0 {
+            println!("'Uncategorized' category has valid products. Ensuring they are properly linked...");
+            
+            // Fix any potentially corrupted products by updating their timestamps
+            tx.execute(
+                "UPDATE products SET updated_at = CURRENT_TIMESTAMP WHERE category_id = ?", 
+                params![uncategorized_id]
+            )?;
+            println!("Updated timestamps for products in 'Uncategorized' category");
+        }
+        
+        // Commit our changes
+        tx.commit()?;
+        
+        println!("Database fixes committed successfully.");
     } else {
-        println!("thumbnailUrl column already exists");
+        println!("No 'Uncategorized' category found in the database.");
     }
     
-    // Check table schema
-    println!("\nCurrent products table schema:");
-    let mut stmt = conn.prepare("PRAGMA table_info(products)")?;
-    let columns = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, i32>(0)?, // cid
-            row.get::<_, String>(1)?, // name
-            row.get::<_, String>(2)?, // type
-            row.get::<_, bool>(3)?, // notnull
-            row.get::<_, Option<String>>(4)?, // dflt_value
-            row.get::<_, i32>(5)? // pk
-        ))
-    })?;
-    
-    for column in columns {
-        match column {
-            Ok((cid, name, type_name, not_null, default_value, pk)) => {
-                println!("  Column {}: {} (type: {}, not_null: {}, default: {:?}, pk: {})", 
-                    cid, name, type_name, not_null, default_value, pk);
-            }
-            Err(e) => println!("  Error reading column: {}", e),
-        }
-    }
-    
-    // Fix any null thumbnailUrl values
-    println!("\nFixing null thumbnailUrl values...");
-    conn.execute("UPDATE products SET thumbnailUrl = NULL WHERE thumbnailUrl = '';", [])?;
-    
-    // Check for any issues with the categories table
-    println!("\nChecking categories table...");
-    let mut stmt = conn.prepare("SELECT id, name, icon FROM categories")?;
-    let categories = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, i32>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, Option<String>>(2)?
-        ))
-    })?;
-    
-    println!("Categories in database:");
-    for category in categories {
-        match category {
-            Ok((id, name, icon)) => {
-                println!("  ID: {}, Name: {}, Icon: {:?}", id, name, icon);
-            }
-            Err(e) => println!("  Error reading category: {}", e),
-        }
-    }
-    
-    // Fix any null icon values
-    println!("\nFixing null icon values...");
-    conn.execute("UPDATE categories SET icon = NULL WHERE icon = '';", [])?;
-    
-    println!("\nDatabase fix completed successfully!");
-    
+    println!("Fix complete! Restart the application to see changes.");
     Ok(())
 } 

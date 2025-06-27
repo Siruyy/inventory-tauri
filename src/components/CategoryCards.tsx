@@ -105,21 +105,21 @@ export function CategoryCards({
         // Explicitly refetch after deletion to ensure UI is up to date
         refetchCategories();
         refetchProducts();
-
-        // Show success toast
-        toast.success("Category deleted successfully");
       } catch (error) {
         console.error("Error deleting category:", error);
 
-        // Show error toast with the specific error message from the backend
-        const errorMessage =
+        // Extract detailed error message from the backend
+        const errorMessage = 
           error instanceof Error
             ? error.message
-            : "Failed to delete category. Please try again.";
+            : typeof error === 'string'
+              ? error
+              : "Failed to delete category. Please try again.";
 
+        // Show error toast with the specific error message from the backend
         toast.error("Failed to delete category", {
           description: errorMessage,
-          duration: 5000,
+          duration: 8000,
         });
       } finally {
         setDeletingCategoryId(null);
@@ -191,7 +191,7 @@ export function CategoryCards({
       {/* Category cards */}
       {categories.map((category: Category) => {
         const productCount = getProductCountForCategory(category.id);
-        const iconUrl = categoryIcons[category.id] || "";
+        const iconUrl = categoryIcons[category.id] || undefined;
 
         return (
           <div
@@ -240,7 +240,7 @@ export function CategoryCards({
 }
 
 // Helper component for category icons
-const CategoryIcon = ({ name, iconUrl }: { name: string; iconUrl: string }) => {
+const CategoryIcon = ({ name, iconUrl }: { name: string; iconUrl?: string }) => {
   const [imgError, setImgError] = useState(false);
 
   // Show letter when no image or image errored

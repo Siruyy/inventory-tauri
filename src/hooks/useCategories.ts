@@ -317,11 +317,18 @@ export function useCategories() {
     onError: (error, _id, context) => {
       console.error("Failed to delete category:", error);
 
-      // Show error toast notification
+      // Extract detailed error message from the backend
+      const errorMessage = 
+        error instanceof Error
+          ? error.message
+          : typeof error === 'string'
+            ? error
+            : "There was an error deleting the category. Please try again.";
+
+      // Show error toast notification with detailed message
       toast.error("Failed to delete category", {
-        description:
-          "There was an error deleting the category. Please try again.",
-        duration: 5000,
+        description: errorMessage,
+        duration: 8000, // Increased duration for longer messages
       });
 
       // Revert back to the previous state if available

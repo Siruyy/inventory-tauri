@@ -894,8 +894,21 @@ export default function Reports() {
     setIsFiltering(false);
   };
 
-  // Add export function
+  // Main export function that delegates to the appropriate export handler based on the active tab
   const handleExportData = async () => {
+    // For inventory tab, redirect to inventory export function
+    if (tabValue === 1) {
+      handleExportInventoryData();
+      return;
+    }
+    
+    // For staff tab, redirect to staff export function
+    if (tabValue === 2) {
+      handleExportStaffData();
+      return;
+    }
+    
+    // Default case: Sales & Revenue tab
     if (!salesReportData) return;
     try {
       setIsExporting(true);
@@ -999,6 +1012,257 @@ export default function Reports() {
       URL.revokeObjectURL(url);
       setIsExporting(false);
       toast.success("Sales report exported successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export");
+    }
+  };
+
+  // Add export function for inventory data
+  const handleExportInventoryData = async () => {
+    try {
+      setIsExporting(true);
+      const wb = XLSX.utils.book_new();
+      const now = format(new Date(), "yyyy-MM-dd HH:mm:ss");
+      const rangeLabel =
+        appliedInvStartDate && appliedInvEndDate
+          ? `${appliedInvStartDate} to ${appliedInvEndDate}`
+          : "All Time";
+
+      // Calculate summary metrics for inventory
+      const inventorySummary = {
+        total_inventory_value: filteredProducts.reduce(
+          (sum, product) => sum + product.unit_price * product.current_stock,
+          0
+        ),
+        total_items: filteredProducts.reduce(
+          (sum, product) => sum + product.current_stock,
+          0
+        ),
+        low_stock_items: filteredProducts.filter(
+          (product) => product.current_stock <= product.minimum_stock
+        ).length,
+        stock_turnover_rate: "5.2x", // Using the static value from UI
+      };
+
+      // Create summary sheet
+      const summaryAOA: any[] = [
+        ["Inventory Report Summary"],
+        ["Exported on:", now],
+        ["Date Range:", rangeLabel],
+        [],
+        ["Total Inventory Value", formatCurrency(inventorySummary.total_inventory_value)],
+        ["Total Items", inventorySummary.total_items],
+        ["Low Stock Items", inventorySummary.low_stock_items],
+        ["Stock Turnover Rate", inventorySummary.stock_turnover_rate],
+      ];
+
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.aoa_to_sheet(summaryAOA),
+        "Summary"
+      );
+
+      // Create inventory items sheet
+      const inventoryAOA: any[] = [
+        [
+          "ID",
+          "Product Name",
+          "Category",
+          "Price",
+          "Current Stock",
+          "Minimum Stock",
+          "Total Value",
+        ],
+      ];
+
+      filteredProducts.forEach((product) => {
+        inventoryAOA.push([
+          product.id,
+          product.name,
+          product.category_name,
+          product.unit_price,
+          product.current_stock,
+          product.minimum_stock,
+          product.unit_price * product.current_stock,
+        ]);
+      });
+
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.aoa_to_sheet(inventoryAOA),
+        "Inventory Items"
+      );
+
+      // Create delivery history sheet
+      const deliveryAOA: any[] = [
+        [
+          "Product",
+          "Supplier",
+          "Quantity",
+          "Cost",
+          "Date",
+        ],
+      ];
+
+      deliveryHistory.forEach((record) => {
+        deliveryAOA.push([
+          record.product_name,
+          record.supplier,
+          record.quantity,
+          record.cost,
+          record.date,
+        ]);
+      });
+
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.aoa_to_sheet(deliveryAOA),
+        "Delivery History"
+      );
+
+      // Create inventory by category sheet
+      const categoryAOA: any[] = [
+        [
+          "Category",
+          "Value",
+          "Percentage",
+        ],
+      ];
+
+      const categoryData = getCategoryData(filteredProducts);
+      const totalValue = categoryData.reduce((sum: number, cat: { value: number }) => sum + cat.value, 0);
+
+      categoryData.forEach((category: { name: string; value: number }) => {
+        categoryAOA.push([
+          category.name,
+          formatCurrency(category.value),
+          ((category.value / totalValue) * 100).toFixed(2) + "%",
+        ]);
+      });
+
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.aoa_to_sheet(categoryAOA),
+        "Value by Category"
+      );
+
+      const wbArray = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+      const blob = new Blob([wbArray], { type: "application/octet-stream" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Inventory_Report_${format(new Date(), "yyyy-MM-dd")}${
+        appliedInvStartDate && appliedInvEndDate
+          ? `_${appliedInvStartDate}_to_${appliedInvEndDate}`
+          : ""
+      }.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setIsExporting(false);
+      toast.success("Inventory report exported successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export");
+    }
+  };
+
+  // Add export function for staff data
+  const handleExportStaffData = async () => {
+    try {
+      setIsExporting(true);
+      const wb = XLSX.utils.book_new();
+      const now = format(new Date(), "yyyy-MM-dd HH:mm:ss");
+      const rangeLabel =
+        appliedStaffStartDate && appliedStaffEndDate
+          ? `${appliedStaffStartDate} to ${appliedStaffEndDate}`
+          : "All Time";
+
+      // Get staff metrics from UI values
+      const totalStaff = Array.from(
+        new Set(filteredStaffAttendance.map((s) => s.staffName))
+      ).length;
+      const presentStaff = filteredStaffAttendance.filter(
+        (r) => r.status === "Present"
+      ).length;
+      const absentStaff = filteredStaffAttendance.filter(
+        (r) => r.status === "Absent"
+      ).length;
+      const halfShiftStaff = filteredStaffAttendance.filter(
+        (r) => r.status === "Half-shift"
+      ).length;
+      
+      // Staff summary metrics
+      const staffSummary = {
+        total_staff: totalStaff,
+        present: presentStaff,
+        absent: absentStaff,
+        half_shift: halfShiftStaff,
+      };
+
+      // Create summary sheet
+      const summaryAOA: any[] = [
+        ["Staff Attendance Report Summary"],
+        ["Exported on:", now],
+        ["Date Range:", rangeLabel],
+        [],
+        ["Total Staff", staffSummary.total_staff],
+        ["Present", staffSummary.present],
+        ["Absent", staffSummary.absent],
+        ["Half-Shift", staffSummary.half_shift],
+      ];
+
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.aoa_to_sheet(summaryAOA),
+        "Summary"
+      );
+
+      // Create attendance detail sheet
+      const attendanceAOA: any[] = [
+        [
+          "Staff Name",
+          "Role",
+          "Date",
+          "Shift Time",
+          "Check In",
+          "Check Out",
+          "Status",
+        ],
+      ];
+
+      filteredStaffAttendance.forEach((record) => {
+        attendanceAOA.push([
+          record.staffName,
+          record.role,
+          record.date,
+          record.shiftTime,
+          record.checkIn || "N/A",
+          record.checkOut || "N/A",
+          record.status,
+        ]);
+      });
+
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.aoa_to_sheet(attendanceAOA),
+        "Attendance Details"
+      );
+
+      const wbArray = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+      const blob = new Blob([wbArray], { type: "application/octet-stream" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Staff_Report_${format(new Date(), "yyyy-MM-dd")}${
+        appliedStaffStartDate && appliedStaffEndDate
+          ? `_${appliedStaffStartDate}_to_${appliedStaffEndDate}`
+          : ""
+      }.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setIsExporting(false);
+      toast.success("Staff attendance report exported successfully");
     } catch (err) {
       console.error(err);
       toast.error("Failed to export");
@@ -1658,6 +1922,13 @@ export default function Reports() {
                 <ResetButton variant="outlined" onClick={handleResetFilter}>
                   Reset
                 </ResetButton>
+                <ExportButton
+                  variant="contained"
+                  onClick={handleExportData}
+                  disabled={isExporting}
+                >
+                  {isExporting ? "Exporting..." : "Export"}
+                </ExportButton>
               </Stack>
             </FilterContainer>
 
@@ -1971,6 +2242,13 @@ export default function Reports() {
                 <ResetButton variant="outlined" onClick={handleResetFilter}>
                   Reset
                 </ResetButton>
+                <ExportButton
+                  variant="contained"
+                  onClick={handleExportData}
+                  disabled={isExporting}
+                >
+                  {isExporting ? "Exporting..." : "Export"}
+                </ExportButton>
               </Stack>
             </FilterContainer>
 

@@ -1,5 +1,5 @@
 // src/pages/Dashboard.tsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import Header from "../components/Header";
 import { useAuth } from "../context/AuthContext";
@@ -15,6 +15,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useOrders } from "../hooks/useOrders";
+import { useProducts, type Product } from "../hooks/useProducts";
+import { formatFilePath } from "../utils/fileUtils";
 
 // Import your summary-card icons
 import DailySalesIcon from "/icons/Daily Sales.svg";
@@ -39,6 +41,7 @@ export default function Dashboard(): JSX.Element {
 
   /* -------------------- DATA FETCHING HOOKS -------------------- */
   const { getSalesReportData, recentOrders } = useOrders();
+  const { products } = useProducts();
 
   // Sample cashier data
   const currentCashier = {
@@ -97,7 +100,9 @@ export default function Dashboard(): JSX.Element {
   const staffCount = (() => {
     try {
       const list = JSON.parse(localStorage.getItem("staffList") || "[]");
-      return Array.isArray(list) ? list.length : 0;
+      // Filter out the emergency admin account with username "admin"
+      const filteredList = Array.isArray(list) ? list.filter(staff => staff.username !== "admin") : [];
+      return filteredList.length;
     } catch (_) {
       return 0;
     }
@@ -112,6 +117,34 @@ export default function Dashboard(): JSX.Element {
     inStock: true, // TODO: connect to actual stock if desired
     imgSrc: "https://via.placeholder.com/60", // Placeholder until thumbnails are wired
   }));
+
+  // Function to load product images
+  const [productImages, setProductImages] = useState<Record<string, string>>({});
+  
+  useEffect(() => {
+    const loadProductImages = async () => {
+      if (!overviewReport?.top_products?.length) return;
+      
+      // Find matching products to get their thumbnails
+      const productMap: Record<string, string> = {};
+      
+      for (const popularProduct of overviewReport.top_products) {
+        const matchingProduct = products?.find((p: Product) => p.name === popularProduct.product);
+        if (matchingProduct?.thumbnailUrl) {
+          try {
+            const imageUrl = await formatFilePath(matchingProduct.thumbnailUrl);
+            productMap[popularProduct.product] = imageUrl;
+          } catch (error) {
+            console.error(`Error loading image for ${popularProduct.product}:`, error);
+          }
+        }
+      }
+      
+      setProductImages(productMap);
+    };
+    
+    loadProductImages();
+  }, [overviewReport?.top_products, products]);
 
   // Chart data
   const chartData = (overviewReport?.sales_by_period || []).map((row) => ({
@@ -206,7 +239,7 @@ export default function Dashboard(): JSX.Element {
         <div style={styles.popularContainer}>
           <div style={styles.popularHeader}>
             <span style={styles.popularTitle}>Popular Item</span>
-            <NavLink to="/inventory" style={styles.popularSeeAll}>
+            <NavLink to="/reports" style={styles.popularSeeAll}>
               See All
             </NavLink>
           </div>
@@ -214,7 +247,7 @@ export default function Dashboard(): JSX.Element {
             {popularItems.map((item) => (
               <div key={item.id} style={styles.popularItem}>
                 <img
-                  src={item.imgSrc}
+                  src={productImages[item.name] || item.imgSrc}
                   alt={item.name}
                   style={styles.popularItemImage}
                 />
@@ -390,7 +423,7 @@ export default function Dashboard(): JSX.Element {
         <div style={styles.popularContainer}>
           <div style={styles.popularHeader}>
             <span style={styles.popularTitle}>Popular Item</span>
-            <NavLink to="/inventory" style={styles.popularSeeAll}>
+            <NavLink to="/reports" style={styles.popularSeeAll}>
               See All
             </NavLink>
           </div>
@@ -398,7 +431,7 @@ export default function Dashboard(): JSX.Element {
             {popularItems.map((item) => (
               <div key={item.id} style={styles.popularItem}>
                 <img
-                  src={item.imgSrc}
+                  src={productImages[item.name] || item.imgSrc}
                   alt={item.name}
                   style={styles.popularItemImage}
                 />

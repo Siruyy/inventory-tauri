@@ -337,7 +337,7 @@ pub fn delete_category(state: tauri::State<DbState>, id: i32) -> Result<String, 
             
             // Don't allow deleting the Uncategorized category
             if id == default_category_id {
-                return Err("Cannot delete the Uncategorized category as it is used as a fallback for products.".to_string());
+                return Err("Cannot delete the Uncategorized category. Please first move all products in this category to another category or create a new category for them.".to_string());
             }
             
             // Move products to the default category

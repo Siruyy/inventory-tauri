@@ -76,7 +76,7 @@ export default function CategoryFormDrawer({
       setTimeout(() => {
         onSave({
           name: categoryName,
-          imageUrl: imageUrl || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='216' viewBox='0 0 240 216'%3E%3Crect width='240' height='216' fill='%23383C3D'/%3E%3C/svg%3E",
+          imageUrl: imageUrl || null,
         });
       }, 50);
 
