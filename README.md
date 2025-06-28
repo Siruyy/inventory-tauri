@@ -21,20 +21,13 @@ A comprehensive Inventory Management System built with Tauri, React, and SQLite 
 
 ### Installation Steps
 
-1. Download the latest installer from the [Releases](https://github.com/your-username/inventory-tauri/releases) page
+1. Download the latest installer from the [Releases](https://github.com/Siruyy/inventory-tauri/releases) page
 2. Run the `CICS-Setup-Inno.exe` installer
 3. Follow the installation wizard:
    - Choose your preferred installation directory
    - Select whether to create desktop and/or Start Menu shortcuts
    - Complete the installation
 4. Launch the application from the created shortcuts or the installation directory
-
-### Uninstallation
-
-To uninstall the application:
-1. Go to Control Panel > Programs > Uninstall a program
-2. Select "CICS" from the list and click "Uninstall"
-3. Alternatively, use the uninstaller in the Start Menu folder
 
 ## Getting Started
 
@@ -80,17 +73,6 @@ To uninstall the application:
 
 2. The compiled application will be available in the `src-tauri/target/release` directory
 
-### Creating an Installer
-
-We use Inno Setup to create a Windows installer with desktop and Start Menu shortcuts:
-
-1. Ensure Inno Setup 6+ is installed on your system
-2. Run the installer creation script:
-   ```bash
-   .\create_installer.bat
-   ```
-3. The installer will be generated at `target\inno\CICS-Setup-Inno.exe`
-
 ## Database Information
 
 The application uses SQLite for data storage. The database is stored in the application's data directory:
@@ -108,4 +90,4 @@ Neel Ulysses A. Roda
 
 ---
 
-© 2024 | Canteen Inventory Control System
+© 2025 | Canteen Inventory Control System
