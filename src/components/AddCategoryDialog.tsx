@@ -1,48 +1,73 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  DialogFooter,
+  DialogDescription,
 } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { useCategories, NewCategory } from "../hooks/useCategories";
-import { open } from "@tauri-apps/plugin-dialog";
+import { invoke } from "@tauri-apps/api/core";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { formatFilePath } from "../utils/fileUtils";
 
-export function AddCategoryDialog() {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
+interface AddCategoryDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onCategoryAdded: () => void;
+}
+
+export default function AddCategoryDialog({
+  isOpen,
+  onClose,
+  onCategoryAdded,
+}: AddCategoryDialogProps) {
+  const [categoryName, setCategoryName] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [description, setDescription] = useState("");
-  const [icon, setIcon] = useState<string>("");
-  const [displayIcon, setDisplayIcon] = useState<string>("");
   const { addCategory } = useCategories();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newCategory: NewCategory = {
-      name,
-      description: description || null,
-      icon: icon || null,
-    };
-    addCategory.mutate(newCategory, {
-      onSuccess: () => {
-        setOpen(false);
-        setName("");
-        setDescription("");
-        setIcon("");
-        setDisplayIcon("");
-      },
-    });
+
+    if (!categoryName.trim()) {
+      alert("Please enter a category name.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Invoke the backend command to add a new category
+      await invoke("add_category", {
+        name: categoryName,
+        description: description || null,
+        icon: imageUrl || null,
+      });
+
+      // Clear inputs and close dialog
+      setCategoryName("");
+      setDescription("");
+      setImageUrl(null);
+      onCategoryAdded();
+      onClose();
+    } catch (error) {
+      console.error("Failed to add category:", error);
+      alert(`Error adding category: ${error}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleImageSelect = async () => {
+  const handleSelectImage = async () => {
     try {
-      // Open file dialog to select an image
-      const selected = await open({
+      const selected = await openDialog({
+        directory: false,
         multiple: false,
         filters: [
           {
@@ -51,20 +76,9 @@ export function AddCategoryDialog() {
           },
         ],
       });
-
-      // If user selected a file, update the icon
-      if (selected && !Array.isArray(selected)) {
-        // Store the file path directly
-        setIcon(selected);
-        console.log("Selected image path:", selected);
-
-        // Format the file path for display - properly await the Promise
-        try {
-          const formattedPath = await formatFilePath(selected);
-          setDisplayIcon(formattedPath);
-        } catch (error) {
-          console.error("Error formatting image path:", error);
-        }
+      
+      if (selected) {
+        setImageUrl(selected as string);
       }
     } catch (error) {
       console.error("Error selecting image:", error);
@@ -72,38 +86,21 @@ export function AddCategoryDialog() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          style={{
-            backgroundColor: "#FAC1D9",
-            color: "#333333",
-            fontWeight: 500,
-            padding: "10px 24px",
-            borderRadius: "8px",
-            border: "none",
-            whiteSpace: "nowrap",
-            minWidth: "190px",
-            fontSize: "15px",
-            maxWidth: "100%",
-            overflow: "visible",
-          }}
-          className="hover:bg-[#e0a9c1]"
-        >
-          Add New Category
-        </Button>
-      </DialogTrigger>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="bg-[#292C2D] border-[#323232] text-[#FFFFFF]">
         <DialogHeader>
           <DialogTitle className="text-[#FFFFFF]">Add New Category</DialogTitle>
+          <DialogDescription>
+            Create a new category for your inventory items.
+          </DialogDescription>
         </DialogHeader>
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Image Upload Section */}
           <div className="flex flex-col items-center space-y-3">
             <div className="w-32 h-32 bg-[#383C3D] rounded-lg overflow-hidden flex items-center justify-center">
-              {displayIcon ? (
+              {imageUrl ? (
                 <img
-                  src={displayIcon}
+                  src={imageUrl}
                   alt="Category Icon"
                   className="w-full h-full object-contain"
                 />
@@ -116,7 +113,7 @@ export function AddCategoryDialog() {
             <Button
               type="button"
               variant="ghost"
-              onClick={handleImageSelect}
+              onClick={handleSelectImage}
               className="text-[#FAC1D9] hover:text-[#e0a9c1] hover:bg-transparent"
             >
               Add Picture/Icon
@@ -132,8 +129,8 @@ export function AddCategoryDialog() {
             </label>
             <Input
               id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={categoryName}
+              onChange={(e) => setCategoryName(e.target.value)}
               required
               className="bg-[#1F1F1F] border-[#323232] text-[#FFFFFF]"
             />
@@ -157,16 +154,17 @@ export function AddCategoryDialog() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setOpen(false)}
+              onClick={onClose}
               className="border-[#323232] text-[#DDDDDD] hover:bg-[#33363A] hover:text-[#FFFFFF]"
             >
               Cancel
             </Button>
             <Button
               type="submit"
+              disabled={isSubmitting}
               className="bg-[#FAC1D9] text-[#292C2D] hover:bg-[#e0a9c1]"
             >
-              Add Category
+              {isSubmitting ? "Adding..." : "Add Category"}
             </Button>
           </div>
         </form>

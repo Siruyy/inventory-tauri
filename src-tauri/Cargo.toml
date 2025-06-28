@@ -1,19 +1,26 @@
 [package]
-name = "inventory-tauri"
-version = "0.1.0"
-description = ""
+name = "cics-inventory"
+version = "1.0.0"
+description = "Canteen Inventory Control System"
 authors = []
 license = ""
 repository = ""
 edition = "2021"
-default-run = "inventory-tauri"
+default-run = "cics-inventory"
+
+# Define the main binary only
+[[bin]]
+name = "cics-inventory"
+path = "src/main.rs"
+
+# Non-default binaries have been moved to bin_backup and are not included in the build
 
 [build-dependencies]
 tauri-build = { version = "2.0.0-rc.3", features = [] }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-# This is the corrected `tauri` dependency with the incorrect features removed.
+# This is the corrected `tauri` dependency with the correct features
 tauri = { version = "2.0.0-rc.6", features = ["protocol-asset"] }
 
 # All your other dependencies are preserved below.
@@ -30,7 +37,6 @@ rusqlite = { version = "0.36.0", features = ["bundled"] }
 tauri-plugin-fs = { version = "2.0.0-rc.6" }
 tauri-plugin-shell = { version = "2.0.0-rc.6" }
 r2d2_sqlite = "0.29.0"
-tauri-plugin-dialog = "2.2.2"
 base64 = "0.21.0"
 simple_excel_writer = "0.2.0"
 
@@ -38,6 +44,8 @@ simple_excel_writer = "0.2.0"
 # this feature is used for production builds or when `devPath` points to the filesystem
 # DO NOT REMOVE!!
 custom-protocol = ["tauri/custom-protocol"]
+# Development-only tools 
+dev-tools = []
 
 [package.metadata.tauri]
 version = "2.0.0-rc.6"

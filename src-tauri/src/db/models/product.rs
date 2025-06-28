@@ -14,7 +14,8 @@ pub struct Product {
     pub supplier: Option<String>,
     pub created_at: String,
     pub updated_at: String,
-    pub thumbnailUrl: Option<String>,
+    #[serde(rename = "thumbnailUrl")]
+    pub thumbnail_url: Option<String>,
     pub barcode: Option<String>,
 }
 
@@ -33,7 +34,8 @@ pub struct ProductWithCategory {
     pub supplier: Option<String>,
     pub created_at: String,
     pub updated_at: String,
-    pub thumbnailUrl: Option<String>,
+    #[serde(rename = "thumbnailUrl")]
+    pub thumbnail_url: Option<String>,
     pub barcode: Option<String>,
 }
 
@@ -48,6 +50,7 @@ pub struct NewProduct {
     pub current_stock: i32,
     pub minimum_stock: i32,
     pub supplier: Option<String>,
-    pub thumbnailUrl: Option<String>,
+    #[serde(rename = "thumbnailUrl")]
+    pub thumbnail_url: Option<String>,
     pub barcode: Option<String>,
 }

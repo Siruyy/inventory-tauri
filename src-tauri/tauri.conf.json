@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "inventory-tauri",
-  "version": "0.1.0",
-  "identifier": "com.inventory-tauri.app",
+  "productName": "CICS",
+  "version": "1.0.0",
+  "identifier": "com.cics.inventory",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,15 +12,16 @@
   "app": {
     "windows": [
       {
-        "title": "inventory-tauri",
-        "width": 800,
-        "height": 600,
+        "title": "CICS: Canteen Inventory Control System",
+        "width": 1200,
+        "height": 800,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "center": true
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' asset: https://asset.localhost http://asset.localhost file://* data:;",
+      "csp": "default-src 'self' tauri: localhost; img-src 'self' asset: https://asset.localhost data: file://*; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' tauri: localhost",
       "assetProtocol": {
         "enable": true,
         "scope": [
@@ -39,21 +40,25 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "resources": [],
+    "externalBin": [],
+    "copyright": "© 2024 | All rights reserved",
+    "category": "Business",
+    "shortDescription": "Canteen inventory management system",
+    "longDescription": "A complete inventory management system for tracking stock, orders, and staff in canteen operations"
   },
   "plugins": {
     "shell": {
       "open": true
     },
-    "fs": {
-      "requireLiteralLeadingDot": false
-    }
+    "fs": {}
   }
 }

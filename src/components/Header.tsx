@@ -135,7 +135,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: 16,
   },
   iconLink: {
-    display: "inline-block",
     width: 32,
     height: 32,
     display: "flex",

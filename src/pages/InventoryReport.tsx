@@ -33,6 +33,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  PieLabelRenderProps,
 } from "recharts";
 import { invoke } from "@tauri-apps/api/core";
 import { useProducts, Product } from "../hooks/useProducts";
@@ -215,7 +216,7 @@ const mockStockTrend = [
 ];
 
 export default function InventoryReport() {
-  const { data: products, isLoading } = useProducts();
+  const { products, isLoading } = useProducts();
   const [startDate, setStartDate] = useState<Date | null>(
     subDays(new Date(), 30)
   );
@@ -237,17 +238,17 @@ export default function InventoryReport() {
   useEffect(() => {
     if (products?.length) {
       const totalValue = products.reduce(
-        (sum, product) => sum + product.unit_price * product.current_stock,
+        (sum: number, product: Product) => sum + product.unit_price * product.current_stock,
         0
       );
 
       const totalItems = products.reduce(
-        (sum, product) => sum + product.current_stock,
+        (sum: number, product: Product) => sum + product.current_stock,
         0
       );
 
       const lowStockCount = products.filter(
-        (product) => product.current_stock <= product.minimum_stock
+        (product: Product) => product.current_stock <= product.minimum_stock
       ).length;
 
       // Mock turnover rate (would be calculated from actual sales data)
@@ -263,7 +264,7 @@ export default function InventoryReport() {
       // Prepare category data for pie chart
       const categoryMap = new Map<number, { name: string; value: number }>();
 
-      products.forEach((product) => {
+      products.forEach((product: Product) => {
         const value = product.unit_price * product.current_stock;
         const categoryId = product.category_id;
         const categoryName = product.category_name || `Category ${categoryId}`;
@@ -299,12 +300,12 @@ export default function InventoryReport() {
     );
   }
 
-  const renderCustomizedLabel = (props: any) => {
-    const { cx, cy, midAngle, innerRadius, outerRadius, percent, name } = props;
+  const renderCustomizedLabel = (props: PieLabelRenderProps) => {
+    const { cx = 0, cy = 0, midAngle = 0, outerRadius = 0, percent = 0, name = '' } = props;
     const RADIAN = Math.PI / 180;
-    const radius = outerRadius * 1.15;
-    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+    const radius = (outerRadius as number) * 1.15;
+    const x = (cx as number) + radius * Math.cos(-midAngle * RADIAN);
+    const y = (cy as number) + radius * Math.sin(-midAngle * RADIAN);
 
     if (percent < 0.05) return null;
 
@@ -313,7 +314,7 @@ export default function InventoryReport() {
         x={x}
         y={y}
         fill="#FFFFFF"
-        textAnchor={x > cx ? "start" : "end"}
+        textAnchor={x > (cx as number) ? "start" : "end"}
         dominantBaseline="central"
         fontSize={10}
         fontWeight="bold"
@@ -464,7 +465,7 @@ export default function InventoryReport() {
 
         {/* Product Delivery History Table */}
         <TableTitle>Product Delivery History</TableTitle>
-        <StyledTableContainer component={Paper}>
+        <StyledTableContainer>
           <Table>
             <TableHead>
               <TableRow>
@@ -509,6 +510,43 @@ export default function InventoryReport() {
             }}
             rowsPerPageOptions={[25, 50, 100]}
           />
+        </StyledTableContainer>
+
+        {/* Products Table */}
+        <TableTitle variant="h6">Inventory Items</TableTitle>
+        <StyledTableContainer>
+          <Table stickyHeader>
+            <TableHead>
+              <TableRow>
+                <StyledTableHeaderCell>Product Name</StyledTableHeaderCell>
+                <StyledTableHeaderCell>SKU</StyledTableHeaderCell>
+                <StyledTableHeaderCell>Category</StyledTableHeaderCell>
+                <StyledTableHeaderCell>Unit Price</StyledTableHeaderCell>
+                <StyledTableHeaderCell>Stock</StyledTableHeaderCell>
+                <StyledTableHeaderCell>Value</StyledTableHeaderCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredProducts.map((product) => (
+                <TableRow key={product.id}>
+                  <StyledTableCell>{product.name}</StyledTableCell>
+                  <StyledTableCell>{product.sku}</StyledTableCell>
+                  <StyledTableCell>
+                    {product.category_name || `Category ${product.category_id}`}
+                  </StyledTableCell>
+                  <StyledTableCell>
+                    {formatCurrency(product.unit_price)}
+                  </StyledTableCell>
+                  <StyledTableCell>{product.current_stock}</StyledTableCell>
+                  <StyledTableCell>
+                    {formatCurrency(
+                      product.unit_price * product.current_stock
+                    )}
+                  </StyledTableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </StyledTableContainer>
       </ContentWrapper>
     </Container>

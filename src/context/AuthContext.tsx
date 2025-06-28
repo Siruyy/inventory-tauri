@@ -53,28 +53,40 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
 
   useEffect(() => {
     // Check for stored auth data on mount
-    const storedToken = localStorage.getItem("auth_token");
-    const storedUser = localStorage.getItem("auth_user");
+    const storedToken = sessionStorage.getItem("auth_token");
+    const storedUser = sessionStorage.getItem("auth_user");
 
     if (storedToken && storedUser) {
       try {
-        // Skip backend verification and trust localStorage data
-        // This is safe because we're only using localStorage for authentication
+        // Skip backend verification and trust sessionStorage data
+        // This is safe because we're only using sessionStorage for authentication
         const parsedUser = JSON.parse(storedUser);
         setToken(storedToken);
         setUser(parsedUser);
-        console.log("User restored from localStorage:", parsedUser.username);
+        console.log("User restored from sessionStorage:", parsedUser.username);
       } catch (error) {
         console.error("Error parsing stored user data:", error);
         // Clear invalid auth data
-        localStorage.removeItem("auth_token");
-        localStorage.removeItem("auth_user");
+        sessionStorage.removeItem("auth_token");
+        sessionStorage.removeItem("auth_user");
       } finally {
         setIsLoading(false);
       }
     } else {
       setIsLoading(false);
     }
+
+    // Add event listener for app close to clear auth state
+    const handleBeforeUnload = () => {
+      sessionStorage.removeItem("auth_token");
+      sessionStorage.removeItem("auth_user");
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
   }, []);
 
   const login = async (username: string, password: string) => {
@@ -104,9 +116,9 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
         setUser(adminUser);
         setToken(token);
 
-        // Store auth data
-        localStorage.setItem("auth_token", token);
-        localStorage.setItem("auth_user", JSON.stringify(adminUser));
+        // Store auth data in sessionStorage instead of localStorage
+        sessionStorage.setItem("auth_token", token);
+        sessionStorage.setItem("auth_user", JSON.stringify(adminUser));
 
         console.log("Admin authentication completed successfully");
         return;
@@ -143,9 +155,9 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
           setUser(user);
           setToken(token);
 
-          // Store auth data
-          localStorage.setItem("auth_token", token);
-          localStorage.setItem("auth_user", JSON.stringify(user));
+          // Store auth data in sessionStorage instead of localStorage
+          sessionStorage.setItem("auth_token", token);
+          sessionStorage.setItem("auth_user", JSON.stringify(user));
 
           console.log("Staff authentication completed successfully");
           return;
@@ -171,9 +183,9 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
         setUser(response.user);
         setToken(response.token);
 
-        // Store auth data
-        localStorage.setItem("auth_token", response.token);
-        localStorage.setItem("auth_user", JSON.stringify(response.user));
+        // Store auth data in sessionStorage instead of localStorage
+        sessionStorage.setItem("auth_token", response.token);
+        sessionStorage.setItem("auth_user", JSON.stringify(response.user));
 
         console.log("Authentication completed successfully");
       } catch (error) {
@@ -391,8 +403,10 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
   const logout = () => {
     setUser(null);
     setToken(null);
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("auth_user");
+    sessionStorage.removeItem("auth_token");
+    sessionStorage.removeItem("auth_user");
+    localStorage.removeItem("auth_token"); // Also clear from localStorage for backward compatibility
+    localStorage.removeItem("auth_user"); // Also clear from localStorage for backward compatibility
   };
 
   const value = {

@@ -10,7 +10,7 @@ export const useLowStockNotifications = (threshold = 10) => {
     if (!isLoading && products && products.length > 0) {
       // Check for low stock products
       const lowStockProducts = products.filter(
-        (product) => product.stock_quantity <= threshold
+        (product) => product.current_stock <= threshold
       );
 
       if (lowStockProducts.length > 0) {
@@ -18,10 +18,11 @@ export const useLowStockNotifications = (threshold = 10) => {
         const productsByCategory: Record<string, any[]> = {};
 
         lowStockProducts.forEach((product) => {
-          if (!productsByCategory[product.category_name]) {
-            productsByCategory[product.category_name] = [];
+          const categoryName = product.category_name || `Category ${product.category_id}`;
+          if (!productsByCategory[categoryName]) {
+            productsByCategory[categoryName] = [];
           }
-          productsByCategory[product.category_name].push(product);
+          productsByCategory[categoryName].push(product);
         });
 
         // Create notifications for each category

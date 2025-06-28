@@ -1,127 +1,111 @@
-# Inventory Management System (IMS) for St. Vincent’s College Canteen
+# Canteen Inventory Control System (CICS)
 
-## 1. Introduction
+A comprehensive Inventory Management System built with Tauri, React, and SQLite for canteen and retail businesses.
 
-This project is an Inventory Management System (IMS) developed for the St. Vincent’s College Incorporated canteen[cite: 4272]. It aims to replace manual methods of recording transactions and tracking stock levels, which are traditionally time-consuming and prone to errors, inefficiencies, and service delays[cite: 4272, 4273]. As student and faculty populations increase, these manual shortcomings have led to inventory mismatches, inaccurate financial records, and sluggish transaction processing[cite: 4274]. This system automates key processes to ensure a more seamless, accurate, and real-time method for managing sales and inventory[cite: 4275, 4276].
+## Features
 
-## 2. Project Status
+- **User Authentication**: Secure login system with role-based access control
+- **Inventory Management**: Track products, categories, stock levels, and suppliers
+- **Order Processing**: Create and manage orders with real-time inventory updates
+- **Sales Reporting**: Generate reports on daily, weekly, and monthly sales
+- **Staff Management**: Manage staff accounts and access permissions
+- **Dashboard**: Visual overview of key business metrics
 
-This project is currently under development.
-* **Implemented Pages/Features**: Login, Dashboard, Staff Management (List, Profile, Add/Edit), Inventory (Product Listing, Add/Edit Product, Filtering).
-* **Upcoming Pages/Features**: Orders (Point of Sale), Reports, Menu/Category Management, User Profile & Settings, Notifications.
-
-## 3. Features
-
-Based on the project scope and system design:
-* **Sales Automation**: Efficiently record sales transactions and calculate totals[cite: 4304, 4288].
-* **Inventory Monitoring**: Real-time tracking of stock levels, including stock-in and stock-out operations[cite: 4304, 4290].
-* **Report Generation**: Automated generation of financial (daily, weekly, monthly) and inventory reports (stock status) for managerial decision-making[cite: 4288, 4304].
-* **User Roles & Authentication**:
-    * **Administrator**: System oversight, data management (including users), and report generation[cite: 4289, 4305].
-    * **Cashier**: Handle sales transactions and real-time inventory input[cite: 4289, 4306].
-* **Barcode Scanning Support**: Facilitates quick item input for sales and inventory management[cite: 4306].
-* **Offline Capability**: Designed to operate effectively on a local network, without requiring continuous internet access[cite: 4306].
-
-## 4. Tech Stack
-
-* **Frontend**: React, TypeScript
-* **Bundler/Dev Server**: Vite
-* **Styling**: Tailwind CSS (as per project configuration)
-* **Desktop Framework**: Tauri (using Rust for the backend)
-* **Database**: MySQL [cite: 4322]
-* **Version Control**: Git
-
-## 5. Target Audience
-
-The primary users of this system are the staff of St. Vincent’s College Canteen in Dipolog City. This includes:
-* Canteen Managers: For enhanced oversight via real-time reporting and automated inventory control[cite: 4300].
-* Cashiers and Administrative Staff: To reduce workload and minimize human error, improving operational efficiency[cite: 4301].
-The system also aims to benefit students and faculty by providing quicker and more reliable service[cite: 4302].
-
-## 6. Getting Started
-
-These instructions will help you get a copy of the project up and running on your local machine for development and testing.
+## Installation
 
 ### Prerequisites
 
-* Node.js and npm (or yarn)
-* Rust and Cargo
-* Tauri development prerequisites (refer to the official [Tauri documentation](https://tauri.app/v1/guides/getting-started/prerequisites))
+- Windows 10/11 (64-bit)
+- 4GB RAM minimum
+- 100MB disk space
 
-### Installation & Running
+### Installation Steps
 
-1.  **Clone the repository (if you haven't already)**:
-    ```bash
-    git clone <your-repository-url>
-    cd inventory-tauri
-    ```
+1. Download the latest installer from the [Releases](https://github.com/your-username/inventory-tauri/releases) page
+2. Run the `CICS-Setup-Inno.exe` installer
+3. Follow the installation wizard:
+   - Choose your preferred installation directory
+   - Select whether to create desktop and/or Start Menu shortcuts
+   - Complete the installation
+4. Launch the application from the created shortcuts or the installation directory
 
-2.  **Install frontend dependencies**:
-    (This step installs packages like React, Tauri API, etc., listed in your `package.json`)
-    ```bash
-    npm install
-    ```
-    (or `yarn install`)
+### Uninstallation
 
-3.  **Run the Vite development server (frontend UI only)**:
-    (Useful for focusing on UI changes with hot-reloading)
-    ```bash
-    npm run dev
-    ```
-    This will typically start the server on `http://localhost:1420` (as configured in `vite.config.ts` and referenced in `tauri.conf.json`).
+To uninstall the application:
+1. Go to Control Panel > Programs > Uninstall a program
+2. Select "CICS" from the list and click "Uninstall"
+3. Alternatively, use the uninstaller in the Start Menu folder
 
-4.  **Run the full Tauri application (frontend + Rust backend)**:
-    (For development with all Tauri features and backend integration)
-    ```bash
-    npm run tauri dev
-    ```
+## Getting Started
 
-### Building the Application
+1. Launch the application
+2. Log in with the default administrator credentials:
+   - Username: `admin`
+   - Password: `admin`
+3. Change the default password immediately for security
+4. Begin setting up your inventory categories and products
 
-To create a distributable version of your application:
+## Development
 
-1.  **Build the frontend assets**:
-    (This compiles your TypeScript and React code, and bundles assets for production)
-    ```bash
-    npm run build
-    ```
+### Prerequisites
 
-2.  **Build the Tauri application**:
-    (This bundles the frontend with the Rust backend into an executable/installer for your target platform(s))
-    ```bash
-    npm run tauri build
-    ```
+- Node.js 16+ and npm (or yarn)
+- Rust 1.60+ and Cargo
+- Tauri development prerequisites (refer to the [Tauri documentation](https://tauri.app/v1/guides/getting-started/prerequisites))
 
-## 7. Project Structure Overview
+### Setting Up Development Environment
 
-* `src/`: Contains the React frontend application (TypeScript/TSX files).
-    * `components/`: Reusable UI components (e.g., Sidebar, Header, Drawers).
-    * `pages/`: Top-level page components (e.g., Login, Dashboard, Staff, Inventory).
-    * `router.tsx`: Defines application routing.
-    * `main.tsx`: Main entry point for the React application.
-    * `App.css`: Global styles.
-* `src-tauri/`: Contains the Rust backend for the Tauri application.
-    * `src/main.rs`: Main entry point for the Rust application.
-    * `src/lib.rs`: Core Rust library logic, command definitions.
-    * `src/commands/`: Likely location for specific backend command handlers (e.g., product, staff, transaction logic).
-    * `src/db/`: Database connection and schema logic (e.g., `connection.rs`, `schema.rs`).
-    * `tauri.conf.json`: Tauri application configuration file.
-    * `Cargo.toml`: Rust project manifest, managing dependencies.
-* `public/`: Static assets served by Vite.
-* `index.html`: Main HTML entry point.
-* `package.json`: Defines project scripts, frontend dependencies, and metadata.
-* `vite.config.ts`: Vite configuration file.
-* `tsconfig.json`: TypeScript configuration for the project.
-* `Group 3.docx`: Detailed project documentation and research paper.
-* `IMS Design.pdf`: Figma UI/UX design mockups.
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/your-username/inventory-tauri.git
+   cd inventory-tauri
+   ```
 
-## 8. Authors
+2. Install frontend dependencies:
+   ```bash
+   npm install
+   ```
 
-This project was developed by:
+3. Run the development server:
+   ```bash
+   npm run tauri dev
+   ```
+
+### Building for Production
+
+1. Build the application:
+   ```bash
+   npm run tauri build
+   ```
+
+2. The compiled application will be available in the `src-tauri/target/release` directory
+
+### Creating an Installer
+
+We use Inno Setup to create a Windows installer with desktop and Start Menu shortcuts:
+
+1. Ensure Inno Setup 6+ is installed on your system
+2. Run the installer creation script:
+   ```bash
+   .\create_installer.bat
+   ```
+3. The installer will be generated at `target\inno\CICS-Setup-Inno.exe`
+
+## Database Information
+
+The application uses SQLite for data storage. The database is stored in the application's data directory:
+
+- In development mode: `inventory.db` in the project root
+- In production mode: `<installation_directory>\data\inventory.db`
+
+## License
+
+All rights reserved.
+
+## Author
+
 Neel Ulysses A. Roda
 
-(In partial fulfillment of the requirements in SOFTWARE ENGINEERING 101 at St. Vincent’s College Incorporated, June 06, 2025 [cite: 4270, 4271])
+---
 
-## 9. License
-
-"All Rights Reserved."
+© 2024 | Canteen Inventory Control System

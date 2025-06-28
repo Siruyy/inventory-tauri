@@ -1,10 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-// Temporarily disable toast notifications
 import { toast } from "sonner";
-
-// Add debug logs
-console.log("Loading useCategories module");
 
 export interface Category {
   id: number;

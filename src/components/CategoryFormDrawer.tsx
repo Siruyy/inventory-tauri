@@ -76,7 +76,7 @@ export default function CategoryFormDrawer({
       setTimeout(() => {
         onSave({
           name: categoryName,
-          imageUrl: imageUrl || null,
+          imageUrl: imageUrl || '',
         });
       }, 50);
 

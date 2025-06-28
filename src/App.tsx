@@ -4,7 +4,6 @@ import Router from "./router";
 import AuthProvider from "./context/AuthContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import NotificationManager from "./components/NotificationManager";
-// Temporarily disable toast
 import { Toaster } from "sonner";
 
 // Error boundary to catch rendering errors

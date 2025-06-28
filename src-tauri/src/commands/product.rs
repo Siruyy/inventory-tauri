@@ -13,7 +13,7 @@ pub struct UpdateProduct {
     pub current_stock: i32,
     pub minimum_stock: Option<i32>,
     pub supplier: Option<String>,
-    pub thumbnailUrl: Option<String>,
+    pub thumbnail_url: Option<String>,
     pub barcode: Option<String>,
 }
 
@@ -48,7 +48,7 @@ pub fn get_all_products(state: tauri::State<DbState>) -> Result<Vec<ProductWithC
             supplier: row.get(10)?,
             created_at: row.get(11)?,
             updated_at: row.get(12)?,
-            thumbnailUrl: row.get(13)?,
+            thumbnail_url: row.get(13)?,
             barcode: row.get(14)?,
         })
     }).map_err(|e| {
@@ -179,7 +179,7 @@ pub fn get_products_by_category(state: tauri::State<DbState>, category_id: Optio
             supplier: row.get(10)?,
             created_at: row.get(11)?,
             updated_at: row.get(12)?,
-            thumbnailUrl: row.get(13)?,
+            thumbnail_url: row.get(13)?,
             barcode: row.get(14)?,
         })
     }).map_err(|e| {
@@ -238,7 +238,7 @@ pub fn add_product(state: tauri::State<DbState>, product: NewProduct) -> Result<
             product.current_stock,
             product.minimum_stock,
             product.supplier,
-            product.thumbnailUrl,
+            product.thumbnail_url,
             product.barcode
         ],
     ) {
@@ -249,13 +249,19 @@ pub fn add_product(state: tauri::State<DbState>, product: NewProduct) -> Result<
                 Err(e) => {
                     let error_msg = format!("Failed to get last insert ID: {}", e);
                     println!("Backend error: {}", error_msg);
+                    tx.rollback().unwrap_or_else(|e| {
+                        println!("Failed to rollback transaction: {}", e);
+                    });
                     return Err(error_msg);
                 }
             }
         },
         Err(e) => {
-            let error_msg = format!("Backend error inserting product: {}", e);
-            println!("{}", error_msg);
+            let error_msg = format!("Failed to insert product: {}", e);
+            println!("Backend error: {}", error_msg);
+            tx.rollback().unwrap_or_else(|e| {
+                println!("Failed to rollback transaction: {}", e);
+            });
             return Err(error_msg);
         }
     };
@@ -294,7 +300,7 @@ pub fn add_product(state: tauri::State<DbState>, product: NewProduct) -> Result<
                     supplier: row.get(9)?,
                     created_at: row.get(10)?,
                     updated_at: row.get(11)?,
-                    thumbnailUrl: row.get(12)?,
+                    thumbnail_url: row.get(12)?,
                     barcode: row.get(13)?,
                 })
             }
@@ -438,7 +444,7 @@ pub fn update_product(state: tauri::State<DbState>, product: UpdateProduct) -> R
             product.current_stock,
             minimum_stock,
             product.supplier,
-            product.thumbnailUrl,
+            product.thumbnail_url,
             product.barcode,
             product.id
         ],
@@ -479,7 +485,7 @@ pub fn update_product(state: tauri::State<DbState>, product: UpdateProduct) -> R
                 supplier: row.get(10)?,
                 created_at: row.get(11)?,
                 updated_at: row.get(12)?,
-                thumbnailUrl: row.get(13)?,
+                thumbnail_url: row.get(13)?,
                 barcode: row.get(14)?,
             })
         }

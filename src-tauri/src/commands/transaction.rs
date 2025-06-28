@@ -347,12 +347,12 @@ pub fn get_order_statistics(state: tauri::State<DbState>, start_date: Option<Str
     let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
     
     // Add date range filters if provided
-    if let Some(_start_date_str) = &start_date {
+    if let Some(_start) = &start_date {
         query.push_str(" AND date(created_at) >= date(?)");
         query_params.push(Box::new(start_date.clone()));
     }
     
-    if let Some(_end_date_str) = &end_date {
+    if let Some(_end) = &end_date {
         query.push_str(" AND date(created_at) <= date(?)");
         query_params.push(Box::new(end_date.clone()));
     }

@@ -5,12 +5,11 @@ mod commands;
 mod db;
 
 use rusqlite::Connection;
-use commands::{
-    auth::{login, register},
-    category::{get_all_categories, add_category, delete_category, update_category},
-    product::{get_all_products, get_products_by_category, add_product, update_product, delete_product, update_product_stock},
-    transaction::*,
-};
+use commands::auth::{login, register};
+use commands::category::{get_all_categories, add_category, delete_category, update_category};
+use commands::product::{get_all_products, get_products_by_category, add_product, update_product, delete_product, update_product_stock};
+use commands::transaction::{create_order, get_order_by_id, get_order_items, get_order_with_items, get_recent_orders, get_order_history, get_order_statistics, get_sales_report_data};
+use commands::file::read_image_to_base64;
 use crate::db::DbState;
 use bcrypt::{hash, DEFAULT_COST};
 use r2d2_sqlite::SqliteConnectionManager;
@@ -427,9 +426,76 @@ fn add_icon_to_categories(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
+// Function to clear all sample data for production builds
+fn clean_database_for_production(conn: &mut Connection) -> Result<(), String> {
+    println!("Cleaning database for production build...");
+    
+    // Start a transaction to ensure all operations complete or none do
+    let tx = conn.transaction()
+        .map_err(|e| format!("Failed to start transaction: {}", e))?;
+    
+    // Delete all sample data
+    tx.execute("DELETE FROM order_items", [])
+        .map_err(|e| format!("Failed to delete order items: {}", e))?;
+    
+    tx.execute("DELETE FROM orders", [])
+        .map_err(|e| format!("Failed to delete orders: {}", e))?;
+    
+    tx.execute("DELETE FROM products", [])
+        .map_err(|e| format!("Failed to delete products: {}", e))?;
+    
+    tx.execute("DELETE FROM categories", [])
+        .map_err(|e| format!("Failed to delete categories: {}", e))?;
+    
+    // Keep the admin user but delete any other users
+    tx.execute(
+        "DELETE FROM users WHERE username != 'admin'", 
+        []
+    ).map_err(|e| format!("Failed to delete non-admin users: {}", e))?;
+    
+    // Commit the transaction
+    tx.commit().map_err(|e| format!("Failed to commit transaction: {}", e))?;
+    
+    println!("Database cleaned successfully for production!");
+    Ok(())
+}
+
 fn main() {
-    // Server initialization code
-    let db_path = std::path::PathBuf::from("inventory.db");
+    // Set database path based on environment
+    let db_path = if cfg!(debug_assertions) {
+        // In development mode, use a local file
+        println!("Running in development mode");
+        std::path::PathBuf::from("inventory.db")
+    } else {
+        // In production, use the app's data directory
+        println!("Running in production mode");
+        
+        // Get the executable directory in production
+        let app_dir = match std::env::current_exe() {
+            Ok(exe_path) => {
+                let parent = exe_path.parent().unwrap_or_else(|| std::path::Path::new("."));
+                println!("Using executable directory for database: {:?}", parent);
+                parent.to_path_buf()
+            },
+            Err(_) => {
+                // Fallback to current directory if current_exe fails
+                let current_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+                println!("Failed to get executable directory, using current directory: {:?}", current_dir);
+                current_dir
+            }
+        };
+            
+        // Create data directory if it doesn't exist
+        let data_dir = app_dir.join("data");
+        if let Err(e) = std::fs::create_dir_all(&data_dir) {
+            println!("Warning: Failed to create app data directory: {}", e);
+        } else {
+            println!("Created or confirmed data directory at: {:?}", data_dir);
+        }
+            
+        data_dir.join("inventory.db")
+    };
+    
     println!("Database path: {:?}", db_path);
     
     // Use the r2d2 connection pool
@@ -440,15 +506,21 @@ fn main() {
     {
         let conn = pool.get().expect("Failed to get db connection");
         initialize_database(&conn).expect("Failed to initialize database");
+        
+        // In production builds (when not in debug mode), clean out the sample data
+        #[cfg(not(debug_assertions))]
+        {
+            let mut conn = pool.get().expect("Failed to get db connection");
+            clean_database_for_production(&mut conn).expect("Failed to clean database for production");
+        }
     }
 
     tauri::Builder::default()
         .manage(DbState { pool })
-        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
-            // Core commands directly from the module root
+            // Core commands 
             greet,
             login,
             register,
@@ -470,15 +542,7 @@ fn main() {
             get_order_history,
             get_order_statistics,
             get_sales_report_data,
-            debug_order_dates_extended,
-            debug_order_dates,
-            update_order_dates_to_today,
-            test_date_filtering,
-            debug_date_filtering,
-            commands::file::read_image_to_base64,
-            // Transaction commands
-            commands::transaction::test_exact_date_filter,
-            commands::transaction::debug_daily_sales,
+            read_image_to_base64
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

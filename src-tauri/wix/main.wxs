@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="windows-1252"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Product
+            Id="*"
+            Name="CICS: Canteen Inventory Control System"
+            UpgradeCode="{{upgrade_code}}"
+            Language="1033"
+            Codepage="1252"
+            Version="{{version}}"
+            Manufacturer="{{manufacturer}}">
+        <Package
+                Id="*"
+                Keywords="Installer"
+                InstallerVersion="450"
+                Languages="1033"
+                Compressed="yes"
+                InstallScope="perUser"
+                SummaryCodepage="1252"/>
+
+        <MajorUpgrade
+                AllowDowngrades="no"
+                Schedule="afterInstallInitialize"
+                DowngradeErrorMessage="A newer version of [ProductName] is already installed."/>
+
+        <Media Id="1" Cabinet="app.cab" EmbedCab="yes"/>
+
+        <Icon Id="ProductIcon" SourceFile="icons/icon.ico"/>
+        <Property Id="ARPPRODUCTICON" Value="ProductIcon"/>
+        <Property Id="ARPNOREPAIR" Value="yes" Secure="yes"/>
+        <Property Id="ARPNOMODIFY" Value="yes" Secure="yes"/>
+
+        <Directory Id="TARGETDIR" Name="SourceDir">
+            <Directory Id="LocalAppDataFolder">
+                <Directory Id="INSTALLDIR" Name="CICS"/>
+            </Directory>
+            <Directory Id="ProgramMenuFolder">
+                <Directory Id="ApplicationProgramsFolder" Name="CICS"/>
+            </Directory>
+            <Directory Id="DesktopFolder" Name="Desktop"/>
+        </Directory>
+
+        <DirectoryRef Id="INSTALLDIR">
+            <Component Id="ApplicationFiles" Guid="{{app_component_guid}}">
+                {{app_files}}
+            </Component>
+        </DirectoryRef>
+
+        <DirectoryRef Id="ApplicationProgramsFolder">
+            <Component Id="ApplicationShortcut" Guid="{{shortcut_component_guid}}">
+                <Shortcut
+                        Id="ApplicationStartMenuShortcut"
+                        Name="CICS"
+                        Description="Canteen Inventory Control System"
+                        Target="[#{{app_exe_source}}]"
+                        WorkingDirectory="INSTALLDIR"/>
+                <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall"/>
+                <RegistryValue Root="HKCU" Key="Software\CICS" Name="installed" Type="integer" Value="1" KeyPath="yes"/>
+            </Component>
+        </DirectoryRef>
+
+        <DirectoryRef Id="DesktopFolder">
+            <Component Id="ApplicationShortcutDesktop" Guid="{{desktop_shortcut_component_guid}}">
+                <Shortcut
+                        Id="ApplicationDesktopShortcut"
+                        Name="CICS"
+                        Description="Canteen Inventory Control System"
+                        Target="[#{{app_exe_source}}]"
+                        WorkingDirectory="INSTALLDIR"/>
+                <RegistryValue Root="HKCU" Key="Software\CICS" Name="desktop_shortcut" Type="integer" Value="1" KeyPath="yes"/>
+            </Component>
+        </DirectoryRef>
+
+        <Feature Id="MainApplication" Title="Main Application" Level="1">
+            <ComponentRef Id="ApplicationFiles"/>
+            <ComponentRef Id="ApplicationShortcut"/>
+            <ComponentRef Id="ApplicationShortcutDesktop"/>
+        </Feature>
+    </Product>
+</Wix> 
